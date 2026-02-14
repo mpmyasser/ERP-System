@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h2 class="fw-bold">إدارة الشيكات</h2>
+        <p class="text-muted">متابعة أوراق القبض وأوراق الدفع</p>
+    </div>
+    <div class="col-md-6 text-start">
+        <button class="btn btn-success">
+            <i class="fas fa-plus"></i> إضافة شيك وارد (قبض)
+        </button>
+        <button class="btn btn-danger">
+            <i class="fas fa-minus"></i> إصدار شيك صادر (دفع)
+        </button>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>النوع</th>
+                        <th>رقم الشيك</th>
+                        <th>البنك</th>
+                        <th>المبلغ</th>
+                        <th>تاريخ الاستحقاق</th>
+                        <th>الحالة</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ck in checks %}
+                    <tr>
+                        <td>
+                            <span class="badge {{ 'bg-success' if ck.type=='Receivable' else 'bg-danger' }}">
+                                {{ 'أوراق قبض' if ck.type=='Receivable' else 'أوراق دفع' }}
+                            </span>
+                        </td>
+                        <td class="fw-bold">{{ ck.check_number }}</td>
+                        <td>{{ ck.bank_name or '-' }}</td>
+                        <td class="fw-bold text-primary">{{ ck.amount }}</td>
+                        <td>{{ ck.due_date.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <span
+                                class="badge {{ 'bg-warning' if ck.status=='Pending' else 'bg-success' if ck.status=='Collected' else 'bg-secondary' }}">
+                                {{ ck.status }}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-info" title="تحصيل/صرف"><i
+                                    class="fas fa-check"></i></button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">لا توجد شيكات مسجلة حالياً.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

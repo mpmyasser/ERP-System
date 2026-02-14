@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'تعديل تصريح' if mode == 'edit' else 'إضافة تصريح' }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="{{ 'fas fa-edit' if mode == 'edit' else 'fas fa-plus' }} me-2"></i>
+        {{ 'تعديل تصريح' if mode == 'edit' else 'إضافة تصريح جديد' }}
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('permissions.list') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-right"></i> رجوع
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        {{ form.employee_id.label(class="form-label") }}
+                        {% if form.employee_id.errors %}
+                        {{ form.employee_id(class="form-select is-invalid") }}
+                        <div class="invalid-feedback">
+                            {% for error in form.employee_id.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% else %}
+                        {{ form.employee_id(class="form-select") }}
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.date.label(class="form-label") }}
+                        {% if form.date.errors %}
+                        {{ form.date(class="form-control is-invalid") }}
+                        <div class="invalid-feedback">
+                            {% for error in form.date.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% else %}
+                        {{ form.date(class="form-control") }}
+                        {% endif %}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.from_time.label(class="form-label") }}
+                                {% if form.from_time.errors %}
+                                {{ form.from_time(class="form-control is-invalid") }}
+                                <div class="invalid-feedback">
+                                    {% for error in form.from_time.errors %}{{ error }}{% endfor %}
+                                </div>
+                                {% else %}
+                                {{ form.from_time(class="form-control") }}
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.to_time.label(class="form-label") }}
+                                {% if form.to_time.errors %}
+                                {{ form.to_time(class="form-control is-invalid") }}
+                                <div class="invalid-feedback">
+                                    {% for error in form.to_time.errors %}{{ error }}{% endfor %}
+                                </div>
+                                {% else %}
+                                {{ form.to_time(class="form-control") }}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.reason.label(class="form-label") }}
+                        {% if form.reason.errors %}
+                        {{ form.reason(class="form-control is-invalid", rows="4", placeholder="اكتب سبب التصريح...") }}
+                        <div class="invalid-feedback">
+                            {% for error in form.reason.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% else %}
+                        {{ form.reason(class="form-control", rows="4", placeholder="اكتب سبب التصريح...") }}
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        {{ form.is_paid(class="form-check-input") }}
+                        {{ form.is_paid.label(class="form-check-label") }}
+                        <small class="form-text text-muted d-block mt-1">
+                            <i class="fas fa-info-circle"></i> إذا تم تحديده، لن يتم خصم المدة من راتب الموظف
+                        </small>
+                    </div>
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-save"></i> حفظ التصريح
+                        </button>
+                        <a href="{{ url_for('permissions.list') }}" class="btn btn-secondary btn-lg">
+                            <i class="fas fa-times"></i> إلغاء
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-info-circle"></i> ملاحظات</h5>
+                <ul class="small mb-0">
+                    <li>التصريح المدفوع لا يؤثر على راتب الموظف</li>
+                    <li>التصريح غير المدفوع يتم خصمه من الراتب</li>
+                    <li>يتم احتساب المدة بالساعات</li>
+                    <li>جميع الحقول المميزة بـ <span class="text-danger">*</span> إلزامية</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/date_format.js') }}"></script>
+{% endblock %}

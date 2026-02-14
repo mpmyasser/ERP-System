@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-md-6">
+        <h3>الأصناف والمنتجات</h3>
+    </div>
+    <div class="col-md-6 text-start">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProductModal">
+            <i class="fas fa-plus"></i> إضافة صنف جديد
+        </button>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>الكود</th>
+                        <th>الاسم</th>
+                        <th>النوع</th>
+                        <th>تكلفة الوحدة</th>
+                        <th>سعر البيع</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in products %}
+                    <tr>
+                        <td class="fw-bold text-primary">{{ p.code }}</td>
+                        <td>{{ p.name }}</td>
+                        <td>
+                            <span
+                                class="badge {{ 'bg-info' if p.type=='Raw' else 'bg-success' if p.type=='Final' else 'bg-warning text-dark' }}">
+                                {{ p.type }}
+                            </span>
+                        </td>
+                        <td>{{ p.cost_price }}</td>
+                        <td>{{ p.sell_price }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-light border"><i class="fas fa-edit"></i></button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">لا توجد أصناف معرفة.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="addProductModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">إضافة صنف جديد</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">كود الصنف</label>
+                        <input type="text" name="code" class="form-control" required placeholder="مثلاً: 155A">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">اسم الصنف</label>
+                        <input type="text" name="name" class="form-control" required placeholder="مثلاً: صدر موديل 155">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">النوع</label>
+                        <select name="type" class="form-select">
+                            <option value="Raw">خامة (قماش/خيط/...)</option>
+                            <option value="Component">مكون تشغيل (صدر/ظهر/...)</option>
+                            <option value="Final">منتج تام (قميص/بنطلون/...)</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">التكلفة</label>
+                            <input type="number" step="0.01" name="cost_price" class="form-control" value="0.00">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">سعر البيع</label>
+                            <input type="number" step="0.01" name="sell_price" class="form-control" value="0.00">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+                    <button type="submit" class="btn btn-primary">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

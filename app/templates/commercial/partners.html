@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h2 class="fw-bold">إدارة الموردين والعملاء</h2>
+        <p class="text-muted">إدارة شركاء النجاح (موردين وعملاء)</p>
+    </div>
+    <div class="col-md-6 text-start">
+        <a href="{{ url_for('commercial.import_partners') }}" class="btn btn-success me-2">
+            <i class="fas fa-download"></i> استيراد من شجرة الحسابات
+        </a>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPartnerModal">
+            <i class="fas fa-plus"></i> إضافة شريك جديد
+        </button>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>الاسم</th>
+                        <th>النوع</th>
+                        <th>التليفون</th>
+                        <th>العنوان</th>
+                        <th>الحساب المحاسبي</th>
+                        <th>الحالة</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in partners %}
+                    <tr>
+                        <td class="fw-bold">{{ p.name }}</td>
+                        <td>
+                            <span
+                                class="badge {% if p.type == 'Customer' %}bg-info text-dark{% elif p.type == 'Supplier' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                {{ 'عميل' if p.type == 'Customer' else ('مورد' if p.type == 'Supplier' else 'كلاهما') }}
+                            </span>
+                        </td>
+                        <td>{{ p.phone or '-' }}</td>
+                        <td class="small">{{ p.address or '-' }}</td>
+                        <td>{{ p.account.name if p.account else 'غير مربوط' }}</td>
+                        <td>
+                            {% if p.is_active %}
+                            <span class="badge bg-success-soft text-success">نشط</span>
+                            {% else %}
+                            <span class="badge bg-danger-soft text-danger">موقف</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-light border"><i class="fas fa-edit"></i></button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">لا يوجد شركاء مسجلين حالياً.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal For Adding Partner (Placeholder) -->
+<div class="modal fade" id="addPartnerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">إضافة شريك جديد</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form action="{{ url_for('commercial.add_partner') }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label class="form-label">الاسم</label>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">النوع</label>
+                        <select name="type" class="form-select">
+                            <option value="Customer">عميل</option>
+                            <option value="Supplier">مورد</option>
+                            <option value="Both">كلاهما</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">رقم الهاتف</label>
+                        <input type="text" name="phone" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">العنوان</label>
+                        <input type="text" name="address" class="form-control">
+                    </div>
+
+                    <p class="text-muted small">ملاحظة: سيتم استكمال ربط الحسابات التلقائي في الخطوة القادمة.</p>
+                    <button type="submit" class="btn btn-primary w-100">حفظ</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

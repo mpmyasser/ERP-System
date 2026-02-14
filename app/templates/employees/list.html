@@ -1,0 +1,398 @@
+﻿{% extends "base.html" %}
+
+{% block title %}قائمة الموظفين{% endblock %}
+
+{% block extra_js %}
+
+{% endblock %}
+
+{% block content %}
+
+<style>
+    /* توحيد أحجام الحقول والجداول لهذه الصفحة */
+    .filter-control {
+        min-width: 140px;
+    }
+
+    .filter-control-wide {
+        min-width: 200px;
+    }
+
+    #employees-table th {
+        vertical-align: middle;
+        font-size: 0.9rem;
+    }
+
+    #employees-table th.col-code {
+        min-width: 90px;
+    }
+
+    #employees-table th.col-name {
+        min-width: 200px;
+    }
+
+    #employees-table th.col-job {
+        min-width: 150px;
+    }
+
+    #employees-table th.col-dept {
+        min-width: 150px;
+    }
+
+    #employees-table th.col-date {
+        min-width: 140px;
+    }
+
+    #employees-table th.col-salary {
+        min-width: 140px;
+    }
+
+    #employees-table th.col-actions {
+        min-width: 120px;
+    }
+</style>
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-users me-2"></i> قائمة الموظفين</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('employees.create') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> إضافة موظف فردي
+        </a>
+        <a href="{{ url_for('employees.bulk_entry') }}" class="btn btn-info text-white me-2">
+            <i class="fas fa-layer-group"></i> إضافة موظف جماعي
+        </a>
+        <a href="{{ url_for('employees.bulk_salaries') }}" class="btn btn-dark me-2">
+            <i class="fas fa-money-bill-wave"></i> تعديل المرتبات
+        </a>
+        <a href="{{ url_for('employees.bulk_edit') }}" class="btn btn-warning me-2">
+            <i class="fas fa-edit"></i> تعديل البيانات الأساسية
+        </a>
+    </div>
+</div>
+
+<div class="d-flex justify-content-end flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('employees.export_excel', search=search, department_ids=selected_departments, dept_filter_mode=dept_filter_mode, status=status_filter, job_title=selected_job_title, date_from=hire_date_from, date_to=hire_date_to) }}"
+            class="btn btn-warning me-2">
+            <i class="fas fa-file-excel"></i> تصدير Excel
+        </a>
+        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importModal">
+            <i class="fas fa-file-excel"></i> استيراد مجمع
+        </button>
+    </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">استيراد موظفين من Excel</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('employees.import_excel') }}" method="post" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <div class="modal-body">
+                    <div class="mb-3 text-center">
+                        <a href="{{ url_for('employees.download_template') }}" class="btn btn-outline-info">
+                            <i class="fas fa-download"></i> تحميل نموذج Excel
+                        </a>
+                    </div>
+                    <p>يرجى اختيار ملف Excel (.xlsx) يحتوي على بيانات الموظفين.</p>
+                    <p class="text-muted small">الأعمدة المطلوبة: Code, Name, National_ID ...</p>
+                    <div class="mb-3">
+                        <label class="form-label">ملف البيانات</label>
+                        <input type="file" name="file" class="form-control" accept=".xlsx, .xls" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-success">بدء الاستيراد</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Unified Filter Bar -->
+<div class="card shadow-sm mb-4" id="unified-filter-bar">
+    <div class="card-header bg-white py-3">
+        <h5 class="mb-0"><i class="fas fa-filter me-2"></i> فلاتر البحث</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" action="{{ url_for('employees.list') }}" class="row g-3 align-items-end">
+            <!-- الصف الأول: التواريخ والأقسام وزر البحث (الشريط الموحد) -->
+            <div class="col-md-2">
+                <label class="form-label">من تاريخ التعيين</label>
+                <input type="text" name="date_from" id="date-from"
+                    class="form-control form-control-sm date-string filter-control" placeholder="DD/MM/YYYY"
+                    value="{{ hire_date_from or '' }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">إلى تاريخ التعيين</label>
+                <input type="text" name="date_to" id="date-to"
+                    class="form-control form-control-sm date-string filter-control" placeholder="DD/MM/YYYY"
+                    value="{{ hire_date_to or '' }}">
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">الأقسام</label>
+                <select name="department_ids" id="dept-filter" class="form-select form-select-sm filter-control-wide"
+                    multiple size="1">
+                    {% for dept in departments %}
+                    <option value="{{ dept.id }}" {% if (dept.id|string in selected_departments|map(attribute='__str__'
+                        )|list) or (dept.id in selected_departments) %}selected{% endif %}>
+                        {{ dept.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 text-end">
+                <div class="btn-group w-100">
+                    <button class="btn btn-primary btn-sm" type="submit">
+                        <i class="fas fa-search me-1"></i> بحث
+                    </button>
+                    {% if search or selected_departments or status_filter or selected_job_title or hire_date_from or
+                    hire_date_to %}
+                    <a href="{{ url_for('employees.list') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-undo me-1"></i> إعادة تعيين
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- الصف الثاني: الفلاتر الإضافية (أسفل الشريط الموحد) -->
+            <div class="col-md-3">
+                <label class="form-label">البحث بالاسم أو الكود</label>
+                <input type="text" name="search" id="search" class="form-control form-control-sm filter-control-wide"
+                    placeholder="الاسم أو الكود..." value="{{ search }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">يعمل / لا يعمل</label>
+                <select name="status" id="status-filter" class="form-select form-select-sm filter-control">
+                    <option value="">-- كل الحالات --</option>
+                    <option value="active" {% if status_filter=='active' %}selected{% endif %}>يعمل</option>
+                    <option value="inactive" {% if status_filter=='inactive' %}selected{% endif %}>لا يعمل</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">الوظيفة</label>
+                <select name="job_title" id="job-title-filter" class="form-select form-select-sm filter-control-wide">
+                    <option value="">-- كل الوظائف --</option>
+                    {% for title in job_titles %}
+                    <option value="{{ title }}" {% if selected_job_title==title %}selected{% endif %}>
+                        {{ title }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Stats Bar -->
+<div class="d-flex gap-3 mb-3 flex-wrap">
+    <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
+        <i class="fas fa-users text-primary me-2"></i>
+        <div class="ms-2">
+            <small class="text-muted d-block" style="font-size: 0.75rem;">إجمالي العدد</small>
+            <span class="fw-bold">{{ total }}</span>
+        </div>
+    </div>
+    <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
+        <i class="fas fa-money-bill-wave text-success me-2"></i>
+        <div class="ms-2">
+            <small class="text-muted d-block" style="font-size: 0.75rem;">إجمالي الرواتب الأساسية</small>
+            <span class="fw-bold">{{ "{:,.2f}".format(total_basic_salary) }} جنيه</span>
+        </div>
+    </div>
+    <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
+        <i class="fas fa-hand-holding-usd text-info me-2"></i>
+        <div class="ms-2">
+            <small class="text-muted d-block" style="font-size: 0.75rem;">إجمالي حوافز الانتظام</small>
+            <span class="fw-bold">{{ "{:,.2f}".format(total_incentives) }} جنيه</span>
+        </div>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card shadow-sm">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-users me-2"></i>قائمة الموظفين</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered align-middle datatable" id="employees-table">
+                <thead class="table-light">
+                    <tr class="text-center">
+                        <th class="col-code">الكود</th>
+                        <th class="col-name">الاسم</th>
+                        <th class="col-job">الوظيفة</th>
+                        <th class="col-dept">القسم</th>
+                        <th class="col-date">تاريخ التعيين</th>
+                        <th>التأمين</th>
+                        <th class="col-salary">الراتب</th>
+                        <th>حافز الانتظام</th>
+                        <th>إضافي</th>
+                        <th class="col-date">تاريخ آخر تعديل</th>
+                        <th>يعمل / لا يعمل</th>
+                        <th class="no-sort col-actions all" data-priority="1">الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for emp in employees %}
+                    <tr class="text-center">
+                        <td><strong class="text-primary">{{ emp.code }}</strong></td>
+                        <td class="text-start"><strong>{{ emp.name }}</strong></td>
+                        <td>{{ emp.job_title or '-' }}</td>
+                        <td>{{ emp.department.name if emp.department else '-' }}</td>
+                        <td>{{ emp.hire_date.strftime('%d/%m/%Y') if emp.hire_date else '-' }}</td>
+                        <td>
+                            {% if emp.is_insured %}
+                            <span class="badge bg-success"><i class="fas fa-shield-alt me-1"></i>مؤمن</span>
+                            {% else %}
+                            <span class="badge bg-light text-muted">غير مؤمن</span>
+                            {% endif %}
+                        </td>
+                        <td><strong>{{ emp.effective_salary if emp.effective_salary is not none else emp.basic_salary }}
+                                جنيه</strong></td>
+                        <td>{{ emp.regularity_incentive or 0 }} جنيه</td>
+                        <td>
+                            {% if emp.overtime_allowed %}
+                            <span class="badge bg-success">نعم</span>
+                            {% else %}
+                            <span class="badge bg-secondary">لا</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <small class="text-muted">
+                                {{ emp.salary_updated_at.strftime('%d/%m/%Y') if emp.salary_updated_at else '-' }}
+                            </small>
+                        </td>
+                        <td>
+                            {% if emp.is_active %}
+                            <span class="badge bg-success">يعمل</span>
+                            {% else %}
+                            <span class="badge bg-secondary">لا يعمل</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('employees.view', id=emp.id) }}" class="btn btn-sm btn-info"
+                                title="عرض">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{{ url_for('employees.edit', id=emp.id) }}" class="btn btn-sm btn-warning"
+                                title="تعديل">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <button class="btn btn-sm btn-danger delete-record-btn" data-module="employees"
+                                data-id="{{ emp.id }}" data-confirm="هل أنت متأكد من حذف هذا الموظف؟" title="حذف">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Department Filter Submit Script -->
+<script>
+    function applyFilters() {
+        // Collect current selections
+        const selected = Array.from(document.getElementById('dept-filter')?.selectedOptions || []).map(opt => opt.value).filter(v => v);
+        const statusFilter = document.getElementById('status-filter')?.value;
+        const jobTitleFilter = document.getElementById('job-title-filter')?.value;
+        const dateFrom = document.getElementById('date-from')?.value;
+        const dateTo = document.getElementById('date-to')?.value;
+        const searchVal = document.getElementById('search')?.value;
+
+        // Build URL
+        let url = '{{ url_for("employees.list") }}';
+        const params = new URLSearchParams();
+
+        // Add all selected departments
+        selected.forEach(dept => params.append('department_ids', dept));
+
+        // Add filters
+        if (statusFilter) params.append('status', statusFilter);
+        if (jobTitleFilter) params.append('job_title', jobTitleFilter);
+        if (dateFrom) params.append('date_from', dateFrom);
+        if (dateTo) params.append('date_to', dateTo);
+        if (searchVal) params.append('search', searchVal);
+
+        const currentParams = new URLSearchParams(window.location.search);
+
+        // Loop Protection: Don't redirect if params haven't changed
+        params.sort();
+        currentParams.sort();
+        if (params.toString() === currentParams.toString()) return;
+
+        if (params.toString()) {
+            url += '?' + params.toString();
+        }
+
+        window.location.href = url;
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const triggers = ['dept-filter', 'status-filter', 'job-title-filter', 'date-from', 'date-to'];
+        triggers.forEach(id => {
+            document.getElementById(id)?.addEventListener('change', applyFilters);
+        });
+
+        // Search: Add Enter key listener
+        document.getElementById('search')?.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                applyFilters();
+            }
+        });
+
+        // Auto-apply saved filters ONLY if URL is empty
+        const urlParams = new URLSearchParams(window.location.search);
+        const isCleanURL = Array.from(urlParams.keys()).filter(k => k !== 'page').length === 0;
+
+        if (isCleanURL) {
+            if (window.filterPersistence) {
+                const data = window.HRSettingsUtil.getObject('employees_filters', null);
+
+                if (data && Object.keys(data).length > 0) {
+                    // Small delay to let initial restoration finish
+                    setTimeout(applyFilters, 50);
+                }
+            }
+        }
+    });
+</script>
+
+<!-- Print CSS -->
+<style>
+    @media print {
+
+        .btn-toolbar,
+        form,
+        .d-flex.justify-content-between,
+        .row.mb-3:first-child {
+            display: none !important;
+        }
+
+        .table-responsive {
+            overflow: visible;
+        }
+
+        @page {
+            size: A4;
+            margin: 10mm;
+        }
+
+        body {
+            font-size: 12pt;
+        }
+
+        .table {
+            page-break-inside: avoid;
+        }
+    }
+</style>
+{% endblock %}

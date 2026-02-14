@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+
+{% block title %}حالة المستندات لكل موظف{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-3">
+        <div class="col-md-8">
+            <h2><i class="fas fa-folder-open me-2"></i>حالة المستندات</h2>
+            <p class="text-muted">عرض المستندات التي أحضرها كل موظف والمستندات الناقصة</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a id="export-btn"
+                href="{{ url_for('reports.documents_status_export', department_id=department_id, only_missing=1 if only_missing else 0, only_expired=1 if only_expired else 0, exclude_optional=0 if include_optional else 1, search=search_query) }}"
+                class="btn btn-success">
+                <i class="fas fa-file-excel"></i> تصدير Excel
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="border-right: 4px solid #28a745 !important;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">اكتمال كامل</h6>
+                            <h3 class="mb-0 text-success">{{ stats.complete_count }}</h3>
+                            <small class="text-muted">موظف</small>
+                        </div>
+                        <div class="text-success" style="font-size: 2.5rem; opacity: 0.2;">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="border-right: 4px solid #ffc107 !important;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">ناقص</h6>
+                            <h3 class="mb-0 text-warning">{{ stats.incomplete_count }}</h3>
+                            <small class="text-muted">موظف</small>
+                        </div>
+                        <div class="text-warning" style="font-size: 2.5rem; opacity: 0.2;">
+                            <i class="fas fa-exclamation-circle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="border-right: 4px solid #dc3545 !important;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">منتهي الصلاحية</h6>
+                            <h3 class="mb-0 text-danger">{{ stats.expired_count }}</h3>
+                            <small class="text-muted">موظف</small>
+                        </div>
+                        <div class="text-danger" style="font-size: 2.5rem; opacity: 0.2;">
+                            <i class="fas fa-times-circle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="border-right: 4px solid #007bff !important;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">نسبة الإنجاز الكلية</h6>
+                            <h3 class="mb-0 text-primary">{{ stats.overall_completion }}%</h3>
+                            <small class="text-muted">{{ stats.total_provided }} من {{ stats.total_required }}</small>
+                        </div>
+                        <div class="text-primary" style="font-size: 2.5rem; opacity: 0.2;">
+                            <i class="fas fa-chart-pie"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters Card -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="fas fa-filter me-2"></i>فلاتر البحث</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3" id="filters-form">
+                <div class="col-md-3">
+                    <label for="search" class="form-label">بحث بالاسم أو الكود</label>
+                    <input type="text" name="search" id="search" class="form-control"
+                        placeholder="اسم الموظف أو الكود..." value="{{ search_query }}">
+                </div>
+
+                <div class="col-md-3">
+                    <label for="department" class="form-label">القسم</label>
+                    <select name="department_id" id="department" class="form-select">
+                        <option value="">--- كل الأقسام ---</option>
+                        {% for d in departments %}
+                        <option value="{{ d.id }}" {% if department_id and department_id==d.id %}selected{% endif %}>{{
+                            d.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">خيارات</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="only_missing" name="only_missing" {% if
+                            only_missing %}checked{% endif %}>
+                        <label class="form-check-label" for="only_missing">فقط الناقصة</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="only_expired" name="only_expired" {% if
+                            only_expired %}checked{% endif %}>
+                        <label class="form-check-label" for="only_expired">فقط المنتهية</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="exclude_optional" name="exclude_optional" {%
+                            if not include_optional %}checked{% endif %}>
+                        <label class="form-check-label" for="exclude_optional">استبعاد الاختيارية</label>
+                    </div>
+                </div>
+
+                <div class="col-md-3 align-self-end">
+                    <button type="submit" class="btn btn-primary w-100"><i class="fas fa-search me-2"></i>تطبيق</button>
+                    {% if search_query or department_id or only_missing or only_expired or not include_optional %}
+                    <a href="{{ url_for('reports.documents_status') }}" class="btn btn-outline-secondary w-100 mt-2"><i
+                            class="fas fa-undo me-2"></i>إعادة تعيين</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Results Table -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="fas fa-table me-2"></i>تفاصيل الموظفين ({{ stats.total_employees }} موظف)</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover table-bordered align-middle" id="documents-status-table">
+                    <thead class="table-light">
+                        <tr class="text-center">
+                            <th>#</th>
+                            <th>كود الموظف</th>
+                            <th>اسم الموظف</th>
+                            <th>القسم</th>
+                            <th>المقدمة</th>
+                            <th>الناقصة</th>
+                            <th>الإجمالي</th>
+                            <th>نسبة الاكتمال</th>
+                            <th style="width: 200px;">شريط التقدم</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in report %}
+                        {% if row.row_status == 'complete' %}
+                        {% set row_class = 'table-success' %}
+                        {% elif row.row_status == 'expired' %}
+                        {% set row_class = 'table-danger' %}
+                        {% else %}
+                        {% set row_class = 'table-warning' %}
+                        {% endif %}
+
+                        <tr class="{{ row_class }}">
+                            <td class="text-center">{{ loop.index }}</td>
+                            <td class="text-center"><strong>{{ row.employee.code }}</strong></td>
+                            <td>{{ row.employee.name }}</td>
+                            <td class="text-center">{{ row.employee.department.name if row.employee.department else '-'
+                                }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-success">{{ row.provided_count }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-danger">{{ row.missing_count }}</span>
+                            </td>
+                            <td class="text-center">
+                                <strong>{{ row.required_count }}</strong>
+                            </td>
+                            <td class="text-center">
+                                <strong>{{ row.completion_pct }}%</strong>
+                            </td>
+                            <td>
+                                <div class="progress" style="height: 25px;">
+                                    {% if row.completion_pct == 100 %}
+                                    {% set progress_class = 'bg-success' %}
+                                    {% elif row.completion_pct >= 50 %}
+                                    {% set progress_class = 'bg-warning' %}
+                                    {% else %}
+                                    {% set progress_class = 'bg-danger' %}
+                                    {% endif %}
+
+                                    <div class="progress-bar {{ progress_class }}" role="progressbar"
+                                        style="width: {{ row.completion_pct }}%;"
+                                        aria-valuenow="{{ row.completion_pct }}" aria-valuemin="0" aria-valuemax="100">
+                                        {{ row.completion_pct }}%
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <!-- Details Row (Expandable) -->
+                        <tr class="{{ row_class }}" style="display: none;" id="details-{{ loop.index }}">
+                            <td colspan="9">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <strong class="text-success">المستندات المقدمة:</strong>
+                                        {% if row.provided %}
+                                        <ul class="mb-0 mt-2">
+                                            {% for p in row.provided %}
+                                            <li>
+                                                <strong>{{ p.type_name }}</strong>
+                                                {% if p.expiry_date %}
+                                                <small class="text-muted"> ({{ p.expiry_date }})</small>
+                                                {% if p.is_expired %}
+                                                <span class="badge bg-danger ms-2">منتهي</span>
+                                                {% else %}
+                                                <span class="badge bg-success ms-2">ساري</span>
+                                                {% endif %}
+                                                {% endif %}
+                                                {% if p.filename %}
+                                                <div><small class="text-muted">{{ p.filename }}</small></div>
+                                                {% endif %}
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                        {% else %}
+                                        <p class="text-muted">-</p>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong class="text-danger">المستندات الناقصة:</strong>
+                                        {% if row.missing %}
+                                        <ul class="mb-0 mt-2">
+                                            {% for m in row.missing %}
+                                            <li>
+                                                {{ m.name if m is mapping else m }}
+                                                {% if m is mapping and not m.is_required %}
+                                                <span class="badge bg-secondary ms-2">اختياري</span>
+                                                {% else %}
+                                                <span class="badge bg-danger ms-2">مطلوب</span>
+                                                {% endif %}
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                        {% else %}
+                                        <p class="text-muted">-</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <button class="btn btn-sm btn-secondary mt-2" onclick="toggleDetails({{ loop.index }})">
+                                    <i class="fas fa-chevron-up"></i> إخفاء التفاصيل
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center text-muted">لا توجد بيانات مطابقة للفلاتر</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleDetails(index) {
+        const detailsRow = document.getElementById('details-' + index);
+        if (detailsRow.style.display === 'none') {
+            detailsRow.style.display = 'table-row';
+        } else {
+            detailsRow.style.display = 'none';
+        }
+    }
+
+    // Add click handler to rows to toggle details
+    document.addEventListener('DOMContentLoaded', function () {
+        const rows = document.querySelectorAll('#documents-status-table tbody tr:not([id^="details-"])');
+        rows.forEach((row, index) => {
+            if (row.querySelector('td').colSpan !== 9) {  // Skip "no data" rows
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', function () {
+                    toggleDetails(index + 1);
+                });
+            }
+        });
+    });
+</script>
+
+<style>
+    /* Enhanced styling */
+    .card {
+        border-radius: 10px;
+    }
+
+    .progress {
+        border-radius: 8px;
+        font-weight: bold;
+    }
+
+    .table-success {
+        background-color: rgba(40, 167, 69, 0.1) !important;
+    }
+
+    .table-warning {
+        background-color: rgba(255, 193, 7, 0.1) !important;
+    }
+
+    .table-danger {
+        background-color: rgba(220, 53, 69, 0.1) !important;
+    }
+
+    tbody tr:not([id^="details-"]) {
+        transition: all 0.2s ease;
+    }
+
+    tbody tr:not([id^="details-"]):hover {
+        transform: scale(1.01);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    @media print {
+
+        .btn,
+        .card-header,
+        #filters-form {
+            display: none !important;
+        }
+
+        .progress {
+            border: 1px solid #ddd;
+        }
+    }
+</style>
+{% endblock %}

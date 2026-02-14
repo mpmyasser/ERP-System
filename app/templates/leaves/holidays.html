@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="h4 text-primary">
+                <i class="fas fa-calendar-star me-2"></i> العطلات الرسمية والمواسم
+            </h2>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addHolidayModal">
+                <i class="fas fa-plus me-1"></i> إضافة عطلة جديدة
+            </button>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('leaves.holidays') }}" class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">من تاريخ</label>
+                        <input type="text" name="date_from" class="form-control date-string allow-month-end" placeholder="DD/MM/YYYY"
+                            value="{{ request.args.get('date_from', '') }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">إلى تاريخ</label>
+                        <input type="text" name="date_to" class="form-control date-string allow-month-end" placeholder="DD/MM/YYYY"
+                            value="{{ request.args.get('date_to', '') }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">بحث</label>
+                        <input type="text" name="search_name" class="form-control" placeholder="اسم العطلة..."
+                            value="{{ request.args.get('search_name', '') }}">
+                    </div>
+                    <div class="col-md-3 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary flex-grow-1"><i class="fas fa-filter"></i>
+                            تصفية</button>
+                        <a href="{{ url_for('leaves.holidays') }}" class="btn btn-light"><i class="fas fa-undo"></i>
+                            إعادة ضبط</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>اسم العطلة</th>
+                                <th>تاريخ البداية</th>
+                                <th>تاريخ النهاية</th>
+                                <th>المدة (أيام)</th>
+                                <th>تاريخ الإضافة</th>
+                                <th class="text-center" style="width: 100px;">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for holiday in holidays %}
+                            <tr>
+                                <td class="fw-bold">{{ holiday.name }}</td>
+                                <td>{{ holiday.start_date.strftime('%Y-%m-%d') }}</td>
+                                <td>{{ holiday.end_date.strftime('%Y-%m-%d') }}</td>
+                                <td><span class="badge bg-info">{{ (holiday.end_date - holiday.start_date).days + 1
+                                        }}</span></td>
+                                <td class="text-muted small">{{ holiday.created_at.strftime('%Y-%m-%d') }}</td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                                        data-bs-target="#editHolidayModal{{ holiday.id }}" title="تعديل">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <form action="{{ url_for('leaves.delete_holiday', id=holiday.id) }}" method="POST"
+                                        class="d-inline" onsubmit="return confirm('هل أنت متأكد من الحذف؟');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="حذف">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+
+                                    <!-- Edit Holiday Modal -->
+                                    <div class="modal fade text-start" id="editHolidayModal{{ holiday.id }}"
+                                        tabindex="-1">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">تعديل عطلة: {{ holiday.name }}</h5>
+                                                    <button type="button" class="btn-close"
+                                                        data-bs-dismiss="modal"></button>
+                                                </div>
+                                                <form action="{{ url_for('leaves.edit_holiday', id=holiday.id) }}"
+                                                    method="POST">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                    <div class="modal-body">
+                                                        <div class="mb-3">
+                                                            <label class="form-label fw-bold">اسم العطلة <span
+                                                                    class="text-danger">*</span></label>
+                                                            <input type="text" name="name" class="form-control"
+                                                                value="{{ holiday.name }}" required>
+                                                        </div>
+                                                        <div class="row g-3">
+                                                            <div class="col-md-6">
+                                                                <label class="form-label fw-bold">من تاريخ <span
+                                                                        class="text-danger">*</span></label>
+                                                                <input type="date" name="start_date"
+                                                                    class="form-control allow-month-end-date"
+                                                                    value="{{ holiday.start_date.strftime('%Y-%m-%d') }}"
+                                                                    required>
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <label class="form-label fw-bold">إلى تاريخ <span
+                                                                        class="text-danger">*</span></label>
+                                                                <input type="date" name="end_date" class="form-control allow-month-end-date"
+                                                                    value="{{ holiday.end_date.strftime('%Y-%m-%d') }}"
+                                                                    required>
+                                                            </div>
+                                                        </div>
+                                                        <div class="alert alert-info py-2 mt-3">
+                                                            <i class="fas fa-info-circle"></i> سيتم تحديث حالة الأيام
+                                                            للموظفين تلقائياً.
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary"
+                                                            data-bs-dismiss="modal">إلغاء</button>
+                                                        <button type="submit" class="btn btn-success px-4">حفظ
+                                                            التعديلات</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-5 text-muted">
+                                    <i class="fas fa-calendar-times fa-3x mb-3 d-block opacity-25"></i>
+                                    لا توجد عطلات مسجلة حالياً
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Holiday Modal -->
+<div class="modal fade" id="addHolidayModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">إضافة عطلة جديدة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('leaves.holidays') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">اسم العطلة <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control" required
+                            placeholder="مثال: عيد الفطر المبارك">
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">من تاريخ <span class="text-danger">*</span></label>
+                            <input type="date" name="start_date" class="form-control allow-month-end-date" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">إلى تاريخ <span class="text-danger">*</span></label>
+                            <input type="date" name="end_date" class="form-control allow-month-end-date" required>
+                        </div>
+                    </div>
+                    <div class="alert alert-info mt-3 small">
+                        <i class="fas fa-info-circle"></i> سيتم اعتبار هذه الأيام مدفوعة الأجر بالكامل لجميع الموظفين
+                        ولن تخصم من رصيد الإجازات.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const inputs = document.querySelectorAll('input.allow-month-end-date');
+        if (!inputs.length) return;
+
+        const today = new Date();
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        const yyyy = lastDay.getFullYear();
+        const mm = String(lastDay.getMonth() + 1).padStart(2, '0');
+        const dd = String(lastDay.getDate()).padStart(2, '0');
+        const maxDate = `${yyyy}-${mm}-${dd}`;
+
+        inputs.forEach(input => {
+            input.max = maxDate;
+        });
+    });
+</script>
+{% endblock %}

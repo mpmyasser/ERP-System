@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {% if mode == 'edit' %}تعديل المكافأة{% else %}إضافة مكافأة{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-gift me-2"></i> 
+        {% if mode == 'edit' %}تعديل المكافأة{% else %}إضافة مكافأة جديدة{% endif %}
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('bonuses.list') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-right"></i> رجوع
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        {{ form.employee_id.label(class="form-label") }}
+                        {% if form.employee_id.errors %}
+                            {{ form.employee_id(class="form-select is-invalid") }}
+                            <div class="invalid-feedback">
+                                {% for error in form.employee_id.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% else %}
+                            {{ form.employee_id(class="form-select") }}
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.date_awarded.label(class="form-label") }}
+                        {% if form.date_awarded.errors %}
+                            {{ form.date_awarded(class="form-control is-invalid") }}
+                            <div class="invalid-feedback">
+                                {% for error in form.date_awarded.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% else %}
+                            {{ form.date_awarded(class="form-control") }}
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.amount.label(class="form-label") }}
+                        <div class="input-group">
+                            {% if form.amount.errors %}
+                                {{ form.amount(class="form-control is-invalid", step="0.01", min="0") }}
+                                <div class="invalid-feedback">
+                                    {% for error in form.amount.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% else %}
+                                {{ form.amount(class="form-control", step="0.01", min="0") }}
+                            {% endif %}
+                            <span class="input-group-text">جنيه</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.reason.label(class="form-label") }}
+                        {% if form.reason.errors %}
+                            {{ form.reason(class="form-control is-invalid", rows="4", placeholder="اكتب سبب المكافأة...") }}
+                            <div class="invalid-feedback">
+                                {% for error in form.reason.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% else %}
+                            {{ form.reason(class="form-control", rows="4", placeholder="اكتب سبب المكافأة...") }}
+                        {% endif %}
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="mb-3">
+                        <h6 class="card-subtitle mb-3 text-muted">
+                            <i class="fas fa-money-bill-wave"></i> تحديد موعد الصرف
+                        </h6>
+                        
+                        <div class="form-check form-switch" style="padding-left: 2.5rem;">
+                            <input 
+                                class="form-check-input" 
+                                type="checkbox" 
+                                id="paid_with_salary_switch"
+                                name="paid_with_salary"
+                                {% if form.paid_with_salary.data or form.paid_with_salary.default %}checked{% endif %}
+                                style="cursor: pointer; width: 3rem; height: 1.5rem;"
+                            >
+                            <label class="form-check-label" for="paid_with_salary_switch" style="cursor: pointer; margin-top: 0.3rem;">
+                                <strong>صرف مع الراتب الشهري؟</strong>
+                            </label>
+                        </div>
+
+                        <div class="alert alert-info mt-3 mb-0" role="alert">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <small>
+                                        <i class="fas fa-toggle-on text-success"></i> <strong>مفعّل (ON):</strong><br>
+                                        <span class="text-muted">المكافأة ستُصرف مع راتب<br>نهاية الشهر</span>
+                                    </small>
+                                </div>
+                                <div class="col-md-6">
+                                    <small>
+                                        <i class="fas fa-toggle-off text-danger"></i> <strong>معطّل (OFF):</strong><br>
+                                        <span class="text-muted">المكافأة تم صرفها مسبقاً<br>خلال الشهر</span>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-save"></i> حفظ
+                        </button>
+                        <a href="{{ url_for('bonuses.list') }}" class="btn btn-secondary btn-lg">
+                            <i class="fas fa-times"></i> إلغاء
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-info-circle"></i> ملاحظات</h5>
+                <ul class="small mb-0">
+                    <li><strong>المكافأة:</strong> مبلغ يتم إضافته لراتب الموظف</li>
+                    <li><strong>حالة الصرف:</strong> حدد ما إذا كانت المكافأة ستُصرف مع نهاية الشهر أم لا</li>
+                    <li>المكافآت المصروفة مسبقاً تُخصم من الراتب الشهري</li>
+                    <li>جميع الحقول المميزة بـ <span class="text-danger">*</span> إلزامية</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card bg-info text-white mt-3">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-lightbulb"></i> نصيحة</h5>
+                <p class="small mb-0">
+                    استخدم هذا النظام لتتبع جميع المكافآت الممنوحة للموظفين مع تحديد دقيق لموعد الصرف.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/date_format.js') }}"></script>
+{% endblock %}

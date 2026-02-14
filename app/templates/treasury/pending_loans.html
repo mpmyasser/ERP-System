@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h2 class="fw-bold">اعتماد وصرف السلف</h2>
+        <p class="text-muted">مراجعة طلبات السلف المقدمة من شؤون الموظفين واعتماد صرفها مالياً</p>
+    </div>
+    <div class="col-md-6 text-start">
+        <a href="{{ url_for('treasury.dashboard') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-chevron-right"></i> العودة للوحة التحكم
+        </a>
+    </div>
+</div>
+
+<!-- Filter Section -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('treasury.list_pending_loans') }}" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">من تاريخ</label>
+                <input type="text" name="date_from" class="form-control date-string" placeholder="DD/MM/YYYY"
+                    value="{{ filters.date_from or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">إلى تاريخ</label>
+                <input type="text" name="date_to" class="form-control date-string" placeholder="DD/MM/YYYY"
+                    value="{{ filters.date_to or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">القسم</label>
+                <select name="department_ids" id="dept-filter" class="form-select" multiple size="1">
+                    {% for dept in departments %}
+                    <option value="{{ dept.id }}" {{ 'selected' if filters.department_id and dept.id|string in
+                        filters.department_id else '' }}>{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary flex-grow-1"><i class="fas fa-filter"></i> تصفية</button>
+            <a href="{{ url_for('treasury.list_pending_loans') }}" class="btn btn-light"><i class="fas fa-undo"></i>
+                إعادة ضبط</a>
+
+            <!-- Hidden inputs to preserve sorting when filtering -->
+            <input type="hidden" name="sort" value="{{ request.args.get('sort', '') }}">
+            <input type="hidden" name="order" value="{{ request.args.get('order', '') }}">
+    </div>
+    </form>
+</div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-clock text-warning me-2"></i> طلبات بانتظار الاعتماد ({{ loans|length }})</span>
+        <button id="btnBulkDisburse" class="btn btn-sm btn-success d-none" data-bs-toggle="modal"
+            data-bs-target="#bulkDisburseModal">
+            <i class="fas fa-check-double"></i> اعتماد المحدد (<span id="selectedCount">0</span>)
+        </button>
+    </div>
+</div>
+<div class="card-body p-0">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="bg-light">
+                <tr>
+                    <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="selectAll"></th>
+                    <th>
+                        <a href="{{ url_for('treasury.list_pending_loans', sort='code', order='asc' if request.args.get('sort') == 'code' and request.args.get('order') == 'desc' else 'desc', **filters) }}"
+                            class="text-decoration-none text-dark">
+                            كود الموظف
+                            {% if request.args.get('sort') == 'code' %}
+                            <i
+                                class="fas fa-sort-{{ 'up' if request.args.get('order') == 'asc' else 'down' }} ms-1"></i>
+                            {% else %}
+                            <i class="fas fa-sort text-muted ms-1 opacity-25"></i>
+                            {% endif %}
+                        </a>
+                    </th>
+                    <th>اسم الموظف / القسم</th>
+                    <th>
+                        <a href="{{ url_for('treasury.list_pending_loans', sort='amount', order='asc' if request.args.get('sort') == 'amount' and request.args.get('order') == 'desc' else 'desc', **filters) }}"
+                            class="text-decoration-none text-dark">
+                            المبلغ
+                            {% if request.args.get('sort') == 'amount' %}
+                            <i
+                                class="fas fa-sort-{{ 'up' if request.args.get('order') == 'asc' else 'down' }} ms-1"></i>
+                            {% else %}
+                            <i class="fas fa-sort text-muted ms-1 opacity-25"></i>
+                            {% endif %}
+                        </a>
+                    </th>
+                    <th>النوع</th>
+                    <th>عدد الأقساط</th>
+                    <th>
+                        <a href="{{ url_for('treasury.list_pending_loans', sort='date', order='asc' if request.args.get('sort') == 'date' and request.args.get('order') == 'desc' else 'desc', **filters) }}"
+                            class="text-decoration-none text-dark">
+                            التاريخ
+                            {% if request.args.get('sort') == 'date' %}
+                            <i
+                                class="fas fa-sort-{{ 'up' if request.args.get('order') == 'asc' else 'down' }} ms-1"></i>
+                            {% else %}
+                            <i class="fas fa-sort text-muted ms-1 opacity-25"></i>
+                            {% endif %}
+                        </a>
+                    </th>
+                    <th class="text-center">إجراءات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for loan in loans %}
+                <tr>
+                    <td><input type="checkbox" class="form-check-input loan-checkbox" value="{{ loan.id }}"
+                            data-amount="{{ loan.amount }}"></td>
+                    <td><span class="badge bg-light text-dark border">{{ loan.employee.code }}</span></td>
+                    <td>
+                        <div class="fw-bold">{{ loan.employee.name }}</div>
+                        <small class="text-muted"><i class="fas fa-building ms-1"></i>{{ loan.employee.department.name
+                            }}</small>
+                    </td>
+                    <td class="text-primary fw-bold">{{ "{:,.2f}".format(loan.amount) }} ج.م</td>
+                    <td>{{ 'مستديمة' if loan.type == 'permanent' else 'مؤقتة' }}</td>
+                    <td>{{ loan.installments_count }}</td>
+                    <td>{{ loan.date.strftime('%Y-%m-%d') }}</td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-success px-3" data-bs-toggle="modal"
+                            data-bs-target="#disburseModal{{ loan.id }}">
+                            <i class="fas fa-check-circle"></i> اعتماد وصرف
+                        </button>
+                    </td>
+                </tr>
+
+                <!-- Disburse Modal -->
+                <div class="modal fade" id="disburseModal{{ loan.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">تأكيد صرف سلفة للموظف: {{ loan.employee.name }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                    aria-label="Close"></button>
+                            </div>
+                            <form action="{{ url_for('treasury.disburse_loan', loan_id=loan.id) }}" method="POST">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <div class="modal-body">
+                                    <div class="alert alert-info py-2">
+                                        <i class="fas fa-info-circle"></i> سيتم إنشاء سند صرف تلقائي في الحسابات عند
+                                        التأكيد.
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">الخزينة / الحساب البنكي للصرف</label>
+                                        <select name="treasury_acc_id" class="form-select select2-select" required>
+                                            <option value="">اختر مصدر الصرف...</option>
+                                            <optgroup label="الخزائن (نقدية)">
+                                                {% for c in cash_accounts %}
+                                                <option value="cash_{{ c.id }}">{{ c.name }}</option>
+                                                {% endfor %}
+                                            </optgroup>
+                                            <optgroup label="الحسابات البنكية">
+                                                {% for b in bank_accounts %}
+                                                <option value="bank_{{ b.id }}">{{ b.bank_name }} - {{
+                                                    b.account_number }}</option>
+                                                {% endfor %}
+                                            </optgroup>
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">مركز التكلفة (اختياري)</label>
+                                        <select name="cost_center_id" class="form-select select2-select">
+                                            <option value="">اختر مركز التكلفة...</option>
+                                            {% for cc in cost_centers %}
+                                            <option value="{{ cc.id }}">{{ cc.code }} - {{ cc.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="form-text">سيتم ربط هذا المركز بالسند المالي المتولد. يمكنك
+                                            تعريف مراكز جديدة من قسم الحسابات.</div>
+                                    </div>
+
+                                    <div class="card bg-light border-0">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between">
+                                                <span>قيمة السلفة:</span>
+                                                <span class="fw-bold">{{ "{:,.2f}".format(loan.amount) }} ج.م</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary"
+                                        data-bs-dismiss="modal">إلغاء</button>
+                                    <button type="submit" class="btn btn-success px-4">تأكيد وصرف السند</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center py-5 text-muted">
+                        <i class="fas fa-check-double fa-3x mb-3 d-block opacity-25"></i>
+                        لا توجد طلبات سلف بانتظار الاعتماد حالياً.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+
+<!-- Bulk Disburse Modal -->
+<div class="modal fade" id="bulkDisburseModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">اعتماد وصرف السلف المحددة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('treasury.disburse_loans_bulk') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="loan_ids" id="bulkLoanIds">
+
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i> سيتم صرف <strong id="modalSelectedCount">0</strong>
+                        سلفة بإجمالي <strong id="modalTotalAmount">0.00</strong> ج.م دفعة واحدة.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">الخزينة / الحساب البنكي للصرف</label>
+                        <select name="treasury_acc_id" class="form-select select2-select" required style="width: 100%;">
+                            <option value="">اختر مصدر الصرف...</option>
+                            <optgroup label="الخزائن (نقدية)">
+                                {% for c in cash_accounts %}
+                                <option value="cash_{{ c.id }}">{{ c.name }}</option>
+                                {% endfor %}
+                            </optgroup>
+                            <optgroup label="الحسابات البنكية">
+                                {% for b in bank_accounts %}
+                                <option value="bank_{{ b.id }}">{{ b.bank_name }} - {{ b.account_number }}</option>
+                                {% endfor %}
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">مركز التكلفة (اختياري)</label>
+                        <select name="cost_center_id" class="form-select select2-select" style="width: 100%;">
+                            <option value="">اختر مركز التكلفة...</option>
+                            {% for cc in cost_centers %}
+                            <option value="{{ cc.id }}">{{ cc.code }} - {{ cc.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+                    <button type="submit" class="btn btn-success">تأكيد الصرف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const selectAll = document.getElementById('selectAll');
+        const checkboxes = document.querySelectorAll('.loan-checkbox');
+        const btnBulkDisburse = document.getElementById('btnBulkDisburse');
+        const selectedCountSpan = document.getElementById('selectedCount');
+        const bulkLoanIdsInput = document.getElementById('bulkLoanIds');
+        const modalSelectedCount = document.getElementById('modalSelectedCount');
+        const modalTotalAmount = document.getElementById('modalTotalAmount');
+
+        function updateBulkState() {
+            let selected = [];
+            let total = 0;
+            checkboxes.forEach(cb => {
+                if (cb.checked) {
+                    selected.push(cb.value);
+                    total += parseFloat(cb.dataset.amount);
+                }
+            });
+
+            const count = selected.length;
+            selectedCountSpan.textContent = count;
+
+            if (count > 0) {
+                btnBulkDisburse.classList.remove('d-none');
+            } else {
+                btnBulkDisburse.classList.add('d-none');
+            }
+
+            // Update Modal Data
+            bulkLoanIdsInput.value = selected.join(',');
+            modalSelectedCount.textContent = count;
+            modalTotalAmount.textContent = total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        if (selectAll) {
+            selectAll.addEventListener('change', function () {
+                checkboxes.forEach(cb => cb.checked = selectAll.checked);
+                updateBulkState();
+            });
+        }
+
+        checkboxes.forEach(cb => {
+            cb.addEventListener('change', function () {
+                updateBulkState();
+                // Uncheck select all if one is unchecked
+                if (!this.checked) {
+                    if (selectAll) selectAll.checked = false;
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}
+
+{% endblock %}

@@ -1,0 +1,466 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4 rtl">
+    <!-- منتقي الشهر والسنة -->
+    <div class="row mb-3 no-print">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">اختر الشهر والسنة</h6>
+                    <form method="get"
+                        action="{{ url_for('reports.detailed_salary', emp_id=report.employee_id if report.employee_id else 0) }}"
+                        class="d-flex gap-2">
+                        <select name="year" class="form-select" style="max-width: 120px;">
+                            {% for y in range(2020, 2030) %}
+                            <option value="{{ y }}" {% if y==report.year %}selected{% endif %}>{{ y }}</option>
+                            {% endfor %}
+                        </select>
+                        <select name="month" class="form-select" style="max-width: 150px;">
+                            <option value="1" {% if report.month==1 %}selected{% endif %}>يناير</option>
+                            <option value="2" {% if report.month==2 %}selected{% endif %}>فبراير</option>
+                            <option value="3" {% if report.month==3 %}selected{% endif %}>مارس</option>
+                            <option value="4" {% if report.month==4 %}selected{% endif %}>أبريل</option>
+                            <option value="5" {% if report.month==5 %}selected{% endif %}>مايو</option>
+                            <option value="6" {% if report.month==6 %}selected{% endif %}>يونيو</option>
+                            <option value="7" {% if report.month==7 %}selected{% endif %}>يوليو</option>
+                            <option value="8" {% if report.month==8 %}selected{% endif %}>أغسطس</option>
+                            <option value="9" {% if report.month==9 %}selected{% endif %}>سبتمبر</option>
+                            <option value="10" {% if report.month==10 %}selected{% endif %}>أكتوبر</option>
+                            <option value="11" {% if report.month==11 %}selected{% endif %}>نوفمبر</option>
+                            <option value="12" {% if report.month==12 %}selected{% endif %}>ديسمبر</option>
+                        </select>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i> عرض
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm print-card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center d-print-none">
+            <h4 class="mb-0">تقرير راتب تفصيلي</h4>
+            <div class="print-controls">
+                <a href="{{ url_for('reports.export_detailed_salary_excel', emp_id=report.employee_id, month=report.month, year=report.year) }}"
+                    class="btn btn-success btn-sm fw-bold me-2">
+                    <i class="fas fa-file-excel me-1"></i> تصدير Excel
+                </a>
+                <button onclick="window.printReport('portrait')" class="btn btn-light btn-sm fw-bold">
+                    <i class="fas fa-print me-1"></i> طباعة (طولي A4)
+                </button>
+            </div>
+        </div>
+
+        <div class="print-only">
+            <div class="print-header">
+                <h1>بيان مفردات مرتب تفصيلي</h1>
+                <p>عن شهر: {{ report.month }}/{{ report.year }}</p>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- Employee Info -->
+            <div class="row mb-4 border-bottom pb-3">
+                <div class="col-md-6">
+                    <table class="table table-borderless table-sm">
+                        <tr>
+                            <th style="width: 150px;">اسم الموظف:</th>
+                            <td>{{ report.employee_name }}</td>
+                        </tr>
+                        <tr>
+                            <th>كود الموظف:</th>
+                            <td>{{ report.employee_code }}</td>
+                        </tr>
+                        <tr>
+                            <th>المسمى الوظيفي:</th>
+                            <td>{{ report.job_title or '-' }}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <table class="table table-borderless table-sm">
+                        <tr>
+                            <th style="width: 150px;">الشهر / السنة:</th>
+                            <td>{{ report.month }} / {{ report.year }}</td>
+                        </tr>
+                        <tr>
+                            <th>الراتب الأساسي:</th>
+                            <td>{{ "%.2f"|format(report.basic_salary) }} ج.م</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 1. Daily Attendance Details -->
+            <h5 class="text-secondary mb-3"><i class="fas fa-calendar-check"></i> تفاصيل الحضور اليومي</h5>
+            <div class="table-responsive mb-4">
+                <table class="table table-bordered table-striped table-hover text-center table-sm"
+                    style="font-size: 0.9rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th>التاريخ</th>
+                            <th>الحالة</th>
+                            <th>دخول</th>
+                            <th>خروج</th>
+                            <th class="text-danger">تأخير (د)</th>
+                            <th class="text-danger">خصم تأخير</th>
+                            <th class="text-warning">مبكر (د)</th>
+                            <th class="text-warning">خصم مبكر</th>
+                            <th class="text-primary">إضافي (س)</th>
+                            <th class="text-primary">قيمة إضافي</th>
+                            <th>تصريح (س)</th>
+                            <th>خصم تصريح</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for day in report.daily_details %}
+                        <tr>
+                            <td>{{ day.date.strftime('%d/%m/%Y') if day.date else '-' }}</td>
+                            <td>
+                                {% if day.is_holiday %}
+                                {% if day.holiday_name == 'إجازة أسبوعية' %}
+                                <span class="badge" style="background-color: #8CE4FF; color: #000;">{{ day.holiday_name }}</span>
+                                {% else %}
+                                <span class="badge" style="background-color: #FFC400; color: #000;">{{ day.holiday_name }}</span>
+                                {% endif %}
+                                {% elif day.is_leave %}
+                                <span class="badge bg-secondary">{{ day.leave_type }}</span>
+                                {% elif 'غائب' in day.status %}
+                                <span class="badge bg-danger">غائب</span>
+                                {% elif 'عطلة' in day.status or 'إجازة' in day.status %}
+                                <span class="badge bg-secondary">{{ day.status }}</span>
+                                {% else %}
+                                <span class="badge bg-success">حاضر</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ day.check_in or '-' }}</td>
+                            <td>{{ day.check_out or '-' }}</td>
+
+                            <!-- Late -->
+                            <td class="{{ 'text-danger fw-bold' if day.late_minutes > 0 }}">{{ day.late_minutes }}</td>
+                            <td>{{ "%.2f"|format(day.late_deduction) }}</td>
+
+                            <!-- Early -->
+                            <td class="{{ 'text-warning fw-bold' if day.early_minutes > 0 }}">{{ day.early_minutes }}
+                            </td>
+                            <td>{{ "%.2f"|format(day.early_deduction) }}</td>
+
+                            <!-- OT -->
+                            <td class="{{ 'text-primary fw-bold' if day.overtime_hours > 0 }}">{{
+                                "%.2f"|format(day.overtime_hours) }}
+                            </td>
+                            <td>{{ "%.2f"|format(day.overtime_value) }}</td>
+
+                            <!-- Permissions -->
+                            <td>{{ "%.2f"|format(day.permission_hours) }}</td>
+                            <td>{{ "%.2f"|format(day.permission_deduction) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light fw-bold">
+                        <tr>
+                            <td colspan="4">الإجمالي</td>
+                            <td>{{ report.daily_details|sum(attribute='late_minutes') }}</td>
+                            <td>{{ "%.2f"|format(report.summary.late_deduction) }}</td>
+                            <td>{{ report.daily_details|sum(attribute='early_minutes') }}</td>
+                            <td>{{ "%.2f"|format(report.summary.early_deduction) }}</td>
+                            <td>{{ "%.2f"|format(report.daily_details|sum(attribute='overtime_hours')) }}</td>
+                            <td>{{ "%.2f"|format(report.summary.overtime_value) }}</td>
+                            <td>{{ "%.2f"|format(report.daily_details|sum(attribute='permission_hours')) }}</td>
+                            <td>{{ "%.2f"|format(report.summary.permissions_deduction) }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="text-secondary mb-0"><i class="fas fa-hand-holding-usd"></i> السلف والمديونيات</h5>
+                        <span class="badge bg-soft-info text-info small" style="cursor:help;"
+                            title="دورة الرواتب تحسب من يوم 26 في الشهر السابق إلى يوم 25 في الشهر الحالي">
+                            <i class="fas fa-info-circle"></i> دورة 26 - 25
+                        </span>
+                    </div>
+                    <table class="table table-bordered table-sm text-center">
+                        <thead class="table-light">
+                            <tr>
+                                <th>النوع</th>
+                                <th>تاريخ الصرف</th>
+                                <th>القيمة</th>
+                                <th>قسط الشهر</th>
+                                <th>تاريخ الانتهاء</th>
+                                <th>المتبقي</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for loan in report.loans_details %}
+                            <tr>
+                                <td>
+                                    {% if loan.type == 'monthly' or loan.type == 'permanent' %}
+                                    مستديمة
+                                    {% elif loan.type == 'emergency' or loan.type == 'temporary' %}
+                                    مؤقتة
+                                    {% else %}
+                                    {{ loan.type }}
+                                    {% endif %}
+                                </td>
+                                <td>{{ loan.date.strftime('%d/%m/%Y') if loan.date and loan.date != 'غير مسجل' else 'غير
+                                    مسجل' }}</td>
+                                <td>{{ "%.2f"|format(loan.amount) }}</td>
+                                <td class="text-danger fw-bold">{{ "%.2f"|format(loan.installment) }}</td>
+                                <td>{{ loan.end_date.strftime('%d/%m/%Y') if loan.end_date else '-' }}</td>
+                                <td>{{ "%.2f"|format(loan.remaining) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-muted">لا يوجد سلف نشطة</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="text-secondary mb-0"><i class="fas fa-exclamation-triangle"></i> الجزاءات الإدارية
+                        </h5>
+                        <span class="badge bg-soft-warning text-warning small" style="cursor:help;"
+                            title="دورة الرواتب تحسب من يوم 26 في الشهر السابق إلى يوم 25 في الشهر الحالي">
+                            <i class="fas fa-info-circle"></i> دورة 26 - 25
+                        </span>
+                    </div>
+                    <table class="table table-bordered table-sm text-center">
+                        <thead class="table-light">
+                            <tr>
+                                <th>التاريخ</th>
+                                <th>السبب</th>
+                                <th>القيمة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for penalty in report.penalties_details %}
+                            <tr>
+                                <td>{{ penalty.date.strftime('%d/%m/%Y') if penalty.date else '-' }}</td>
+                                <td>{{ penalty.reason or '-' }}</td>
+                                <td class="text-danger fw-bold">{{ "%.2f"|format(penalty.amount) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="3" class="text-muted">لا يوجد جزاءات هذا الشهر</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 4. Final Summary (Explanatory) -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card border-primary shadow-sm">
+                        <div class="card-header bg-primary text-white text-center">
+                            <h5 class="mb-0 py-1">تفاصيل مستحقات الراتب النهائية</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <!-- Earnings Column -->
+                                <div class="col-md-6 border-end">
+                                    <h6 class="text-success border-bottom pb-2 mb-3">
+                                        <i class="fas fa-plus-circle"></i> الاستحقاقات (الإضافات)
+                                    </h6>
+                                    <table class="table table-sm table-borderless">
+                                        <tr class="bg-light">
+                                            <td>الراتب الأساسي (تعاقد):</td>
+                                            <td class="text-end">{{ "%.2f"|format(report.basic_salary) }} ج.م</td>
+                                        </tr>
+                                        <tr class="small text-muted border-bottom">
+                                            <td colspan="2">قيمة اليومية (على 26 يوم): {{
+                                                "%.2f"|format(report.summary.daily_salary) }} ج.م</td>
+                                        </tr>
+                                        <tr class="fw-bold">
+                                            <td>قيمة أيام الحضور ({{ report.summary.attendance_days }} يوم):</td>
+                                            <td class="text-end">{{ "%.2f"|format(report.summary.gross_salary) }} ج.م
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>حافز الأداء:</td>
+                                            <td class="text-end text-success">+ {{
+                                                "%.2f"|format(report.summary.incentive) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>حافز الانتظام:</td>
+                                            <td class="text-end text-success">+ {{
+                                                "%.2f"|format(report.summary.regularity_incentive) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>قيمة الساعات الإضافية:</td>
+                                            <td class="text-end text-success">+ {{
+                                                "%.2f"|format(report.summary.overtime_value) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>بدل الانتقال:</td>
+                                            <td class="text-end text-success">+ {{
+                                                "%.2f"|format(report.summary.transport) }}</td>
+                                        </tr>
+                                        <tr class="border-top fw-bold h5">
+                                            <td>إجمالي الاستحقاقات:</td>
+                                            <td class="text-end text-success">{{
+                                                "%.2f"|format(report.summary.total_additions +
+                                                report.summary.gross_salary) }} ج.م</td>
+                                        </tr>
+                                    </table>
+                                </div>
+
+                                <!-- Deductions Column -->
+                                <div class="col-md-6">
+                                    <h6 class="text-danger border-bottom pb-2 mb-3">
+                                        <i class="fas fa-minus-circle"></i> الاستقطاعات (الخصومات)
+                                    </h6>
+                                    <table class="table table-sm table-borderless">
+                                        <!-- تم فصل خصم الغياب عن جزاء الغياب للوضوح -->
+                                        {% if report.summary.absence_deduction > 0 %}
+                                        <tr>
+                                            <td>خصم أيام الغياب ({{ report.summary.absence_days }} يوم):</td>
+                                            <td class="text-end text-danger">- {{
+                                                "%.2f"|format(report.summary.absence_deduction) }}</td>
+                                        </tr>
+                                        {% endif %}
+                                        <tr>
+                                            <td>خصم تأخير الصباح:</td>
+                                            <td class="text-end text-danger">- {{
+                                                "%.2f"|format(report.summary.late_deduction) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>خصم الانصراف المبكر:</td>
+                                            <td class="text-end text-danger">- {{
+                                                "%.2f"|format(report.summary.early_deduction) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>جزاءات الغياب (إدارية):</td>
+                                            <td class="text-end text-danger">- {{
+                                                "%.2f"|format(report.summary.absence_penalty) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>خصم ساعات التصاريح:</td>
+                                            <td class="text-end text-danger">- {{
+                                                "%.2f"|format(report.summary.permissions_deduction) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>أقساط السلف:</td>
+                                            <td class="text-end text-danger">- {{
+                                                "%.2f"|format(report.summary.loans_deduction) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>جزاءات إدارية:</td>
+                                            <td class="text-end text-danger">- {{
+                                                "%.2f"|format(report.summary.admin_penalties) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>تأمينات اجتماعية:</td>
+                                            <td class="text-end text-danger">- {{
+                                                "%.2f"|format(report.summary.insurance) }}</td>
+                                        </tr>
+                                        <tr class="border-top fw-bold h5">
+                                            <td>إجمالي الاستقطاعات:</td>
+                                            <td class="text-end text-danger">{{
+                                                "%.2f"|format(report.summary.total_deductions) }} ج.م</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Net Salary Footer -->
+                            <div class="row mt-3 border-top pt-3 align-items-center">
+                                <div class="col-md-8 text-muted">
+                                    <small>* تم حساب هذا التقرير بناءً على القواعد التنظيمية للموارد البشرية واللوائح
+                                        الداخلية.</small>
+                                </div>
+                                <div class="col-md-4 text-center">
+                                    <div class="p-3 bg-primary text-white rounded">
+                                        <div class="h6 mb-1">صافي الراتب المستحق</div>
+                                        <div class="h2 mb-0 fw-bold">{{ "%.0f"|format(report.summary.net_salary) }}
+                                            <small class="fs-6">ج.م</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Signatures -->
+            <div class="row mt-5 pt-5 no-print">
+                <div class="col-4 text-center">
+                    <p class="fw-bold">توقيع الموظف</p>
+                    <p>..................</p>
+                </div>
+                <div class="col-4 text-center">
+                    <p class="fw-bold">الموارد البشرية</p>
+                    <p>..................</p>
+                </div>
+                <div class="col-4 text-center">
+                    <p class="fw-bold">المدير المالي</p>
+                    <p>..................</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @media print {
+
+        .no-print,
+        .navbar,
+        #sidebar,
+        .btn,
+        form {
+            display: none !important;
+        }
+
+        main {
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+
+        .container {
+            max-width: 100% !important;
+            width: 100% !important;
+        }
+
+        .badge {
+            border: 1px solid #000;
+            color: #000 !important;
+        }
+
+        .bg-success {
+            background-color: white !important;
+        }
+
+        .bg-danger {
+            background-color: white !important;
+        }
+
+        .table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+        }
+
+        th,
+        td {
+            padding: 4px !important;
+        }
+    }
+
+    .rtl {
+        direction: rtl;
+        text-align: right;
+    }
+</style>
+{% endblock %}

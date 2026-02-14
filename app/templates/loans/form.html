@@ -1,0 +1,362 @@
+﻿{% extends "base.html" %}
+
+{% block title %}{% if mode == 'edit' %}تعديل سلفة{% else %}إضافة سلفة{% endif %}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-{% if mode == 'edit' %}edit{% else %}plus{% endif %} me-2"></i>
+        {% if mode == 'edit' %}تعديل سلفة{% else %}إضافة سلفة جديدة{% endif %}
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('loans.list') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-right"></i> رجوع
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        {{ form.employee_id.label(class="form-label") }}
+                        {% if form.employee_id.errors %}
+                        {{ form.employee_id(class="form-select is-invalid") }}
+                        <div class="invalid-feedback">
+                            {% for error in form.employee_id.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% else %}
+                        {{ form.employee_id(class="form-select") }}
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.loan_type.label(class="form-label") }}
+                        {% if form.loan_type.errors %}
+                        {{ form.loan_type(class="form-select is-invalid") }}
+                        <div class="invalid-feedback">
+                            {% for error in form.loan_type.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% else %}
+                        {{ form.loan_type(class="form-select") }}
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.date.label(class="form-label") }}
+                        {% if form.date.errors %}
+                        {{ form.date(class="form-control is-invalid", data_loan_field="true") }}
+                        <div class="invalid-feedback">
+                            {% for error in form.date.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% else %}
+                        {{ form.date(class="form-control", data_loan_field="true") }}
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.amount.label(class="form-label") }}
+                        <div class="input-group">
+                            {% if form.amount.errors %}
+                            {{ form.amount(class="form-control is-invalid", step="0.01", min="0", placeholder="أدخل
+                            المبلغ") }}
+                            <div class="invalid-feedback">
+                                {% for error in form.amount.errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% else %}
+                            {{ form.amount(class="form-control", step="0.01", min="0", placeholder="أدخل المبلغ") }}
+                            {% endif %}
+                            <span class="input-group-text">جنيه</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.number_of_installments.label(class="form-label") }}
+                        {% if form.number_of_installments.errors %}
+                        {{ form.number_of_installments(class="form-control is-invalid", min="1", placeholder="مثال: 12",
+                        onchange="calculateInstallment()") }}
+                        <div class="invalid-feedback">
+                            {% for error in form.number_of_installments.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% else %}
+                        {{ form.number_of_installments(class="form-control", min="1", placeholder="مثال: 12",
+                        onchange="calculateInstallment()") }}
+                        {% endif %}
+                        <small class="form-text text-muted">
+                            <i class="fas fa-info-circle"></i> سيتم خصم القسط الشهري من راتب الموظف
+                        </small>
+                    </div>
+                    <div class="mb-3">
+                        {{ form.excluded_months.label(class="form-label") }}
+                        {% set excluded_error = (form.excluded_months.errors|length > 0) %}
+                        {{ form.excluded_months(class=("form-control d-none" ~ (" is-invalid" if excluded_error else "")), id="excluded_months_input", autocomplete="off") }}
+                        <div id="excluded-months-builder" class="mt-2"></div>
+                        {% if form.excluded_months.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.excluded_months.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                        <small class="form-text text-muted">
+                            <i class="fas fa-info-circle"></i> اختر الشهور بالأسماء، وسيتم حفظها تلقائيًا كأرقام.
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="monthly_installment" class="form-label">القسط الشهري</label>
+                        <div class="input-group">
+                            <input type="number" step="0.01" class="form-control" id="monthly_installment"
+                                name="monthly_installment" readonly>
+                            <span class="input-group-text">جنيه</span>
+                        </div>
+                        <small class="form-text text-muted">
+                            <i class="fas fa-info-circle"></i> يحسب تلقائياً: المبلغ ÷ عدد الأقساط
+                        </small>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-calculator me-2"></i>
+                        <strong>ملاحظة:</strong> الرصيد المتبقي سيساوي المبلغ الكلي عند الإنشاء، وسيتم تحديثه تلقائياً
+                        مع كل دفعة
+                    </div>
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-save"></i> {% if mode == 'edit' %}تحديث السلفة{% else %}حفظ السلفة{% endif
+                            %}
+                        </button>
+                        <a href="{{ url_for('loans.list') }}" class="btn btn-secondary btn-lg">
+                            <i class="fas fa-times"></i> إلغاء
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-info-circle"></i> ملاحظات</h5>
+                <ul class="small mb-0">
+                    <li>يتم خصم القسط الشهري تلقائياً من الراتب</li>
+                    <li>الرصيد المتبقي يتم حسابه تلقائياً</li>
+                    <li><strong>سلفة مستديمة:</strong> تسدد على أكثر من شهر</li>
+                    <li><strong>سلفة مؤقتة:</strong> تسدد بالكامل من راتب شهر واحد</li>
+                    <li>جميع الحقول المميزة بـ <span class="text-danger">*</span> إلزامية</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    function calculateInstallment() {
+        const amount = parseFloat(document.getElementById('amount').value) || 0;
+        const installmentsInput = document.getElementById('number_of_installments') || document.getElementById('installments');
+        const installments = parseInt((installmentsInput ? installmentsInput.value : '1'), 10) || 1;
+        const monthly = installments > 0 ? (amount / installments).toFixed(2) : 0;
+        document.getElementById('monthly_installment').value = monthly;
+
+        // Auto-set type
+        const typeSelect = document.getElementById('loan_type');
+        if (typeSelect) {
+            if (installments === 1) {
+                typeSelect.value = 'temporary';
+            } else if (installments > 1) {
+                typeSelect.value = 'permanent';
+            }
+        }
+    }
+
+
+    function buildExcludedMonthsInput() {
+        const hiddenInput = document.getElementById('excluded_months_input');
+        const container = document.getElementById('excluded-months-builder');
+        if (!hiddenInput || !container) return;
+
+        const monthOptions = [
+            { value: '1', label: 'يناير' },
+            { value: '2', label: 'فبراير' },
+            { value: '3', label: 'مارس' },
+            { value: '4', label: 'أبريل' },
+            { value: '5', label: 'مايو' },
+            { value: '6', label: 'يونيو' },
+            { value: '7', label: 'يوليو' },
+            { value: '8', label: 'أغسطس' },
+            { value: '9', label: 'سبتمبر' },
+            { value: '10', label: 'أكتوبر' },
+            { value: '11', label: 'نوفمبر' },
+            { value: '12', label: 'ديسمبر' }
+        ];
+
+        const optionsHtml = ['<option value="">-- اختر شهر --</option>'].concat(
+            monthOptions.map(m => `<option value="${m.value}">${m.label}</option>`)
+        ).join('');
+
+        function parseInitialValues(raw) {
+            const values = [];
+            (raw || '').split(',').forEach(token => {
+                const n = parseInt((token || '').trim(), 10);
+                if (!Number.isNaN(n) && n >= 1 && n <= 12) {
+                    const v = String(n);
+                    if (!values.includes(v)) values.push(v);
+                }
+            });
+            return values;
+        }
+
+        function getRows() {
+            return Array.from(container.querySelectorAll('.excluded-month-row'));
+        }
+
+        function getSelects() {
+            return getRows().map(r => r.querySelector('select')).filter(Boolean);
+        }
+
+        function getSelectedValues() {
+            return getSelects().map(s => s.value).filter(Boolean);
+        }
+
+        function syncHiddenInput() {
+            hiddenInput.value = getSelectedValues().join(',');
+        }
+
+        function updateRemoveButtons() {
+            const rows = getRows();
+            rows.forEach(row => {
+                const btn = row.querySelector('.remove-month-btn');
+                const sel = row.querySelector('select');
+                if (!btn || !sel) return;
+                btn.disabled = rows.length === 1 && !sel.value;
+            });
+        }
+
+        function addRow(selectedValue = '') {
+            const row = document.createElement('div');
+            row.className = 'excluded-month-row d-flex align-items-center gap-2 mb-2';
+            row.innerHTML = `
+                <select class="form-select excluded-month-select">${optionsHtml}</select>
+                <button type="button" class="btn btn-outline-danger btn-sm remove-month-btn" title="حذف الشهر">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+
+            const select = row.querySelector('select');
+            const removeBtn = row.querySelector('.remove-month-btn');
+            select.value = selectedValue || '';
+
+            select.addEventListener('change', function () {
+                if (select.value) {
+                    const duplicates = getSelectedValues().filter(v => v === select.value).length;
+                    if (duplicates > 1) {
+                        alert('تم اختيار هذا الشهر مسبقًا');
+                        select.value = '';
+                    }
+                }
+                normalizeRows();
+            });
+
+            removeBtn.addEventListener('click', function () {
+                row.remove();
+                if (getRows().length === 0) addRow('');
+                normalizeRows();
+            });
+
+            container.appendChild(row);
+        }
+
+        function normalizeRows() {
+            const rows = getRows();
+            const emptyRows = rows.filter(r => {
+                const s = r.querySelector('select');
+                return s && !s.value;
+            });
+
+            if (rows.length === 0) {
+                addRow('');
+            } else if (emptyRows.length === 0) {
+                addRow('');
+            } else if (emptyRows.length > 1) {
+                emptyRows.slice(0, -1).forEach(r => r.remove());
+            }
+
+            syncHiddenInput();
+            updateRemoveButtons();
+        }
+
+        container.innerHTML = '';
+        const initialValues = parseInitialValues(hiddenInput.value);
+        if (initialValues.length > 0) {
+            initialValues.forEach(v => addRow(v));
+        }
+        addRow('');
+        normalizeRows();
+    }
+
+    const amountInput = document.getElementById('amount');
+    const installmentsInputForEvent = document.getElementById('number_of_installments') || document.getElementById('installments');
+    if (amountInput) amountInput.addEventListener('change', calculateInstallment);
+    if (installmentsInputForEvent) installmentsInputForEvent.addEventListener('change', calculateInstallment);
+
+    document.addEventListener('DOMContentLoaded', function () {
+        calculateInstallment();
+        buildExcludedMonthsInput();
+    });
+</script>
+<script src="{{ url_for('static', filename='js/date_format.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const dateInput = document.querySelector('input[data_loan_field="true"]');
+        const form = document.querySelector('form');
+        
+        if (form) {
+            form.addEventListener('submit', function (e) {
+                if (dateInput && dateInput.value) {
+                    const dateStr = dateInput.value.trim();
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
+                    let inputDate = null;
+                    if (dateStr.includes('/')) {
+                        const parts = dateStr.split('/');
+                        if (parts.length === 3) {
+                            inputDate = new Date(parts[2], parts[1] - 1, parts[0]);
+                        }
+                    } else if (dateStr.includes('-')) {
+                        inputDate = new Date(dateStr);
+                    }
+                    
+                    if (inputDate) {
+                        inputDate.setHours(0, 0, 0, 0);
+                        
+                        if (inputDate > today) {
+                            const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                            
+                            if (inputDate > lastDayOfMonth) {
+                                e.preventDefault();
+                                dateInput.classList.add('is-invalid');
+                                alert('يجب أن تكون تاريخ السلفة في نهاية هذا الشهر على الأقصى (لا يمكن تجاوز آخر يوم في الشهر الحالي)');
+                                dateInput.focus();
+                                return false;
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}
+{% endblock %}
+
+
+
+
+
+
+

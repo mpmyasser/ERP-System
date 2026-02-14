@@ -1,0 +1,79 @@
+test_01_create_test_users (__main__.UserDeleteButtonTest.test_01_create_test_users)
+Test 1: Create test users ... ok
+test_02_delete_button_visible_on_users_page (__main__.UserDeleteButtonTest.test_02_delete_button_visible_on_users_page)
+Test 2: Delete button visible on users list ... ok
+test_03_delete_button_has_trash_icon (__main__.UserDeleteButtonTest.test_03_delete_button_has_trash_icon)
+Test 3: Delete button has trash icon ... ok
+test_04_delete_button_confirms_action (__main__.UserDeleteButtonTest.test_04_delete_button_confirms_action)
+Test 4: Delete button has confirmation dialog ... ok
+test_05_delete_user_successful (__main__.UserDeleteButtonTest.test_05_delete_user_successful)
+Test 5: Successfully delete a user ... d:\H.R\app\routes\auth.py:228: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+  user = db_session.query(User).get(user_id)
+d:\H.R\test_user_delete_button.py:143: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+  user = self.session.query(User).get(self.test_user_id)
+ok
+test_06_cannot_delete_own_account (__main__.UserDeleteButtonTest.test_06_cannot_delete_own_account)
+Test 6: Cannot delete own account ... d:\H.R\test_user_delete_button.py:161: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+  user = self.session.query(User).get(self.admin_user_id)
+ok
+test_07_delete_nonexistent_user (__main__.UserDeleteButtonTest.test_07_delete_nonexistent_user)
+Test 7: Delete nonexistent user ... ok
+test_08_non_admin_cannot_delete (__main__.UserDeleteButtonTest.test_08_non_admin_cannot_delete)
+Test 8: Non-admin cannot delete users ... ok
+test_09_delete_user_removes_permissions (__main__.UserDeleteButtonTest.test_09_delete_user_removes_permissions)
+Test 9: Deleting user removes permissions associations ... d:\H.R\test_user_delete_button.py:238: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+  deleted_user = self.session.query(User).get(user_id)
+ok
+test_10_delete_button_in_button_group (__main__.UserDeleteButtonTest.test_10_delete_button_in_button_group)
+Test 10: Delete button in button group ... ok
+test_11_delete_button_styling (__main__.UserDeleteButtonTest.test_11_delete_button_styling)
+Test 11: Delete button has danger styling ... ok
+test_12_delete_redirects_to_users_list (__main__.UserDeleteButtonTest.test_12_delete_redirects_to_users_list)
+Test 12: Delete redirects to users list ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 3.907s
+
+OK
+
+======================================================================
+Testing User Delete Button Functionality
+======================================================================
+
+[TEST 1] Create test users
+   PASS: Created test users
+   - Admin ID: 8
+   - Test User ID: 9
+
+[TEST 2] Delete button visible on users page
+   PASS: Found 9 delete buttons
+
+[TEST 3] Delete button has trash icon
+   PASS: Found 9 delete forms
+
+[TEST 4] Delete button has confirmation
+   PASS: Found 9 confirmation dialogs
+
+[TEST 5] Successfully delete user
+   PASS: User deleted successfully
+
+[TEST 6] Cannot delete own account
+   PASS: Own account cannot be deleted
+
+[TEST 7] Delete nonexistent user
+   PASS: Nonexistent user error handled
+
+[TEST 8] Non-admin cannot delete users
+   PASS: Non-admin access denied
+
+[TEST 9] Delete user removes permissions
+   PASS: User with permissions deleted
+
+[TEST 10] Delete button in button group
+   PASS: Found 9 button groups with delete buttons
+
+[TEST 11] Delete button danger styling
+   PASS: Found 9 delete buttons with danger styling
+
+[TEST 12] Delete redirects to users list
+   PASS: Delete redirects to users list

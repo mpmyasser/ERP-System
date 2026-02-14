@@ -1,0 +1,20 @@
+﻿# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+
+# Test/cache folders
+.pytest_cache/
+.agent/
+
+# Local databases
+*.db
+core/*.db
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/

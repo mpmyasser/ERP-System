@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-md-12">
+        <h3>فرز واستلام قصة رقم: <span class="text-primary">{{ order.cut_number }}</span></h3>
+        <p class="text-muted">المنتج: {{ order.product.name if order.product else 'غير محدد' }} | الكمية المخططة: {{
+            order.planned_quantity }}</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white fw-bold">إدخال كميات الاستلام والفرز</div>
+            <div class="card-body">
+                <form id="qc_form" method="POST" action="{{ url_for('manufacturing.save_qc', order_id=order.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">إجمالي الكمية المستلمة (دستة/قطعة)</label>
+                            <input type="number" step="0.01" name="total_received" id="total_received"
+                                class="form-control form-control-lg bg-light" required onchange="calculateTotals()">
+                            <div class="form-text">الكمية التي وصلت فعلياً من المصنع قبل الفرز.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">تاريخ الفرز</label>
+                            <input type="date" name="date" class="form-control form-control-lg"
+                                value="{{ date.today().strftime('%Y-%m-%d') }}">
+                        </div>
+                    </div>
+
+                    <div class="row text-center g-3">
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded bg-success-subtle">
+                                <label class="form-label fw-bold text-success">سليم (Good)</label>
+                                <input type="number" step="0.01" name="qty_good"
+                                    class="form-control text-center qc-input" value="0" onchange="calculateTotals()">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded bg-danger-subtle">
+                                <label class="form-label fw-bold text-danger">تالف (Scrap)</label>
+                                <input type="number" step="0.01" name="qty_scrap"
+                                    class="form-control text-center qc-input" value="0" onchange="calculateTotals()">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded bg-warning-subtle">
+                                <label class="form-label fw-bold text-warning">تصليح (Repair)</label>
+                                <input type="number" step="0.01" name="qty_repair"
+                                    class="form-control text-center qc-input" value="0" onchange="calculateTotals()">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded bg-info-subtle">
+                                <label class="form-label fw-bold text-info">بواقي (Leftovers)</label>
+                                <input type="number" step="0.01" name="qty_leftover"
+                                    class="form-control text-center qc-input" value="0" onchange="calculateTotals()">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="diff_alert" class="alert alert-warning mt-4 d-none">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        تنبيه: مجموع الكميات المفروزة لا يساوي إجمالي الكمية المستلمة! (الفرق: <span
+                            id="diff_val">0</span>)
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="form-label fw-bold">ملاحظات الجودة</label>
+                        <textarea name="notes" class="form-control" rows="2"
+                            placeholder="أسباب التلف، ملاحظات على التصنيع..."></textarea>
+                    </div>
+
+                    <hr>
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-success btn-lg px-5">
+                            <i class="fas fa-check-circle"></i> اعتماد الفرز والترحيل للمخزن
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 sticky-top" style="top: 20px;">
+            <div class="card-header bg-primary text-white">ملخص القصة</div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>رقم القص:</span>
+                        <span class="fw-bold">{{ order.cut_number }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>الحالة الحالية:</span>
+                        <span class="badge bg-warning">{{ order.status }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>الكمية المخططة:</span>
+                        <span>{{ order.planned_quantity }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function calculateTotals() {
+        const total = parseFloat(document.getElementById('total_received').value || 0);
+        let sumFound = 0;
+        document.querySelectorAll('.qc-input').forEach(input => {
+            sumFound += parseFloat(input.value || 0);
+        });
+
+        const diff = Math.abs(total - sumFound);
+        const alertBox = document.getElementById('diff_alert');
+        if (diff > 0.001) {
+            alertBox.classList.remove('d-none');
+            document.getElementById('diff_val').innerText = (total - sumFound).toFixed(2);
+        } else {
+            alertBox.classList.add('d-none');
+        }
+    }
+</script>
+{% endblock %}

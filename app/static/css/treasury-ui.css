@@ -1,0 +1,76 @@
+
+/* Treasury Premium UI */
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+}
+
+.bg-gradient-success {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+}
+
+.bg-soft-primary { background-color: rgba(13, 110, 253, 0.1) !important; }
+.bg-soft-info { background-color: rgba(13, 202, 240, 0.1) !important; }
+.bg-soft-success { background-color: rgba(25, 135, 84, 0.1) !important; }
+.bg-soft-danger { background-color: rgba(220, 53, 69, 0.1) !important; }
+.bg-soft-secondary { background-color: rgba(108, 117, 125, 0.1) !important; }
+
+.text-soft-primary { color: #0d6efd !important; }
+.bg-light-blue { background-color: #f0f7ff !important; }
+.bg-light-cyan { background-color: #e0fcff !important; }
+
+.btn-soft-primary {
+    background-color: rgba(13, 110, 253, 0.1);
+    color: #0d6efd;
+    border: none;
+}
+.btn-soft-primary:hover {
+    background-color: #0d6efd;
+    color: #fff;
+}
+
+.btn-soft-success {
+    background-color: rgba(25, 135, 84, 0.1);
+    color: #198754;
+    border: none;
+}
+.btn-soft-success:hover {
+    background-color: #198754;
+    color: #fff;
+}
+
+.btn-soft-danger {
+    background-color: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+    border: none;
+}
+.btn-soft-danger:hover {
+    background-color: #dc3545;
+    color: #fff;
+}
+
+.btn-soft-info {
+    background-color: rgba(13, 202, 240, 0.1);
+    color: #0dcaf0;
+    border: none;
+}
+.btn-soft-info:hover {
+    background-color: #0dcaf0;
+    color: #fff;
+}
+
+.hover-shadow-sm:hover {
+    box-shadow: 0 .125rem .25rem rgba(0,0,0,.075)!important;
+}
+
+.transition {
+    transition: all 0.3s ease;
+}
+
+.rounded-4 { border-radius: 1rem !important; }
+
+.glass-nav {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}

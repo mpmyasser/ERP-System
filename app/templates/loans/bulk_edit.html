@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+
+{% block title %}تعديل سلف جماعي{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+        <h4 class="mb-0"><i class="fas fa-edit me-2"></i> تعديل سلف جماعي (Bulk Edit)</h4>
+        <a href="{{ url_for('loans.list') }}" class="btn btn-light btn-sm text-dark fw-bold">
+            <i class="fas fa-list me-1"></i> قائمة السلف
+        </a>
+    </div>
+    <div class="card-body">
+
+        <!-- Filter Section -->
+        <div class="row mb-4 p-3 bg-light border rounded">
+            <div class="col-md-12 mb-2"><strong><i class="fas fa-filter me-1"></i> تحميل السلف للتعديل</strong></div>
+            <div class="col-md-3">
+                <label class="form-label">من تاريخ</label>
+                <input type="text" id="filterDateFrom" class="form-control date-string allow-month-end" placeholder="DD/MM/YYYY">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">إلى تاريخ</label>
+                <input type="text" id="filterDateTo" class="form-control date-string allow-month-end" placeholder="DD/MM/YYYY">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">القسم</label>
+                <select id="filterDepartment" class="form-select">
+                    <option value="">الكل</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept.id }}">{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 align-self-end">
+                <button class="btn btn-primary w-100" onclick="loadLoans()">
+                    <i class="fas fa-download me-1"></i> تحميل السلف
+                </button>
+            </div>
+        </div>
+
+        <!-- The Grid -->
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped" id="bulkEditTable">
+                <thead class="table-dark text-center">
+                    <tr>
+                        <th width="3%"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+                        <th width="5%">#</th>
+                        <th width="12%">كود الموظف</th>
+                        <th width="20%">الاسم</th>
+                        <th width="12%">المبلغ</th>
+                        <th width="12%">النوع</th>
+                        <th width="8%">الأقساط</th>
+                        <th width="13%">التاريخ</th>
+                        <th width="15%">الأشهر المستثناة</th>
+                    </tr>
+                </thead>
+                <tbody id="bulkEditBody">
+                    <tr>
+                        <td colspan="9" class="text-center text-muted">
+                            <i class="fas fa-info-circle me-2"></i>استخدم الفلاتر أعلاه لتحميل السلف المراد تعديلها
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between mt-3">
+            <div>
+                <span class="badge bg-secondary" id="selectedCount">0 محدد</span>
+                <span class="badge bg-info ms-2" id="totalCount">0 إجمالي</span>
+            </div>
+            <button class="btn btn-success btn-lg" onclick="saveChanges()" id="saveBtn" disabled>
+                <i class="fas fa-save me-1"></i> حفظ التعديلات
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* تنسيق خاص لصفحة التعديل الجماعي */
+    #bulkEditTable {
+        color: #000 !important;
+    }
+
+    #bulkEditTable input,
+    #bulkEditTable select {
+        color: #000 !important;
+    }
+
+    #bulkEditTable td,
+    #bulkEditTable th {
+        color: #000 !important;
+    }
+</style>
+
+<script>
+    let loansData = [];
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize date pickers if needed
+    });
+
+    function loadLoans() {
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
+        const deptId = document.getElementById('filterDepartment').value;
+
+        let url = '/loans/bulk_edit/load?';
+        const params = [];
+
+        if (dateFrom) params.push(`date_from=${dateFrom}`);
+        if (dateTo) params.push(`date_to=${dateTo}`);
+        if (deptId) params.push(`department_id=${deptId}`);
+
+        url += params.join('&');
+
+        console.log('Loading loans from:', url);
+
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                console.log('Response:', data);
+                if (data.success) {
+                    loansData = data.loans;
+                    renderLoans();
+                    document.getElementById('saveBtn').disabled = false;
+                } else {
+                    alert('خطأ: ' + data.message);
+                }
+            })
+            .catch(err => {
+                alert('حدث خطأ في الاتصال');
+                console.error(err);
+            });
+    }
+
+    function renderLoans() {
+        const tbody = document.getElementById('bulkEditBody');
+        tbody.innerHTML = '';
+
+        if (loansData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">لا توجد سلف</td></tr>';
+            document.getElementById('totalCount').textContent = '0 إجمالي';
+            return;
+        }
+
+        loansData.forEach((loan, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+            <td class="text-center align-middle">
+                <input type="checkbox" class="loan-checkbox" data-index="${index}" onchange="updateSelectedCount()">
+            </td>
+            <td class="text-center align-middle">${index + 1}</td>
+            <td class="align-middle">${loan.employee_code}</td>
+            <td class="align-middle">${loan.employee_name}</td>
+            <td>
+                <input type="number" class="form-control form-control-sm" 
+                       value="${loan.amount}" step="0.01" 
+                       onchange="updateLoan(${index}, 'amount', this.value)">
+            </td>
+            <td>
+                <select class="form-select form-select-sm" 
+                        onchange="updateLoan(${index}, 'type', this.value)">
+                    <option value="permanent" ${loan.type === 'permanent' || loan.type === 'monthly' ? 'selected' : ''}>مستديمة</option>
+                    <option value="temporary" ${loan.type === 'temporary' || loan.type === 'emergency' ? 'selected' : ''}>مؤقتة</option>
+                </select>
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm" 
+                       value="${loan.installments_count}" min="1"
+                       onchange="updateLoan(${index}, 'installments_count', this.value)">
+            </td>
+            <td>
+                <input type="text" class="form-control form-control-sm date-string allow-month-end" 
+                       value="${loan.date || ''}" placeholder="DD/MM/YYYY"
+                       onchange="updateLoan(${index}, 'date', this.value)">
+            </td>
+            <td>
+                <input type="text" class="form-control form-control-sm" 
+                       value="${loan.excluded_months || ''}" placeholder="1,5,12"
+                       onchange="updateLoan(${index}, 'excluded_months', this.value)">
+            </td>
+        `;
+            tbody.appendChild(row);
+        });
+
+        document.getElementById('totalCount').textContent = `${loansData.length} إجمالي`;
+        updateSelectedCount();
+    }
+
+    function validateLoanDate(dateStr) {
+        if (!dateStr) return true;
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        let inputDate = null;
+        if (dateStr.includes('/')) {
+            const parts = dateStr.split('/');
+            if (parts.length === 3) {
+                inputDate = new Date(parts[2], parts[1] - 1, parts[0]);
+            }
+        } else if (dateStr.includes('-')) {
+            inputDate = new Date(dateStr);
+        }
+        
+        if (!inputDate) return false;
+        
+        inputDate.setHours(0, 0, 0, 0);
+        
+        if (inputDate > today) {
+            const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            if (inputDate > lastDayOfMonth) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function updateLoan(index, field, value) {
+        if (field === 'date' && value) {
+            if (!validateLoanDate(value)) {
+                alert('يجب أن تكون تاريخ السلفة في نهاية هذا الشهر على الأقصى');
+                renderLoans();
+                return;
+            }
+        }
+        
+        loansData[index][field] = value;
+        loansData[index].modified = true;
+
+        if (field === 'installments_count') {
+            const inst = parseInt(value);
+            if (inst === 1) {
+                loansData[index].type = 'temporary';
+                renderLoans();
+            } else if (inst > 1) {
+                loansData[index].type = 'permanent';
+                renderLoans();
+            }
+        }
+    }
+
+    function toggleSelectAll() {
+        const selectAll = document.getElementById('selectAll').checked;
+        document.querySelectorAll('.loan-checkbox').forEach(cb => {
+            cb.checked = selectAll;
+        });
+        updateSelectedCount();
+    }
+
+    function updateSelectedCount() {
+        const selected = document.querySelectorAll('.loan-checkbox:checked').length;
+        document.getElementById('selectedCount').textContent = `${selected} محدد`;
+    }
+
+    function saveChanges() {
+        const checkboxes = document.querySelectorAll('.loan-checkbox:checked');
+
+        if (checkboxes.length === 0) {
+            alert('يرجى تحديد السلف المراد تعديلها');
+            return;
+        }
+
+        const selectedLoans = [];
+        let hasDateErrors = false;
+        
+        checkboxes.forEach(cb => {
+            const index = parseInt(cb.dataset.index);
+            const loan = loansData[index];
+            
+            if (loan.date && !validateLoanDate(loan.date)) {
+                alert(`خطأ في التاريخ للسلفة: ${loan.employee_name} - يجب أن يكون التاريخ في نهاية الشهر الحالي على الأقصى`);
+                hasDateErrors = true;
+                return;
+            }
+            
+            selectedLoans.push(loan);
+        });
+        
+        if (hasDateErrors) return;
+
+        if (!confirm(`سيتم تعديل ${selectedLoans.length} سلفة. هل أنت متأكد؟`)) return;
+
+        fetch('{{ url_for("loans.bulk_edit_save") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ loans: selectedLoans })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`تم تعديل ${data.updated} سلفة بنجاح!`);
+                    window.location.href = "{{ url_for('loans.list') }}";
+                } else {
+                    alert('خطأ: ' + data.message);
+                }
+            })
+            .catch(err => {
+                alert('حدث خطأ في الاتصال');
+                console.error(err);
+            });
+    }
+</script>
+
+<script src="{{ url_for('static', filename='js/date_format.js') }}"></script>
+{% endblock %}

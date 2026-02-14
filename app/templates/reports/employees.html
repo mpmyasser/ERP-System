@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}تقرير الموظفين{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-users me-2"></i> تقرير الموظفين</h1>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h5>إجمالي الموظفين: {{ employees|length }}</h5>
+
+        {% if employees %}
+        <div class="table-responsive mt-3">
+            <table class="table table-striped datatable" id="employees-report-table">
+                <thead>
+                    <tr>
+                        <th>الكود</th>
+                        <th>الاسم</th>
+                        <th>القسم</th>
+                        <th>الوظيفة</th>
+                        <th>الفئة</th>
+                        <th>الراتب</th>
+                        <th>الحالة</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for emp in employees %}
+                    <tr>
+                        <td>{{ emp.code }}</td>
+                        <td>{{ emp.name }}</td>
+                        <td>{{ emp.department.name if emp.department else '-' }}</td>
+                        <td>{{ emp.job_title }}</td>
+                        <td>
+                            {% if emp.is_active %}
+                                {% if emp.category == 'WORKER' %}
+                                <span class="badge bg-info">عامل</span>
+                                {% elif emp.category == 'EMPLOYEE' %}
+                                <span class="badge bg-primary">موظف</span>
+                                {% elif emp.category == 'SUPERVISOR' %}
+                                <span class="badge bg-warning">مشرف</span>
+                                {% elif emp.category == 'DRIVER' %}
+                                <span class="badge bg-secondary">سائق</span>
+                                {% else %}
+                                <span class="badge bg-light">{{ emp.category }}</span>
+                                {% endif %}
+                            {% else %}
+                            <span class="badge bg-danger">لا يعمل</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ emp.effective_salary if emp.effective_salary is not none else emp.basic_salary }} جنيه</td>
+                        <td>
+                            {% if emp.is_active %}
+                            <span class="badge bg-success">يعمل</span>
+                            {% else %}
+                            <span class="badge bg-secondary">لا يعمل</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info mt-3">
+            <i class="fas fa-info-circle"></i> لا يوجد موظفين
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,624 @@
+body {
+    font-family: 'Cairo', sans-serif;
+    background-color: #f8f9fa;
+}
+
+.sidebar {
+    position: fixed;
+    top: 56px;
+    bottom: 0;
+    z-index: 1000;
+    padding: 20px 0 0;
+    background: #2c3e50;
+    /* لون داكن احترافي للخلفية */
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+    overflow-y: auto;
+    transition: all 0.3s ease;
+}
+
+html[dir="rtl"] .sidebar {
+    right: auto;
+    left: 0;
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.sidebar .nav-link {
+    font-weight: 600;
+    color: #ecf0f1 !important;
+    /* لون فاتح للنص */
+    padding: 0.9rem 1.2rem;
+    margin: 0.6rem 1rem;
+    border-radius: 15px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.sidebar .nav-link i {
+    margin-left: 10px;
+    font-size: 1.2rem;
+    width: 25px;
+    text-align: center;
+    color: #3498db;
+    /* أيقونات ملونة */
+}
+
+.sidebar .nav-link:hover {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    box-shadow: 0 0 20px rgba(52, 152, 219, 0.6);
+    transform: translateX(8px);
+    /* للـ RTL يتحرك لليمين */
+    color: #fff !important;
+}
+
+.sidebar .nav-link.active {
+    background: linear-gradient(135deg, #1abc9c 0%, #16a085 100%);
+    box-shadow: 0 0 20px rgba(26, 188, 156, 0.5);
+    border: none;
+}
+
+.sidebar .nav-link.active i {
+    color: #fff;
+}
+
+/* تحسين انتقال الهوفر في RTL */
+html[dir="rtl"] .sidebar .nav-link:hover {
+    transform: translateX(8px);
+    /* يتحرك لليمين باتجاه المحتوى */
+}
+
+/* List Glow Items for Dashboard */
+.list-glow-item {
+    border: none !important;
+    margin-bottom: 0.8rem;
+    border-radius: 12px !important;
+    background: #fff;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    padding: 1rem !important;
+    display: flex !important;
+    align-items: center;
+    color: #333 !important;
+}
+
+.list-glow-item:hover {
+    background: #fff !important;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    transform: translateY(-3px);
+    color: #0d6efd !important;
+}
+
+.list-glow-item i {
+    font-size: 1.2rem;
+    margin-left: 10px;
+    transition: transform 0.3s ease;
+}
+
+.list-glow-item:hover i {
+    transform: scale(1.2);
+}
+
+main {
+    padding-top: 20px;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    margin-bottom: 1.5rem;
+}
+
+.btn {
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border: none;
+}
+
+/* Glow Effect Buttons */
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%);
+    box-shadow: 0 6px 25px rgba(102, 126, 234, 0.6);
+    transform: translateY(-2px);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    box-shadow: 0 4px 15px rgba(17, 153, 142, 0.4);
+}
+
+.btn-success:hover {
+    background: linear-gradient(135deg, #0f8a7f 0%, #2ed66d 100%);
+    box-shadow: 0 6px 25px rgba(17, 153, 142, 0.6);
+    transform: translateY(-2px);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+    box-shadow: 0 4px 15px rgba(235, 51, 73, 0.4);
+}
+
+.btn-danger:hover {
+    background: linear-gradient(135deg, #d42c40 0%, #e0533c 100%);
+    box-shadow: 0 6px 25px rgba(235, 51, 73, 0.6);
+    transform: translateY(-2px);
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    box-shadow: 0 4px 15px rgba(240, 147, 251, 0.4);
+    color: #fff;
+}
+
+.btn-warning:hover {
+    background: linear-gradient(135deg, #e085eb 0%, #e04d60 100%);
+    box-shadow: 0 6px 25px rgba(240, 147, 251, 0.6);
+    transform: translateY(-2px);
+    color: #fff;
+}
+
+.btn-info {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4);
+    color: #fff;
+}
+
+.btn-info:hover {
+    background: linear-gradient(135deg, #45a0f0 0%, #00e0ed 100%);
+    box-shadow: 0 6px 25px rgba(79, 172, 254, 0.6);
+    transform: translateY(-2px);
+    color: #fff;
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, #667eea 0%, #8e9eab 100%);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.btn-secondary:hover {
+    background: linear-gradient(135deg, #5a6fd6 0%, #7d8c99 100%);
+    box-shadow: 0 6px 25px rgba(102, 126, 234, 0.5);
+    transform: translateY(-2px);
+}
+
+.btn-light {
+    background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    color: #333;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.btn-light:hover {
+    background: linear-gradient(135deg, #ffffff 0%, #e0e2e3 100%);
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+    color: #333;
+}
+
+/* Dashboard Quick Action Cards */
+.dashboard-action-card {
+    background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+    border-radius: 15px;
+    transition: all 0.3s ease;
+    border: none;
+}
+
+.dashboard-action-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+}
+
+.dashboard-action-card i {
+    transition: transform 0.3s ease;
+}
+
+.dashboard-action-card:hover i {
+    transform: scale(1.2);
+}
+
+.table-responsive {
+    overflow-x: auto;
+    max-height: 80vh;
+    /* For sticky header support */
+    position: relative;
+}
+
+/* Sticky Header */
+.table thead th {
+    position: sticky !important;
+    top: 0;
+    z-index: 20;
+    background-color: #f8f9fa !important;
+    box-shadow: inset 0 -2px 0 #dee2e6;
+    color: #000 !important;
+}
+
+/* جعل جميع رؤوس الأعمدة بلون أسود */
+table thead th,
+table thead td,
+.table-dark th,
+.table-dark td {
+    color: #000 !important;
+}
+
+/* توسيط عناوين الأعمدة أفقيًا */
+.datatable th {
+    text-align: center !important;
+}
+
+/* RTL Adjustments */
+html[dir="rtl"] .sidebar {
+    right: auto;
+    left: 0;
+}
+
+/* Dashboard Cards */
+.dashboard-card {
+    transition: transform 0.2s;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-5px);
+}
+
+/* Forms */
+.form-label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.form-control:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* Custom spacing */
+.mt-custom {
+    margin-top: 2rem;
+}
+
+.mb-custom {
+    margin-bottom: 2rem;
+}
+
+
+/* Table Head for Resizing */
+/* Button Active State */
+.btn:active,
+.btn.active {
+    transform: scale(0.98);
+    box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125) !important;
+}
+
+/* Sidebar Link Active State */
+.sidebar .nav-link:active {
+    background-color: rgba(13, 110, 253, 0.2);
+    color: #000;
+}
+
+/* Table Head for Resizing */
+th {
+    position: relative;
+    min-width: 80px;
+}
+
+.resizer {
+    /* For RTL: handle on left edge */
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 5px;
+    height: 100%;
+    cursor: col-resize;
+    user-select: none;
+}
+
+/* Top Scrollbar for wide tables */
+.top-scrollbar-wrapper {
+    width: 100%;
+    background-color: #eee;
+    height: 12px;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    margin-bottom: 2px;
+    border: 1px solid #ccc;
+    display: none;
+    /* Shown by JS if needed */
+}
+
+.top-scrollbar-wrapper div {
+    height: 1px;
+}
+
+/* Custom Scrollbar Styling (Webkit) */
+.top-scrollbar-wrapper::-webkit-scrollbar {
+    height: 8px;
+}
+
+.top-scrollbar-wrapper::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.top-scrollbar-wrapper::-webkit-scrollbar-thumb {
+    background: #bbb;
+    border-radius: 4px;
+}
+
+.top-scrollbar-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #888;
+}
+
+/* Column Resizer Visuals */
+.resizer:hover,
+.resizing {
+    background-color: #0d6efd;
+    width: 6px;
+    opacity: 1;
+}
+
+/* Hide table footer on screen, show in print */
+tfoot {
+    display: none;
+}
+
+@media print {
+    tfoot {
+        display: table-footer-group !important;
+    }
+}
+
+/* Print Styles */
+@media print {
+    @page {
+        size: auto;
+        margin: 2mm !important;
+    }
+
+    body {
+        direction: rtl !important;
+        text-align: right !important;
+        background-color: white !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        font-size: 10pt !important;
+    }
+
+    .d-print-none {
+        display: none !important;
+    }
+
+    .d-print-flex {
+        display: flex !important;
+    }
+
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+        background-color: transparent !important;
+        color: black !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .card-title,
+    .card-text {
+        color: black !important;
+    }
+
+    .bg-primary,
+    .bg-success {
+        background-color: transparent !important;
+        color: black !important;
+    }
+
+    .table-responsive {
+        overflow: visible !important;
+        width: 100% !important;
+    }
+
+    .navbar,
+    .sidebar,
+    .btn-toolbar,
+    .card-header,
+    .dataTables_wrapper .row:first-child,
+    .dataTables_wrapper .row:last-child,
+    .dataTables_paginate,
+    .dataTables_info,
+    .dataTables_length,
+    .dataTables_filter,
+    form,
+    #stats-row,
+    .btn,
+    .d-print-none,
+    hr,
+    .border-bottom {
+        display: none !important;
+    }
+
+    /* إزالة الهوامش من العناوين في التقرير */
+    .d-print-block h2 {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        margin-bottom: 10px !important;
+    }
+
+    .d-print-block h4 {
+        margin-top: 10px !important;
+        margin-bottom: 10px !important;
+    }
+
+    .department-header {
+        background-color: #eee !important;
+        padding: 5px 10px !important;
+        border: 1px solid #000 !important;
+        display: block !important;
+        page-break-after: avoid !important;
+        margin-top: 5px !important;
+    }
+
+    .table {
+        direction: rtl !important;
+        width: 100% !important;
+        border-collapse: collapse !important;
+        page-break-inside: auto !important;
+        table-layout: fixed !important;
+    }
+
+    /* تحديد عرض عمود الكود */
+    .department-report-section table th:nth-child(1),
+    .department-report-section table td:nth-child(1) {
+        width: 3.75% !important;
+        max-width: 3.75% !important;
+        white-space: nowrap !important;
+    }
+
+    /* تنسيق صف الإجمالي الكلي */
+    .mt-5.border-top {
+        margin-top: 30px !important;
+        padding-top: 15px !important;
+        page-break-inside: avoid !important;
+    }
+
+    .mt-5.border-top table {
+        background-color: #34495e !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .mt-5.border-top table td {
+        color: white !important;
+        background-color: #34495e !important;
+        white-space: nowrap !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .table td,
+    .table th {
+        padding: 4px 2px !important;
+        word-wrap: break-word !important;
+        font-size: 9pt !important;
+        height: 25px !important;
+        line-height: 1.2 !important;
+        vertical-align: middle !important;
+    }
+
+    .table tr {
+        page-break-inside: avoid !important;
+        page-break-after: auto !important;
+        height: 25px !important;
+    }
+
+    .table thead {
+        display: table-header-group !important;
+    }
+
+    /* جعل رؤوس الأعمدة بلون أسود في الطباعة */
+    .table thead th,
+    .table thead td,
+    .table-dark th,
+    .table-dark td,
+    thead th,
+    thead td {
+        color: #000 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .badge {
+        border: 1px solid #ccc !important;
+        padding: 2px 4px !important;
+        font-size: 8pt !important;
+    }
+}
+
+/* Pagination Buttons Order */
+.dataTables_paginate .pagination {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+}
+
+.dataTables_paginate .pagination .page-item {
+    order: 2 !important;
+}
+
+.dataTables_paginate .pagination .page-item.next {
+    order: 1 !important;
+}
+
+.dataTables_paginate .pagination .page-item.previous {
+    order: 3 !important;
+}
+
+.dataTables_paginate .pagination .page-item .page-link {
+    border-radius: 0 !important;
+}
+
+.dataTables_paginate .pagination .page-item.next .page-link {
+    border-top-right-radius: 0.25rem !important;
+    border-bottom-right-radius: 0.25rem !important;
+}
+
+.dataTables_paginate .pagination .page-item.previous .page-link {
+    border-top-left-radius: 0.25rem !important;
+    border-bottom-left-radius: 0.25rem !important;
+}
+
+/* ===== Ensure DataTables toolbar (buttons) stays visible on small screens ===== */
+/* Primary: make toolbar float above table (works in Chrome/Edge/Firefox)
+   Secondary: use sticky positioning so toolbar won't be clipped by table rows */
+.dataTables_wrapper .dt-buttons {
+    position: sticky !important;
+    top: 0 !important;               /* keep it pinned to top of wrapper */
+    z-index: 1200 !important;        /* float above table */
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0.35rem !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    margin-bottom: .5rem !important; /* keep space between toolbar and table */
+    background: rgba(255,255,255,0.92) !important; /* prevents visual bleed on some browsers */
+    backdrop-filter: blur(2px) !important;
+    -webkit-backdrop-filter: blur(2px) !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06) !important;
+}
+
+.dataTables_wrapper .dt-buttons .btn {
+    padding: .35rem .55rem !important;
+    font-size: .85rem !important;
+    white-space: nowrap !important;
+}
+
+/* Small extra spacing so sticky toolbar does not overlap the table content */
+.dataTables_wrapper .table-responsive { padding-top: 0.6rem !important; }
+
+
+/* Ensure table container stays below toolbar */
+.dataTables_wrapper .table-responsive {
+    position: relative !important;
+    z-index: 1 !important;
+}
+
+/* Prevent the toolbar row from being clipped */
+.dataTables_wrapper .row.d-print-none {
+    overflow: visible !important;
+}
+
+/* Fallback: force colvis button visible */
+.dt-button.buttons-colvis {
+    display: inline-flex !important;
+    visibility: visible !important;
+}

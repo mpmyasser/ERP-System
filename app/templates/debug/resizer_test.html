@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Resizer Test{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-secondary text-white">Table Resizer Test</div>
+    <div class="card-body">
+        <p>هذه صفحة اختبار لتأكيد عمل <code>table_resizer.js</code>. يجب أن تظهر شارة "Resizer OK" على هذا الجدول، ولوحة التصحيح في أسفل اليمين، وزر إعادة الضبط.</p>
+        <div class="table-responsive">
+            <table id="resizer-test-table" class="table table-bordered table-sm">
+                <thead>
+                    <tr><th>الكود</th><th>الاسم</th><th>الهاتف</th><th>القسم</th><th>الوظيفة</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>1001</td><td>أحمد محمد</td><td>01012345678</td><td>المبيعات</td><td>مندوب</td></tr>
+                    <tr><td>1002</td><td>سارة علي</td><td>01087654321</td><td>الشؤون الإدارية</td><td>مشرفة</td></tr>
+                    <tr><td>1003</td><td>محمود حسن</td><td>01055566677</td><td>المخازن</td><td>عامل</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="mt-3"><strong>ملاحظة:</strong> بعد تحميل الصفحة قم بعمل <code>Ctrl+F5</code> وتحقق من وجود الشارات واللوحة.</p>
+    </div>
+</div>
+{% endblock %}

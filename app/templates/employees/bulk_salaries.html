@@ -1,0 +1,585 @@
+{% extends "base.html" %}
+
+{% block title %}تعديل المرتبات جماعياً{% endblock %}
+
+{% block content %}
+
+<style>
+    /* ضبط عرض الحقول ليكون ملائمًا لطول البيانات داخل الجدول */
+    .salary-input-wide {
+        min-width: 140px;
+        width: 100%;
+    }
+
+    #effective-date {
+        min-width: 180px;
+    }
+</style>
+
+<!-- Move Script to Top to ensure functions are defined before they are called by inline handlers -->
+<script>
+    // Core Calculation Logic - Vanilla JS for maximum compatibility
+    window.roundTo5 = function (value) {
+        return Math.round(value / 5) * 5;
+    };
+
+    window.calculateRow = function (row) {
+        if (!row) return;
+
+        try {
+            const currentSalary = parseFloat(row.getAttribute('data-current-salary')) || 0;
+            const adjustmentInput = row.querySelector('.adjustment-input');
+            if (!adjustmentInput) return;
+
+            const adjustment = parseFloat(adjustmentInput.value) || 0;
+
+            // Get selected method
+            const methodInput = document.querySelector('input[name="adjustmentMethod"]:checked');
+            const method = methodInput ? methodInput.value : 'fixed';
+
+            let increase = 0;
+            let newSalary = currentSalary;
+
+            if (method === 'percent') {
+                const rawIncrease = (currentSalary * adjustment) / 100;
+                increase = window.roundTo5(rawIncrease);
+                newSalary = currentSalary + increase;
+            } else {
+                increase = adjustment;
+                newSalary = currentSalary + adjustment;
+            }
+
+            // Update Increase Amount Display
+            const increaseSpan = row.querySelector('.increase-amount');
+            if (increaseSpan) {
+                if (method === 'percent') {
+                    // Show both % and actual increase: e.g. "5% = (250)"
+                    increaseSpan.textContent = adjustment + '% = (' + increase.toFixed(2) + ')';
+                } else {
+                    increaseSpan.textContent = increase.toFixed(2);
+                }
+
+                // Color coding
+                if (increase > 0) {
+                    increaseSpan.style.color = '#198754'; // success
+                } else if (increase < 0) {
+                    increaseSpan.style.color = '#dc3545'; // danger
+                } else {
+                    increaseSpan.style.color = '#6c757d'; // muted
+                }
+            }
+
+            // Update New Salary Input
+            const newSalaryInput = row.querySelector('.new-salary-input');
+            if (newSalaryInput) {
+                newSalaryInput.value = newSalary.toFixed(2);
+
+                // Styling based on change
+                if (Math.abs(newSalary - currentSalary) > 0.001) {
+                    if (newSalary > currentSalary) {
+                        newSalaryInput.style.color = '#198754';
+                        newSalaryInput.style.backgroundColor = '#d1f1d7';
+                    } else {
+                        newSalaryInput.style.color = '#dc3545';
+                        newSalaryInput.style.backgroundColor = '#fde5e5';
+                    }
+                } else {
+                    newSalaryInput.style.color = '';
+                    newSalaryInput.style.backgroundColor = '';
+                }
+            }
+
+            // Update Status Column
+            const statusBadge = row.querySelector('.calc-status');
+            if (statusBadge) {
+                if (Math.abs(newSalary - currentSalary) > 0.001) {
+                    statusBadge.textContent = 'مُحدَّث';
+                    statusBadge.className = 'badge bg-success calc-status';
+                } else {
+                    statusBadge.textContent = 'قيد التعديل';
+                    statusBadge.className = 'badge bg-secondary calc-status';
+                }
+            }
+
+            // Highlight adjustment input if changed
+            if (adjustment !== 0) {
+                adjustmentInput.classList.add('salary-modified');
+            } else {
+                adjustmentInput.classList.remove('salary-modified');
+            }
+
+        } catch (err) {
+            console.error('Calculation Error:', err);
+        }
+    };
+
+    window.recalculateAll = function () {
+        const rows = document.querySelectorAll('#bulk-salaries-table tbody tr');
+        rows.forEach(row => window.calculateRow(row));
+    };
+
+    // Toggle Visibility of columns based on method
+    window.updateMethodUI = function () {
+        const methodInput = document.querySelector('input[name="adjustmentMethod"]:checked');
+        const method = methodInput ? methodInput.value : 'fixed';
+
+        const units = document.querySelectorAll('.method-unit');
+        units.forEach(u => u.textContent = (method === 'percent' ? '%' : 'ج.م'));
+
+        const incHeaders = document.querySelectorAll('.increase-column-header');
+        const incCols = document.querySelectorAll('.increase-column');
+
+        if (method === 'percent') {
+            incHeaders.forEach(h => h.style.display = '');
+            incCols.forEach(c => c.style.display = '');
+        } else {
+            incHeaders.forEach(h => h.style.display = 'none');
+            incCols.forEach(c => c.style.display = 'none');
+        }
+
+        window.recalculateAll();
+    };
+</script>
+
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-money-bill-wave me-2"></i> تعديل المرتبات جماعياً</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <button id="save-all-btn" type="submit" class="btn btn-success me-2">
+            <i class="fas fa-save"></i> حفظ التغييرات
+        </button>
+        <a href="{{ url_for('employees.list') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-right"></i> رجوع للقائمة
+        </a>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-7">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-primary text-white py-2">
+                <i class="fas fa-tools me-1"></i> إعدادات التعديل
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">طريقة التعديل</label>
+                        <div class="d-flex gap-3 mt-1">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="adjustmentMethod" id="methodFixed"
+                                    value="fixed" checked onchange="updateMethodUI()">
+                                <label class="form-check-label" for="methodFixed">قيمة ثابتة (±)</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="adjustmentMethod" id="methodPercent"
+                                    value="percent" onchange="updateMethodUI()">
+                                <label class="form-check-label" for="methodPercent">نسبة مئوية (%)</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="effective-date" class="form-label fw-bold">تاريخ التفعيل / الاستحقاق</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+                            <input type="text" id="effective-date" class="form-control date-string allow-future salary-input-wide"
+                                placeholder="dd/mm/yyyy" value="{{ now.strftime('%d/%m/%Y') }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-info text-white py-2">
+                <i class="fas fa-filter me-1"></i> تصفية الأقسام
+            </div>
+            <div class="card-body">
+                <form method="get" id="filter-form">
+                    <select name="departments" id="dept-filter" class="form-select" multiple size="1">
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}" {% if dept.id in selected_dept_ids %}selected{% endif %}>
+                            {{ dept.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-primary mt-2 w-100">
+                        <i class="fas fa-filter"></i> بحث
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped align-middle mb-0" id="bulk-salaries-table">
+                <thead class="table-dark">
+                    <tr>
+                        <th style="min-width: 80px;">الكود</th>
+                        <th style="min-width: 200px;">اسم الموظف</th>
+                        <th style="min-width: 150px;">القسم</th>
+                        <th class="text-center" style="min-width: 120px;">الراتب الحالي</th>
+                        <th class="text-center" style="min-width: 120px;">التعديل</th>
+                        <th class="text-center increase-column-header" style="min-width: 120px; display: none;">الزيادة
+                        </th>
+                        <th class="text-center" style="min-width: 120px;">الراتب الجديد</th>
+                        <th class="text-center" style="min-width: 90px;">الحالة</th>
+                        <th class="text-center" style="min-width: 120px;">تاريخ التفعيل</th>
+                        <th style="min-width: 140px;">تاريخ التعديل</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for emp in employees %}
+                    <tr data-emp-id="{{ emp.id }}" data-current-salary="{{ emp.effective_salary if emp.effective_salary is not none else emp.basic_salary }}">
+                        <td><strong>{{ emp.code }}</strong></td>
+                        <td>{{ emp.name }}</td>
+                        <td><span class="badge bg-light text-dark">{{ emp.department.name if emp.department else '-'
+                                }}</span></td>
+                        <td class="text-center">
+                            <span class="fw-bold text-primary">{{ "%.2f"|format(emp.effective_salary if emp.effective_salary is not none else emp.basic_salary) }}</span>
+                        </td>
+                        <td>
+                            <div class="input-group input-group-sm">
+                                <input type="number" step="0.01" class="form-control adjustment-input text-center salary-input-wide"
+                                    value="0" oninput="window.calculateRow(this.closest('tr'))">
+                                <span class="input-group-text method-unit">ج.م</span>
+                            </div>
+                        </td>
+                        <td class="text-center increase-column" style="display: none;">
+                            <span class="increase-amount fw-bold" style="font-size: 0.95rem;">0.00</span>
+                        </td>
+                        <td class="text-center">
+                            <input type="number" step="0.01"
+                                class="form-control form-control-sm new-salary-input text-center fw-bold bg-light salary-input-wide"
+                                value="{{ "%.2f"|format(emp.effective_salary if emp.effective_salary is not none else emp.basic_salary) }}" readonly>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-secondary calc-status">قيد التعديل</span>
+                        </td>
+                        <td class="text-center">
+                            <small class="text-muted">
+                                {% if emp.salary_history|length > 1 %}
+                                    {{ emp.effective_salary_date.strftime('%d/%m/%Y') if emp.effective_salary_date else '-' }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </small>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center justify-content-between">
+                                <small class="text-muted">
+                                    {% if emp.salary_history|length > 1 and emp.salary_updated_at %}
+                                        {{ emp.salary_updated_at.strftime('%d/%m/%Y') }}
+                                    {% else %}
+                                        لم يعدل
+                                    {% endif %}
+                                </small>
+                                {% if emp.salary_history|length > 1 and has_perm('bulk_salary_manage') %}
+                                <button type="button"
+                                    class="btn btn-sm btn-danger ms-2 delete-update-btn d-inline-flex align-items-center gap-1"
+                                    data-emp-id="{{ emp.id }}" onclick="rollbackSalary(this)">
+                                    <i class="fas fa-trash-alt"></i> <span>حذف</span>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    .salary-modified {
+        background-color: #e8f5e9 !important;
+        border-color: #4caf50 !important;
+        font-weight: bold;
+    }
+
+    .new-salary-input:read-only {
+        cursor: default;
+    }
+
+    .increase-amount {
+        display: inline-block;
+        min-width: 100px;
+        padding: 2px 5px;
+        background: rgba(0, 0, 0, 0.03);
+        border-radius: 4px;
+    }
+
+    /* Excel-like Header Resize Cues */
+    .table-responsive th {
+        position: relative;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .table-responsive th:hover {
+        background-color: #343a40 !important;
+    }
+
+    .table-responsive th,
+    .table-responsive td {
+        transition: width 0.1s ease;
+    }
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function initBulkSalariesPage() {
+        // Run initial UI state
+        window.updateMethodUI();
+
+        // Defensive: trim numeric input values (remove accidental leading/trailing spaces that break number parsing)
+        try {
+            document.querySelectorAll('#bulk-salaries-table input[type="number"]').forEach(i => {
+                if (i.value && typeof i.value === 'string') i.value = i.value.trim();
+            });
+        } catch (e) { console.error('Trim numeric inputs error', e); }
+
+        // Persist effective date selection across reloads
+        const effectiveInput = document.getElementById('effective-date');
+        if (effectiveInput) {
+            const savedEffectiveDate = window.HRSettingsUtil.get('bulk_salaries_effective_date', '');
+
+            if (savedEffectiveDate) {
+                effectiveInput.value = savedEffectiveDate;
+                if (effectiveInput._flatpickr) {
+                    effectiveInput._flatpickr.setDate(savedEffectiveDate, false, 'd/m/Y');
+                }
+            } else {
+                window.HRSettingsUtil.set('bulk_salaries_effective_date', effectiveInput.value);
+            }
+
+            effectiveInput.addEventListener('change', function () {
+                window.HRSettingsUtil.set('bulk_salaries_effective_date', effectiveInput.value);
+            });
+        }
+
+        // Initialize Select2 if available
+        if (window.jQuery && $.fn.select2) {
+            $('#dept-filter').select2({
+                placeholder: "اختر الأقسام...",
+                allowClear: true,
+                width: '100%',
+                dir: 'rtl'
+            });
+        }
+
+        // Date Display Formatting Logic
+        // Date selection uses system flatpickr via .date-string class
+
+        function normalizeArabicDigits(value) {
+            if (!value) return value;
+            const arabicDigits = '٠١٢٣٤٥٦٧٨٩';
+            const easternDigits = '۰۱۲۳۴۵۶۷۸۹';
+            return value.replace(/[٠-٩]/g, d => arabicDigits.indexOf(d))
+                        .replace(/[۰-۹]/g, d => easternDigits.indexOf(d));
+        }
+
+        function getEffectiveDateValue() {
+            const input = document.getElementById('effective-date');
+            if (!input) return '';
+
+            // If flatpickr is attached, prefer its selected date
+            if (input._flatpickr && input._flatpickr.selectedDates && input._flatpickr.selectedDates.length > 0) {
+                return normalizeArabicDigits(input._flatpickr.formatDate(input._flatpickr.selectedDates[0], 'd/m/Y'));
+            }
+
+            return normalizeArabicDigits((input.value || '').trim());
+        }
+
+        function getEffectiveDateISO() {
+            const input = document.getElementById('effective-date');
+            if (!input) return '';
+
+            if (input._flatpickr && input._flatpickr.selectedDates && input._flatpickr.selectedDates.length > 0) {
+                return input._flatpickr.formatDate(input._flatpickr.selectedDates[0], 'Y-m-d');
+            }
+
+            const raw = normalizeArabicDigits((input.value || '').trim());
+            const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            if (m) {
+                const dd = m[1].padStart(2, '0');
+                const mm = m[2].padStart(2, '0');
+                const yyyy = m[3];
+                return `${yyyy}-${mm}-${dd}`;
+            }
+            return '';
+        }
+
+        // Save Logic - Direct addEventListener on correct button
+        const saveBtn = document.getElementById('save-all-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const updates = [];
+                const effectiveDate = getEffectiveDateValue();
+                const effectiveDateISO = getEffectiveDateISO();
+
+                document.querySelectorAll('#bulk-salaries-table tbody tr').forEach((row) => {
+                    const currentSalary = parseFloat(row.getAttribute('data-current-salary')) || 0;
+                    const newSalaryInput = row.querySelector('.new-salary-input');
+                    const newSalary = parseFloat(newSalaryInput ? newSalaryInput.value : 0) || 0;
+
+                    // Include if there's any change
+                    if (Math.abs(newSalary - currentSalary) > 0.001) {
+                        updates.push({
+                            employee_id: row.getAttribute('data-emp-id'),
+                            basic_salary: newSalary
+                        });
+                    }
+                });
+
+                if (updates.length === 0) {
+                    Swal.fire({ icon: 'info', text: 'لا توجد تغييرات لحفظها' });
+                    return;
+                }
+
+                if (!effectiveDate && !effectiveDateISO) {
+                    Swal.fire({ icon: 'warning', text: 'من فضلك اختر تاريخ التفعيل / الاستحقاق أولًا' });
+                    return;
+                }
+
+                // Direct fetch with explicit CSRF token from Meta or Template
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || "{{ csrf_token() }}";
+
+                fetch("{{ url_for('employees.bulk_salaries_save') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({
+                        updates: updates,
+                        effective_date: effectiveDate,
+                        effective_date_iso: effectiveDateISO
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        if (typeof showCenteredFlash === 'function') {
+                            showCenteredFlash(data.message || 'تم تحديث الرواتب بنجاح', 'center');
+                            setTimeout(() => location.reload(), 900);
+                        } else {
+                            Swal.fire({ icon: 'success', title: 'تم بنجاح', text: 'تم تحديث الرواتب بنجاح' })
+                                .then(() => location.reload());
+                        }
+                    } else {
+                        Swal.fire({ icon: 'error', text: data.message || 'حدث خطأ' });
+                    }
+                })
+                .catch(error => {
+                    console.error("Save Error:", error);
+                    Swal.fire({ icon: 'error', text: 'حدث خطأ في الاتصال أو البيانات' });
+                });
+            });
+        }
+
+        // Delete (Rollback) Update Logic
+        window.rollbackSalary = function (btn) {
+            const empId = btn?.getAttribute('data-emp-id');
+            if (!empId) return;
+
+            Swal.fire({
+                title: 'حذف التعديل الأخير؟',
+                text: "سيتم حذف آخر تعديل للراتب واستعادة القيمة السابقة!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'نعم، حذف',
+                cancelButtonText: 'إلغاء'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || "{{ csrf_token() }}";
+
+                    fetch(`/employees/salary_history/rollback/${empId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            if (typeof showCenteredFlash === 'function') {
+                                showCenteredFlash('تم التراجع عن التعديل بنجاح', 'center');
+                                setTimeout(() => location.reload(), 900);
+                            } else {
+                                if (typeof showCenteredFlash === 'function') {
+                                    showCenteredFlash('تم التراجع عن التعديل بنجاح', 'center');
+                                    setTimeout(() => location.reload(), 900);
+                                } else {
+                                    Swal.fire('تم الحذف!', 'تم التراجع عن التعديل بنجاح', 'success')
+                                        .then(() => location.reload());
+                                }
+                            }
+                        } else {
+                            Swal.fire('خطأ', data.message || 'حدث خطأ ما', 'error');
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        Swal.fire('خطأ', 'فشل الاتصال بالخادم', 'error');
+                    });
+                }
+            });
+        };
+
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('.delete-update-btn');
+            if (btn) {
+                e.preventDefault();
+                window.rollbackSalary(btn);
+            }
+        });
+
+        // Column resizing and autosize handled globally by `static/js/table_resizer.js`.
+        document.addEventListener('dblclick', function (e) {
+            if (e.target.tagName === 'TH') {
+                const th = e.target;
+                const index = Array.from(th.parentNode.children).indexOf(th);
+                const table = th.closest('table');
+                if (table && window.HRTableResizer) window.HRTableResizer.autoSize(table, index);
+            }
+        });
+
+        // Auto-size after input changes (debounced)
+        document.addEventListener('input', function (e) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') {
+                const td = e.target.closest('td');
+                if (!td) return;
+                const table = td.closest('table');
+                const index = Array.from(td.parentNode.children).indexOf(td);
+                if (table) {
+                    clearTimeout(window.__hr_resize_timer);
+                    window.__hr_resize_timer = setTimeout(() => {
+                        if (window.HRTableResizer) window.HRTableResizer.autoSize(table, index);
+                    }, 500);
+                }
+            }
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initBulkSalariesPage);
+    } else {
+        initBulkSalariesPage();
+    }
+</script>
+{% endblock %}

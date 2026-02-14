@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}إعدادات النظام - مركز التحكم{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h2 class="h3 mb-0 text-gray-800">
+                <i class="fas fa-cog text-primary"></i>
+                إعدادات النظام (HR Engine Control Center)
+            </h2>
+        </div>
+    </div>
+
+    <!-- Alert for updates -->
+    <div class="alert alert-info shadow-sm mb-4 border-start border-info border-4">
+        <div class="d-flex">
+            <div class="py-1"><i class="fas fa-info-circle fa-2x me-3"></i></div>
+            <div>
+                <h5 class="alert-heading">تحكم كامل في قواعد النظام</h5>
+                <p class="mb-0">تعديل هذه القيم سيؤثر فوراً على كافة عمليات حساب الرواتب والتقارير القادمة. يرجى الحذر عند تغيير المعاملات المالية.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4 border-0 rounded-3 overflow-hidden">
+        <div class="card-header py-3 bg-light border-bottom">
+            <ul class="nav nav-pills card-header-pills" id="settingsTabs" role="tablist">
+                {% for category, settings in categories.items() %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {% if loop.first %}active{% endif %} fw-bold px-4" id="{{ category }}-tab" 
+                            data-bs-toggle="tab" data-bs-target="#{{ category }}" 
+                            type="button" role="tab" aria-controls="{{ category }}" 
+                            aria-selected="{{ loop.first }}">
+                        {% if category == 'Attendance' %}
+                            <i class="fas fa-clock"></i> الحضور والتأخير
+                        {% elif category == 'Overtime' %}
+                            <i class="fas fa-bolt"></i> محرك الإضافي
+                        {% elif category == 'Financial' %}
+                            <i class="fas fa-money-bill-wave"></i> هندسة الرواتب
+                        {% elif category == 'Incentives' %}
+                            <i class="fas fa-star"></i> الحوافز
+                        {% elif category == 'Absence' %}
+                            <i class="fas fa-user-times"></i> الغياب والجزاءات
+                        {% else %}
+                            {{ category }}
+                        {% endif %}
+                    </button>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="card-body p-4 bg-white">
+            <form method="POST" action="{{ url_for('settings.index') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
+                <div class="tab-content" id="settingsTabsContent">
+                    {% for category, settings in categories.items() %}
+                    <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="{{ category }}" 
+                         role="tabpanel" aria-labelledby="{{ category }}-tab">
+                        <div class="row pt-2">
+                            {% for setting in settings %}
+                            <div class="col-md-6 col-lg-4 mb-4">
+                                <div class="p-3 border rounded-3 bg-light h-100">
+                                    <label for="{{ setting.key }}" class="form-label fw-bold text-dark d-block mb-2">
+                                        {{ setting.description }}
+                                    </label>
+                                    <div class="input-group mb-2">
+                                        <input type="text" class="form-control border-primary" name="{{ setting.key }}" 
+                                               id="{{ setting.key }}" value="{{ setting.value }}">
+                                        {% if setting.data_type == 'int' %}
+                                            <span class="input-group-text bg-primary text-white border-primary"><small>عدد</small></span>
+                                        {% elif setting.data_type == 'float' %}
+                                            <span class="input-group-text bg-primary text-white border-primary"><small>معامل</small></span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-muted">المفتاح:</small>
+                                        <code class="small">{{ setting.key }}</code>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="mt-5 border-top pt-4 text-end">
+                    <button type="reset" class="btn btn-outline-secondary px-4 me-2">
+                        <i class="fas fa-undo"></i> تراجع
+                    </button>
+                    <button type="submit" class="btn btn-primary px-5 fw-bold shadow">
+                        <i class="fas fa-save me-2"></i> حفظ كافة الإعدادات
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .nav-pills .nav-link.active {
+        background-color: var(--bs-primary);
+        box-shadow: 0 4px 10px rgba(13, 110, 253, 0.2);
+    }
+    .nav-link {
+        color: #555;
+        border-radius: 8px !important;
+        margin-left: 5px;
+    }
+    .nav-link i {
+        margin-left: 8px;
+    }
+    .form-control:focus {
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
+    }
+</style>
+{% endblock %}

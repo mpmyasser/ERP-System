@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}عرض قيد اليومية #{{ entry.id }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-book me-2"></i> عرض قيد اليومية #{{ entry.id }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('accounting.edit_journal', id=entry.id) }}" class="btn btn-warning me-1">
+            <i class="fas fa-edit"></i> تعديل
+        </a>
+        <a href="{{ url_for('accounting.list_journals') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-right"></i> رجوع
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> معلومات القيد</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <p class="mb-2"><strong>رقم القيد:</strong> #{{ entry.id }}</p>
+                    </div>
+                    <div class="col-md-3">
+                        <p class="mb-2"><strong>التاريخ:</strong> {{ entry.date.strftime('%Y-%m-%d') }}</p>
+                    </div>
+                    <div class="col-md-3">
+                        <p class="mb-2"><strong>المرجع:</strong> {{ entry.reference or '-' }}</p>
+                    </div>
+                    <div class="col-md-3">
+                        <p class="mb-2"><strong>الحالة:</strong> 
+                            <span class="badge bg-success">{{ entry.status }}</span>
+                        </p>
+                    </div>
+                </div>
+                {% if entry.description %}
+                <div class="row mt-2">
+                    <div class="col-md-12">
+                        <p class="mb-0"><strong>البيان العام:</strong> {{ entry.description }}</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-list"></i> تفاصيل القيد</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 10%;">#</th>
+                                <th style="width: 35%;">الحساب</th>
+                                <th style="width: 20%;" class="text-end">مدين (Debit)</th>
+                                <th style="width: 20%;" class="text-end">دائن (Credit)</th>
+                                <th style="width: 15%;">البيان</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in entry.items %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>
+                                    <strong>{{ item.account.code }}</strong> - {{ item.account.name }}
+                                </td>
+                                <td class="text-end">
+                                    {% if item.debit > 0 %}
+                                    {{ "{:,.2f}".format(item.debit) }}
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    {% if item.credit > 0 %}
+                                    {{ "{:,.2f}".format(item.credit) }}
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                                <td>{{ item.description or '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-secondary fw-bold">
+                            <tr>
+                                <td colspan="2" class="text-start">الإجمالي</td>
+                                <td class="text-end">
+                                    {{ "{:,.2f}".format(total_debit) }}
+                                </td>
+                                <td class="text-end">
+                                    {{ "{:,.2f}".format(total_credit) }}
+                                </td>
+                                <td>
+                                    {% if is_balanced %}
+                                    <span class="text-success">متوازن ✓</span>
+                                    {% else %}
+                                    <span class="text-danger">غير متوازن ({{ "{:,.2f}".format(balance) }})</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-md-6">
+        <h3>إدارة المخازن</h3>
+    </div>
+    <div class="col-md-6 text-start">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addWarehouseModal">
+            <i class="fas fa-plus"></i> إضافة مخزن جديد
+        </button>
+    </div>
+</div>
+
+<div class="row">
+    {% for w in warehouses %}
+    <div class="col-md-3 mb-3">
+        <div class="card shadow-sm border-0">
+            <div class="card-body text-center">
+                <div class="mb-2">
+                    <i class="fas fa-warehouse fa-3x text-primary opacity-50"></i>
+                </div>
+                <h5 class="fw-bold">{{ w.name }}</h5>
+                <span class="badge bg-light text-dark border">{{ w.type }}</span>
+                <hr>
+                <a href="#" class="btn btn-sm btn-outline-secondary">عرض المخزون</a>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12 text-center py-5 text-muted">
+        لا توجد مخازن معرفة. قم بإضافة مخزن (Raw Materials, WIP, Finished) للبدء.
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="addWarehouseModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">إضافة مخزن جديد</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">اسم المخزن</label>
+                        <input type="text" name="name" class="form-control" required
+                            placeholder="مثلاً: مخزن الخامات الرئيسي">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">نوع المخزن</label>
+                        <select name="type" class="form-select">
+                            <option value="raw">خامات (Raw Materials)</option>
+                            <option value="wip">تحت التشغيل (WIP)</option>
+                            <option value="finished">منتج تام (Finished Goods)</option>
+                            <option value="scrap">هالك / بواقي (Scrap)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+                    <button type="submit" class="btn btn-primary">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

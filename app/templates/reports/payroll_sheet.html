@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}كشف أجور المرتبات{% endblock %}
+
+{% block content %}
+<style>
+    @media print {
+        @page {
+            size: A4 landscape;
+            margin: 5mm;
+        }
+
+        body {
+            background-color: white !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        .d-print-none {
+            display: none !important;
+        }
+
+        .salary-slip {
+            page-break-inside: avoid;
+            margin-bottom: 1cm;
+            /* 1cm gap between slips as requested */
+            border-bottom: 2px dashed #999;
+            /* Dashed line for cutting guide */
+            padding-bottom: 5mm;
+        }
+
+        .table-header {
+            background-color: #000 !important;
+            /* Black header */
+            color: #fff !important;
+        }
+
+        .table-bordered th,
+        .table-bordered td {
+            border: 1px solid #000 !important;
+        }
+    }
+
+    .table-header {
+        background-color: #000;
+        color: #fff;
+    }
+
+    .salary-slip {
+        margin-bottom: 20px;
+        border: 1px solid #ddd;
+        padding: 10px;
+    }
+</style>
+
+<div class="row d-print-none mb-3 pt-3">
+    <div class="col-12 d-flex justify-content-between align-items-center bg-light p-3 rounded shadow-sm border-bottom">
+        <h1 class="h2 mb-0"><i class="fas fa-money-check-alt me-2"></i> كشف أجور الأقسام</h1>
+        <div class="print-controls">
+            <a href="{{ url_for('reports.export_payroll_sheet_excel', department_ids=selected_dept_ids, month=month, year=year) }}"
+                class="btn btn-success me-2">
+                <i class="fas fa-file-excel"></i> تصدير Excel
+            </a>
+            <button class="btn btn-primary" onclick="window.printReport('landscape')">
+                <i class="fas fa-print"></i> طباعة (عرضي A4)
+            </button>
+            <button class="btn btn-outline-secondary ms-2" onclick="window.printReport('portrait')">
+                <i class="fas fa-print"></i> طباعة (طولي A4)
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="print-only">
+    <div class="print-header">
+        <h1>كشف أجور المرتبات</h1>
+        <p>عن شهر: {{ month }}/{{ year }}</p>
+    </div>
+</div>
+
+<!-- Search Form -->
+<div class="card mb-4 d-print-none">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <input type="hidden" name="action" value="view_report">
+            <div class="col-md-3">
+                <label class="form-label">الشهر</label>
+                <select name="month" class="form-select">
+                    {% for m in range(1, 13) %}
+                    <option value="{{ m }}" {% if month==m %}selected{% endif %}>{{ m }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">السنة</label>
+                <input type="number" name="year" class="form-control" value="{{ year }}" min="2020" max="2030">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">القسم</label>
+                <select name="department_ids" class="form-select" multiple size="1">
+                    {% for dept in all_departments %}
+                    <option value="{{ dept.id }}" {% if selected_dept_ids and dept.id in selected_dept_ids %}selected{%
+                        endif %}>
+                        {{ dept.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search me-2"></i> عرض
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if report_data %}
+{% for dept_data in report_data %}
+<div class="department-block"
+    style="page-break-after: auto; border-bottom: 2px solid #000; margin-bottom: 1cm; padding-bottom: 1cm;">
+    <h3 class="text-center mb-4 d-none d-print-block">كشف رواتب قسم: {{ dept_data.department.name }} - {{ month }}/{{
+        year }}</h3>
+
+    {% for row in dept_data.employees %}
+    <div class="salary-slip">
+        <table class="table table-bordered table-sm text-center align-middle" style="font-size: 11px;">
+            <!-- Top Header Row -->
+            <tr class="table-header">
+                <th rowspan="2" style="width: 3%">#</th>
+                <th rowspan="2" style="width: 12%">الموظف</th>
+                <th colspan="7">الاستحقاقات</th>
+                <th colspan="8">الاستقطاعات</th>
+                <th rowspan="2" style="width: 8%; background-color: #ddd; color: #000;">الصافي</th>
+                <th rowspan="2" style="width: 10%">ما تم صرفه</th>
+            </tr>
+            <!-- Sub Header Row -->
+            <tr class="table-header">
+                <!-- Entitlements -->
+                <th>أساسي</th>
+                <th>أيام</th>
+                <th>انتظام</th>
+                <th>مكافآت</th>
+                <th>إضافي</th>
+                <th>أخرى</th>
+                <th>إجمالي</th>
+
+                <!-- Deductions -->
+                <th>تأمين</th>
+                <th>تأخير</th>
+                <th>تبكير</th>
+                <th>تصاريح</th>
+                <th>جزاءات</th>
+                <th>غياب</th>
+                <th>سلف</th>
+                <th>إجمالي</th>
+            </tr>
+
+            <!-- Data Row -->
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td class="text-end pe-2">
+                    <div class="fw-bold">{{ row.name }}</div>
+                    <div class="small text-muted">{{ row.code }}</div>
+                </td>
+
+                <!-- Entitlements Data -->
+                <td>{{ "%.0f"|format(row.get('Basic Salary', 0)) }}</td>
+                <td>{{ row.get('Attendance Days', 0) }}</td>
+                <td>{{ "%.0f"|format(row.get('Regularity Incentive', 0)) }}</td>
+                <td>{{ "%.0f"|format(row.get('Bonuses', 0)) }}</td>
+                <td>{{ "%.0f"|format(row.get('OT Value', 0)) }}</td>
+                <td>{{ "%.0f"|format(row.get('Transport Allowance', 0)) }}</td>
+                <td class="fw-bold bg-light">{{ "%.0f"|format(row.get('Gross Salary', 0) + row.get('Total Additions',
+                    0)) }}</td>
+
+                <!-- Deductions Data -->
+                <td>{{ "%.0f"|format(row.get('Insurance', 0)) }}</td>
+                <td>{{ "%.0f"|format(row.get('Lateness Deduction', 0)) }}</td>
+                <td>{{ "%.0f"|format(row.get('Early Deduction', 0)) }}</td>
+                <td>{{ "%.0f"|format(row.get('Permissions Deduction', 0)) }}</td>
+                <td>{{ "%.0f"|format(row.get('Admin Penalties', 0)) }}</td>
+                <td>{{ "%.0f"|format(row.get('Absence Deduction', 0) + row.get('Absence Penalty Deduction', 0)) }}</td>
+                <td>{{ "%.0f"|format(row.get('Loan Deduction', 0)) }}</td>
+                <td class="fw-bold bg-light">{{ "%.0f"|format(row.get('Total Deductions', 0)) }}</td>
+
+                <!-- Net & What Was Paid -->
+                <td class="fw-bold fs-6">{{ "%.0f"|format(row.get('Net Salary', 0)) }}</td>
+                <td class="fw-bold text-center table-active">{{ "%.0f"|format(row.get('Bonuses Paid During Month', 0))
+                    }}</td>
+            </tr>
+        </table>
+    </div>
+    {% endfor %}
+
+    <!-- Department Summary -->
+    {% if loop.last %}
+    <div class="card mt-4 p-3 bg-light border d-print-none">
+        <h5 class="fw-bold">ملخص القسم: {{ dept_data.department.name }}</h5>
+        <p>إجمالي الرواتب: {{ "%.2f"|format(dept_data.total_wages) }}</p>
+    </div>
+    {% endif %}
+</div>
+{% endfor %}
+{% else %}
+<div class="alert alert-info text-center mt-5">
+    <i class="fas fa-info-circle fa-2x mb-3"></i>
+    <p>يرجى اختيار القسم والشهر لعرض الكشف.</p>
+</div>
+{% endif %}
+{% endblock %}

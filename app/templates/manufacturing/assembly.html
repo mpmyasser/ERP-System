@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}تجميع الأطقم - Manufacturing{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-cubes me-2"></i> تجميع الأطقم: <span class="text-primary">{{ parent.name }} ({{
+            parent.code }})</span></h1>
+    <a href="{{ url_for('manufacturing.products_master') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-right"></i> العودة للأصناف
+    </a>
+</div>
+
+<div class="row">
+    <!-- Component Stock Section -->
+    <div class="col-md-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">رصيد المكونات المتاح (تحت التشغيل)</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    {% for part in components %}
+                    <div class="col-md-6 mb-3">
+                        <div
+                            class="border rounded p-3 {{ 'bg-success-subtle' if part.qty >= 1 else 'bg-danger-subtle' }}">
+                            <h4 class="fw-bold">{{ part.code }}</h4>
+                            <div class="text-muted mb-2">{{ part.structure_type }}</div>
+                            <div class="display-6 fw-bold mb-2">{{ part.qty }}</div>
+                            <small>قطعة متاحة</small>
+                            <hr>
+                            <button class="btn btn-sm btn-outline-warning w-100" data-bs-toggle="modal"
+                                data-bs-target="#divertModal" data-id="{{ part.id }}" data-code="{{ part.code }}"
+                                data-qty="{{ part.qty }}"
+                                onclick="setupDivert(this.dataset.id, this.dataset.code, this.dataset.qty)">
+                                <i class="fas fa-exchange-alt"></i> ترحيل الفائض (Divert)
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-calculator"></i> أقصى عدد أطقم يمكن تجميعه الآن: <strong>{{ max_sets }}</strong>
+                    طقم.
+                </div>
+            </div>
+        </div>
+
+        <!-- Assembly Action -->
+        <div class="card shadow-sm border-primary">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-tools"></i> تنفيذ التجميع</h5>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('manufacturing.process_assembly', product_id=parent.id) }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="row align-items-end">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">الكمية المراد تجميعها</label>
+                            <input type="number" name="quantity" class="form-control form-control-lg" min="1"
+                                max="{{ max_sets }}" value="{{ max_sets }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <button type="submit" class="btn btn-success btn-lg w-100" {{ 'disabled' if max_sets==0 }}>
+                                <i class="fas fa-check-circle"></i> تجميع وإضافة للمخزن التام
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Panel -->
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body text-center">
+                {% if parent.image_path %}
+                <img src="{{ url_for('static', filename=parent.image_path) }}" class="img-fluid rounded mb-3"
+                    style="max-height: 200px;">
+                {% else %}
+                <div class="bg-light rounded p-4 mb-3">
+                    <i class="fas fa-tshirt fa-4x text-muted opacity-25"></i>
+                </div>
+                {% endif %}
+                <h5>{{ parent.name }}</h5>
+                <p class="text-muted">{{ parent.code }}</p>
+                <div class="d-grid gap-2">
+                    <div class="p-2 bg-light rounded border">
+                        <small class="d-block text-muted">الرصيد التام الحالي</small>
+                        <span class="fw-bold fs-5">{{ parent_stock }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Divert Excess Modal -->
+<div class="modal fade" id="divertModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">ترحيل الفائض (Excess Diversion)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('manufacturing.divert_excess') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="source_product_id" id="divertSourceId">
+
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        سيتم تحويل كمية من <strong><span id="divertSourceName"></span></strong> إلى صنف آخر.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">الكمية المراد ترحيلها (من أصل <span id="divertMaxQty"></span>)</label>
+                        <input type="number" name="quantity" id="divertQty" class="form-control" min="1" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">الصنف الهدف (تحويل إلى)</label>
+                        <select name="target_product_id" class="form-select select2-select" style="width: 100%;"
+                            required>
+                            <option value="">اختر الصنف...</option>
+                            {% for p in all_products %}
+                            {% if p.structure_type == 'Single' %}
+                            <option value="{{ p.id }}">{{ p.code }} - {{ p.name }}</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">يمكنك فقط التحويل إلى الأصناف المفردة (Single).</div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-warning">تأكيد الترحيل</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function setupDivert(id, code, qty) {
+        document.getElementById('divertSourceId').value = id;
+        document.getElementById('divertSourceName').textContent = code;
+        document.getElementById('divertMaxQty').textContent = qty;
+        document.getElementById('divertQty').max = qty;
+        document.getElementById('divertQty').value = qty;
+    }
+</script>
+{% endblock %}

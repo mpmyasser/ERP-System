@@ -1,0 +1,126 @@
+/* 
+================================================================
+Professional Print Styles for HR System
+================================================================
+*/
+
+@media print {
+    /* 1. Hide non-essential elements */
+    .no-print,
+    nav, .navbar, #sidebar, .sidebar,
+    .btn, .btn-toolbar, .print-controls button,
+    .pagination, .filter-section, .alert,
+    .breadcrumb, footer, .modal-header .btn-close {
+        display: none !important;
+    }
+
+    /* 2. Reset Layout */
+    body {
+        background: white !important;
+        color: black !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        font-family: 'Cairo', 'Arial', sans-serif !important;
+    }
+
+    main, .container, .container-fluid {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
+    }
+
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+        margin-bottom: 0 !important;
+    }
+
+    .card-body {
+        padding: 0 !important;
+    }
+
+    /* 3. Page Definitions */
+    @page {
+        margin: 10mm;
+        size: auto; /* Allow auto choice but usually A4 */
+    }
+
+    /* Force landscape via class */
+    .print-landscape {
+        @page { size: A4 landscape; }
+    }
+
+    /* 4. Formatting Fixes */
+    table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        margin-bottom: 1em !important;
+        font-size: 9pt !important; /* Smaller text for printing tables */
+    }
+
+    th, td {
+        border: 1px solid #333 !important;
+        padding: 4px 6px !important;
+        word-wrap: break-word !important;
+    }
+
+    th {
+        background-color: #f2f2f2 !important;
+        font-weight: bold !important;
+        -webkit-print-color-adjust: exact;
+    }
+
+    /* Badge and Label adjustments */
+    .badge {
+        border: 1px solid #333 !important;
+        color: black !important;
+        background: transparent !important;
+        padding: 2px 4px !important;
+    }
+
+    /* Page Breaks */
+    .page-break {
+        page-break-before: always;
+    }
+
+    .no-break {
+        page-break-inside: avoid;
+    }
+
+    /* 5. Custom Print Header (Visible only in print) */
+    .print-only {
+        display: block !important;
+    }
+
+    .print-header {
+        text-align: center;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #333;
+        padding-bottom: 10px;
+    }
+
+    .print-header h1 {
+        font-size: 18pt;
+        margin-bottom: 5px;
+    }
+
+    .print-footer {
+        position: fixed;
+        bottom: 0;
+        width: 100%;
+        font-size: 8pt;
+        text-align: center;
+        border-top: 1px solid #ccc;
+        padding-top: 5px;
+    }
+}
+
+/* Screen visibility for elements marked as print-only */
+@media screen {
+    .print-only {
+        display: none !important;
+    }
+}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}عرض بيانات السلفة{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-hand-holding-usd me-2"></i> بيانات السلفة</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('loans.list') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-right"></i> رجوع
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">تفاصيل السلفة</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>الموظف:</strong> {{ loan.employee.name if loan.employee else '-' }}</p>
+                <p><strong>المبلغ:</strong> {{ loan.amount }} جنيه</p>
+                <p><strong>النوع:</strong>
+                    {% if loan.type == 'monthly' or loan.type == 'permanent' %}
+                    مستديمة
+                    {% elif loan.type == 'emergency' or loan.type == 'temporary' %}
+                    مؤقتة
+                    {% else %}
+                    {{ loan.type }}
+                    {% endif %}
+                </p>
+                <p><strong>عدد الأقساط:</strong> {{ loan.installments_count }}</p>
+                <p><strong>المتبقي:</strong> {{ loan.auto_remaining_balance }} جنيه</p>
+                <p><strong>تاريخ الإصدار:</strong> {{ loan.date_issued }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

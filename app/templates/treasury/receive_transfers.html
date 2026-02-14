@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h2 class="fw-bold">استلام التحويلات</h2>
+        <p class="text-muted">التحويلات المعلقة في انتظار الاستلام</p>
+    </div>
+    <div class="col-md-6 text-start">
+        <a href="{{ url_for('treasury.transfers_report') }}" class="btn btn-info text-white">
+            <i class="fas fa-chart-line"></i> تقرير حركة التحويلات
+        </a>
+        <a href="{{ url_for('treasury.dashboard') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-right"></i> رجوع
+        </a>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        {% if transfers %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="bg-light">
+                    <tr>
+                        <th>#</th>
+                        <th>التاريخ</th>
+                        <th>من الخزينة</th>
+                        <th>إلى الخزينة</th>
+                        <th class="text-end">المبلغ</th>
+                        <th>البيان</th>
+                        <th>الحالة</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transfer in transfers %}
+                    <tr>
+                        <td>{{ transfer.id }}</td>
+                        <td>{{ transfer.transfer_date.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <span class="badge bg-secondary">{{ transfer.from_cash.name }}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-primary">{{ transfer.to_cash.name }}</span>
+                        </td>
+                        <td class="text-end fw-bold">{{ "{:,.2f}".format(transfer.amount) }}</td>
+                        <td>{{ transfer.description or '-' }}</td>
+                        <td>
+                            <span class="badge bg-warning text-dark">في انتظار الاستلام</span>
+                        </td>
+                        <td>
+                            <form action="{{ url_for('treasury.confirm_receive_transfer', transfer_id=transfer.id) }}" 
+                                  method="POST" 
+                                  style="display:inline;"
+                                  onsubmit="return confirm('هل أنت متأكد من تأكيد استلام التحويل من {{ transfer.from_cash.name }} بقيمة {{ transfer.amount }}؟');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-success">
+                                    <i class="fas fa-check"></i> تأكيد الاستلام
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-secondary">
+                    <tr>
+                        <td colspan="4" class="text-end fw-bold">الإجمالي:</td>
+                        <td class="text-end fw-bold">{{ "{:,.2f}".format(transfers | sum(attribute='amount')) }}</td>
+                        <td colspan="3"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info text-center">
+            <i class="fas fa-info-circle fa-3x mb-3 d-block opacity-25"></i>
+            <h5>لا توجد تحويلات معلقة</h5>
+            <p class="mb-0">جميع التحويلات تم استلامها</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h2 class="fw-bold">لوحة تحكم النظام المالي</h2>
+        <p class="text-muted">إدارة الحسابات، القيود، والتدفقات المالية</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Quick Stats -->
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm bg-primary text-white">
+            <div class="card-body">
+                <h6 class="card-title opacity-75">إجمالي الحسابات</h6>
+                <h2 class="fw-bold mb-0">526</h2>
+                <i class="fas fa-sitemap position-absolute end-0 bottom-0 m-3 opacity-25 fa-2x"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm bg-success text-white">
+            <div class="card-body">
+                <h6 class="card-title opacity-75">قيود اليومية المضافة</h6>
+                <h2 class="fw-bold mb-0">0</h2>
+                <i class="fas fa-file-invoice-dollar position-absolute end-0 bottom-0 m-3 opacity-25 fa-2x"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white fw-bold">إجراءات سريعة</div>
+            <div class="card-body">
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('accounting.new_journal') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> إنشاء قيد جديد
+                    </a>
+                    <a href="{{ url_for('accounting.coa') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-list-ul"></i> عرض الدليل المحاسبي
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white fw-bold">آخر القيود المسجلة</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>التاريخ</th>
+                                <th>البيان</th>
+                                <th>الحالة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="3" class="text-center py-4 text-muted small">لا توجد بيانات حالياً</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm bg-light">
+            <div class="card-body">
+                <h6 class="fw-bold"><i class="fas fa-lightbulb text-warning"></i> نصيحة سريعة</h6>
+                <p class="small text-muted">
+                    استخدم مفتاح **Insert** في صفحة القيود لإضافة سطر جديد بسرعة، ومفتاح **F10** للحفظ الفوري.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

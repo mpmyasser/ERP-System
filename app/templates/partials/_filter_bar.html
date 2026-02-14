@@ -1,0 +1,67 @@
+{#
+شريط البحث والفلترة الموحد
+==============================
+يجب استخدام هذا المكون في جميع صفحات القوائم بدون استثناء.
+
+المتغيرات المطلوبة:
+- form_action: رابط الفورم (مثل: url_for('loans.list'))
+- departments: قائمة الأقسام
+- selected_department_ids: الأقسام المحددة حالياً (list)
+- date_from: قيمة التاريخ من
+- date_to: قيمة التاريخ إلى
+
+المتغيرات الاختيارية:
+- show_reset_button: إظهار زر إعادة التعيين (default: true)
+- reset_url: رابط إعادة التعيين
+#}
+<div class="card shadow-sm mb-4" id="unified-filter-bar">
+    <div class="card-header bg-white py-3">
+        <h5 class="mb-0"><i class="fas fa-filter me-2"></i> فلاتر البحث</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" action="{{ form_action }}" class="row g-3 align-items-end">
+            {# عمود 1: من تاريخ #}
+            <div class="col-md-2">
+                <label class="form-label">من تاريخ</label>
+                <input type="text" name="date_from" id="date-from" class="form-control date-string"
+                    placeholder="DD/MM/YYYY" value="{{ date_from or '' }}">
+            </div>
+
+            {# عمود 2: إلى تاريخ #}
+            <div class="col-md-2">
+                <label class="form-label">إلى تاريخ</label>
+                <input type="text" name="date_to" id="date-to" class="form-control date-string" placeholder="DD/MM/YYYY"
+                    value="{{ date_to or '' }}">
+            </div>
+
+            {# عمود 3: فلتر الأقسام #}
+            <div class="col-md-5">
+                <label class="form-label">الأقسام</label>
+                <select name="department_ids" id="dept-filter" class="form-select" multiple size="1">
+                    {% for dept in departments %}
+                    <option value="{{ dept.id }}" {% if selected_department_ids and dept.id in selected_department_ids
+                        %}selected{% endif %}>
+                        {{ dept.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            {# عمود 4: زر البحث وإعادة التعيين #}
+            <div class="col-md-3 text-end">
+                <div class="btn-group w-100">
+                    <button class="btn btn-primary" type="submit">
+                        <i class="fas fa-search me-1"></i> بحث
+                    </button>
+                    {% if show_reset_button is not defined or show_reset_button %}
+                    {% if date_from or date_to or selected_department_ids %}
+                    <a href="{{ reset_url or form_action }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-undo me-1"></i> إعادة تعيين
+                    </a>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </form>
+    </div>
+</div>

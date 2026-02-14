@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block title %}تفاصيل الراتب{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-money-bill me-2"></i> تفاصيل راتب: {{ employee.name }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('payroll.index') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-right"></i> رجوع
+        </a>
+    </div>
+</div>
+
+<!-- 🆕 منتقي الشهر والسنة -->
+<div class="row mb-3 d-print-none">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title">اختر الشهر والسنة</h6>
+                <form method="get" action="{{ url_for('payroll.calculate', emp_id=employee.id) }}" class="d-flex gap-2">
+                    <select name="year" class="form-select" style="max-width: 120px;">
+                        {% for y in range(2020, 2030) %}
+                            <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                    <select name="month" class="form-select" style="max-width: 150px;">
+                        <option value="1" {% if month == 1 %}selected{% endif %}>يناير</option>
+                        <option value="2" {% if month == 2 %}selected{% endif %}>فبراير</option>
+                        <option value="3" {% if month == 3 %}selected{% endif %}>مارس</option>
+                        <option value="4" {% if month == 4 %}selected{% endif %}>أبريل</option>
+                        <option value="5" {% if month == 5 %}selected{% endif %}>مايو</option>
+                        <option value="6" {% if month == 6 %}selected{% endif %}>يونيو</option>
+                        <option value="7" {% if month == 7 %}selected{% endif %}>يوليو</option>
+                        <option value="8" {% if month == 8 %}selected{% endif %}>أغسطس</option>
+                        <option value="9" {% if month == 9 %}selected{% endif %}>سبتمبر</option>
+                        <option value="10" {% if month == 10 %}selected{% endif %}>أكتوبر</option>
+                        <option value="11" {% if month == 11 %}selected{% endif %}>نوفمبر</option>
+                        <option value="12" {% if month == 12 %}selected{% endif %}>ديسمبر</option>
+                    </select>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i> عرض
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @media print {
+        @page {
+            size: A5 landscape;
+            /* Or auto, but A5 landscape helps simulate the 1/2 A4 feel */
+            margin: 5mm;
+        }
+
+        body {
+            font-size: 10px;
+            /* Smaller font */
+        }
+
+        .btn-toolbar,
+        .btn,
+        .d-flex.justify-content-between,
+        header,
+        footer,
+        nav {
+            display: none !important;
+            /* Hide UI elements */
+        }
+
+        .card {
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        .card-header {
+            background-color: transparent !important;
+            color: black !important;
+            border-bottom: 2px solid #000 !important;
+            padding: 5px !important;
+        }
+
+        .card-body {
+            padding: 0 !important;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            margin: 0 !important;
+            font-size: 1.2em !important;
+        }
+
+        p {
+            margin-bottom: 2px !important;
+        }
+
+        hr {
+            margin: 5px 0 !important;
+        }
+
+        .table {
+            font-size: 10px !important;
+            width: 100% !important;
+        }
+
+        .table td,
+        .table th {
+            padding: 2px 4px !important;
+            /* Very compact padding */
+        }
+
+        /* Force compact width container to simulate 1/4 A4 or 1/2 A5 */
+        .container,
+        .container-fluid,
+        .row,
+        .col-md-12 {
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        /* Optional: Transform scale to force shrink if needed, 
+           but width control + small font usually works better for print drivers */
+    }
+</style>
+
+<div class="row">
+    <div class="col-md-10 mx-auto">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 text-success"><i class="fas fa-file-invoice-dollar me-2"></i> كشف الراتب - {{ month
+                    }}/{{ year }}</h5>
+                <button class="btn btn-primary d-print-none" onclick="window.print()">
+                    <i class="fas fa-print me-1"></i> طباعة الكشف
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6 class="text-muted border-bottom pb-2">بيانات الموظف</h6>
+                        <table class="table table-borderless table-sm">
+                            <tr>
+                                <th width="35%">الاسم:</th>
+                                <td><strong>{{ employee.name }}</strong></td>
+                            </tr>
+                            <tr>
+                                <th>الكود:</th>
+                                <td><span class="badge bg-light text-primary border">{{ employee.code }}</span></td>
+                            </tr>
+                            <tr>
+                                <th>الوظيفة:</th>
+                                <td>{{ employee.job_title }}</td>
+                            </tr>
+                            <tr>
+                                <th>القسم:</th>
+                                <td>{{ employee.department.name if employee.department else '-' }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6 text-md-end">
+                        <div class="p-3 bg-light rounded border">
+                            <h6 class="text-muted mb-2">صافي الراتب المستحق</h6>
+                            <h2 class="text-success mb-0"><strong>{{ "%.2f"|format(payroll.get('Net Salary', 0)) }}
+                                    جنيه</strong></h2>
+                        </div>
+                    </div>
+                </div>
+
+                {% if payroll %}
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle">
+                        <thead class="table-light">
+                            <tr class="text-center">
+                                <th colspan="2" width="50%" class="text-success"><i class="fas fa-plus-circle me-1"></i>
+                                    الاستحقاقات (الإضافات)</th>
+                                <th colspan="2" width="50%" class="text-danger"><i class="fas fa-minus-circle me-1"></i>
+                                    الاستقطاعات (الخصومات)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Row 1 -->
+                            <tr>
+                                <td width="25%" class="bg-light">الراتب الأساسي (أيام العمل)</td>
+                                <td width="25%">{{ "%.2f"|format(payroll.get('Gross Salary', 0)) }} جنيه</td>
+                                <td width="25%" class="bg-light">تأمينات اجتماعية</td>
+                                <td width="25%">{{ "%.2f"|format(payroll.get('Insurance', 0)) }} جنيه</td>
+                            </tr>
+                            <!-- Row 2 -->
+                            <tr>
+                                <td class="bg-light">حوافز ومكافآت</td>
+                                <td>{{ "%.2f"|format(payroll.get('Incentive', 0)) }} جنيه</td>
+                                <td class="bg-light">تأخير وانصراف مبكر</td>
+                                <td>{{ "%.2f"|format(payroll.get('Lateness Deduction', 0) + payroll.get('Early
+                                    Deduction', 0)) }} جنيه</td>
+                            </tr>
+                            <!-- Row 3 -->
+                            <tr>
+                                <td class="bg-light">إضافي ({{ "%.1f"|format(payroll.get('OT Hours', 0)) }} ساعة)</td>
+                                <td>{{ "%.2f"|format(payroll.get('OT Value', 0)) }} جنيه</td>
+                                <td class="bg-light">تصاريح ({{ "%.1f"|format(payroll.get('Permissions Hours', 0)) }}
+                                    ساعة)</td>
+                                <td>{{ "%.2f"|format(payroll.get('Permissions Deduction', 0)) }} جنيه</td>
+                            </tr>
+                            <!-- Row 4 -->
+                            <tr>
+                                <td class="bg-light">حافز الانتظام</td>
+                                <td>{{ "%.2f"|format(payroll.get('Regularity Incentive', 0)) }} جنيه</td>
+                                <td class="bg-light">سلف مستقطعة</td>
+                                <td>{{ "%.2f"|format(payroll.get('Loan Deduction', 0)) }} جنيه</td>
+                            </tr>
+                            <!-- Row 5 -->
+                            <tr>
+                                <td class="bg-light">بدل انتقال</td>
+                                <td>{{ "%.2f"|format(payroll.get('Transport Allowance', 0)) }} جنيه</td>
+                                <td class="bg-light">جزاءات إدارية وغياب</td>
+                                <td>{{ "%.2f"|format(payroll.get('Admin Penalties', 0) + payroll.get('Absence Penalty
+                                    Deduction', 0)) }} جنيه</td>
+                            </tr>
+                            <!-- Totals Row -->
+                            <tr class="table-secondary fw-bold text-center">
+                                <td>إجمالي الاستحقاقات</td>
+                                <td class="text-success">{{ "%.2f"|format(payroll.get('Gross Salary', 0) +
+                                    payroll.get('Total Additions', 0)) }} جنيه</td>
+                                <td>إجمالي الاستقطاعات</td>
+                                <td class="text-danger">{{ "%.2f"|format(payroll.get('Total Deductions', 0)) }} جنيه
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-4 p-3 bg-success text-white rounded shadow-sm text-center">
+                    <span class="h5 mb-0">صافي المبلغ المنصرف: <strong>{{ "%.2f"|format(payroll.get('Net Salary', 0)) }}
+                            جنيه</strong></span>
+                </div>
+
+                <div class="row mt-5 d-none d-print-flex text-center">
+                    <div class="col-6">
+                        <p class="border-bottom d-inline-block px-5">توقيع الموظف</p>
+                    </div>
+                    <div class="col-6">
+                        <p class="border-bottom d-inline-block px-5">اعتماد المدير العام</p>
+                    </div>
+                </div>
+                {% else %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i> لا توجد بيانات راتب متاحة لهذا الشهر
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

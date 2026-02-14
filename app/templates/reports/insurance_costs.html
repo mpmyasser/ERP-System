@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}تقرير تكاليف التأمينات{% endblock %}
+
+{% block content %}
+<div class="row d-print-none mb-3 pt-3">
+    <div class="col-12 d-flex justify-content-between align-items-center bg-light p-3 rounded shadow-sm border-bottom">
+        <h1 class="h2 mb-0"><i class="fas fa-shield-alt me-2 text-primary"></i>تقرير تكاليف التأمينات (شهري)</h1>
+        <div class="print-controls">
+            <a href="{{ url_for('reports.export_insurance_costs_excel') }}" class="btn btn-success me-2">
+                <i class="fas fa-file-excel me-1"></i> تصدير Excel
+            </a>
+            <button class="btn btn-primary" onclick="window.printReport('portrait')">
+                <i class="fas fa-print"></i> طباعة (طولي A4)
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="print-only">
+    <div class="print-header">
+        <h1>تقرير تحليل تكاليف التأمينات الاجتماعية</h1>
+        <p>التاريخ: {{ now.strftime('%d/%m/%Y') if now else '' }}</p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card bg-primary text-white shadow-sm">
+            <div class="card-body py-3">
+                <h6 class="card-title mb-1">إجمالي خصم الموظفين</h6>
+                <h3 class="mb-0 fw-bold">{{ "{:,.2f}".format(grand_total_emp) }} ج.م</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-success text-white shadow-sm">
+            <div class="card-body py-3">
+                <h6 class="card-title mb-1">إجمالي تحمل الشركة</h6>
+                <h3 class="mb-0 fw-bold">{{ "{:,.2f}".format(grand_total_comp) }} ج.م</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-info text-white shadow-sm">
+            <div class="card-body py-3">
+                <h6 class="card-title mb-1">التكلفة الكلية للتأمينات</h6>
+                <h3 class="mb-0 fw-bold">{{ "{:,.2f}".format(grand_total_ins) }} ج.م</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center py-3">
+        <h5 class="mb-0 fw-bold"><i class="fas fa-list me-2"></i>تحليل التكاليف حسب الأقسام</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0 align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="ps-4">القسم</th>
+                        <th class="text-center">عدد المؤمن عليهم</th>
+                        <th class="text-end">خصم الموظفين</th>
+                        <th class="text-end">تحمل الشركة</th>
+                        <th class="text-end pe-4">الإجمالي الكلي</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dept in report_data %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-dark">{{ dept.department_name }}</td>
+                        <td class="text-center">
+                            <span class="badge bg-secondary badge-pill px-3">{{ dept.count }} موظف</span>
+                        </td>
+                        <td class="text-end text-danger">{{ "{:,.2f}".format(dept.employee_deductions) }} ج.م</td>
+                        <td class="text-end text-primary">{{ "{:,.2f}".format(dept.company_costs) }} ج.م</td>
+                        <td class="text-end fw-bold pe-4">{{ "{:,.2f}".format(dept.total_insurance) }} ج.م</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light">
+                    <tr class="fw-bold fs-5 border-top-2">
+                        <td colspan="2" class="ps-4">الإجمالي العام</td>
+                        <td class="text-end text-danger">{{ "{:,.2f}".format(grand_total_emp) }} ج.م</td>
+                        <td class="text-end text-primary">{{ "{:,.2f}".format(grand_total_comp) }} ج.م</td>
+                        <td class="text-end text-dark pe-4">{{ "{:,.2f}".format(grand_total_ins) }} ج.م</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="alert alert-light border shadow-sm">
+    <h6><i class="fas fa-info-circle me-2 text-info"></i>ملاحظات التقرير:</h6>
+    <ul class="mb-0 small">
+        <li>هذا التقرير يعتمد على الراتب الأساسي المسجل لكل موظف ونظام التأمين المختار له.</li>
+        <li>البيانات أعلاه تخص الموظفين "العاملين" و "المؤمن عليهم" فقط.</li>
+        <li>يتم حساب "خصم الموظفين" بناءً على السياسات الثلاثة (الموظف فقط، الحصتين من الموظف، لا خصم).</li>
+    </ul>
+</div>
+
+<style>
+    @media print {
+
+        .btn-toolbar,
+        .navbar,
+        .sidebar,
+        footer {
+            display: none !important;
+        }
+
+        .card {
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        body {
+            background-color: #fff !important;
+        }
+
+        .container-fluid {
+            padding: 0 !important;
+        }
+
+        .table-dark {
+            background-color: #333 !important;
+            color: #fff !important;
+        }
+
+        .bg-primary,
+        .bg-success,
+        .bg-info {
+            color: #000 !important;
+            border: 1px solid #ddd !important;
+            background: transparent !important;
+        }
+    }
+</style>
+{% endblock %}

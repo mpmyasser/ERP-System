@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>إضافة مستخدم جديد</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label class="form-label">اسم المستخدم</label>
+                        <input type="text" class="form-control" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الاسم الكامل</label>
+                        <input type="text" class="form-control" name="full_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">كلمة المرور</label>
+                        <input type="password" class="form-control" name="password" required>
+                    </div>
+                    <div class="alert alert-info">
+                        <small><i class="fas fa-info-circle"></i> تنبيه: عند إنشاء المستخدم، ستكون صلاحياته افتراضياً
+                            "صفر". يرجى الذهاب لصفحة "الصلاحيات" بعد الحفظ لتفعيل الوحدات له.</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">حفظ ومتابعة للصلاحيات</button>
+                    <a href="{{ url_for('auth.list_users') }}" class="btn btn-secondary w-100 mt-2">إلغاء</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

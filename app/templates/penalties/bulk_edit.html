@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block title %}تعديل جزاءات جماعي{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+        <h4 class="mb-0"><i class="fas fa-edit me-2"></i> تعديل جزاءات جماعي (Bulk Edit)</h4>
+        <a href="{{ url_for('penalties.list') }}" class="btn btn-light btn-sm text-dark fw-bold">
+            <i class="fas fa-list me-1"></i> قائمة الجزاءات
+        </a>
+    </div>
+    <div class="card-body">
+
+        <!-- Filter Section -->
+        <div class="row mb-4 p-3 bg-light border rounded">
+            <div class="col-md-12 mb-2"><strong><i class="fas fa-filter me-1"></i> تحميل الجزاءات للتعديل</strong></div>
+            <div class="col-md-3">
+                <label class="form-label">من تاريخ</label>
+                <input type="text" id="filterDateFrom" class="form-control date-string" placeholder="DD/MM/YYYY">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">إلى تاريخ</label>
+                <input type="text" id="filterDateTo" class="form-control date-string" placeholder="DD/MM/YYYY">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">كود الموظف</label>
+                <input type="text" id="filterCode" class="form-control" placeholder="الكود">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">القسم</label>
+                <select id="filterDepartment" class="form-select">
+                    <option value="">الكل</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept.id }}">{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 align-self-end">
+                <button class="btn btn-primary w-100" onclick="loadPenalties()">
+                    <i class="fas fa-download me-1"></i> تحميل الجزاءات
+                </button>
+            </div>
+        </div>
+
+        <!-- The Grid -->
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped" id="bulkEditTable">
+                <thead class="table-dark text-center">
+                    <tr>
+                        <th width="3%"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+                        <th width="5%">#</th>
+                        <th width="10%">كود الموظف</th>
+                        <th width="18%">الاسم</th>
+                        <th width="10%">أيام الخصم</th>
+                        <th width="10%">المبلغ</th>
+                        <th width="12%">التاريخ</th>
+                        <th width="20%">السبب</th>
+                    </tr>
+                </thead>
+                <tbody id="bulkEditBody">
+                    <tr>
+                        <td colspan="8" class="text-center text-muted">
+                            <i class="fas fa-info-circle me-2"></i>استخدم الفلاتر أعلاه لتحميل الجزاءات المراد تعديلها
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between mt-3">
+            <div>
+                <span class="badge bg-secondary" id="selectedCount">0 محدد</span>
+                <span class="badge bg-info ms-2" id="totalCount">0 إجمالي</span>
+            </div>
+            <button class="btn btn-success btn-lg" onclick="saveChanges()" id="saveBtn" disabled>
+                <i class="fas fa-save me-1"></i> حفظ التعديلات
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    #bulkEditTable {
+        color: #000 !important;
+    }
+
+    #bulkEditTable input,
+    #bulkEditTable select {
+        color: #000 !important;
+    }
+
+    #bulkEditTable td,
+    #bulkEditTable th {
+        color: #000 !important;
+    }
+</style>
+
+<script>
+    let penaltiesData = [];
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize date pickers if needed
+    });
+
+    function loadPenalties() {
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
+        const deptId = document.getElementById('filterDepartment').value;
+        const code = document.getElementById('filterCode').value;
+
+        let url = '/penalties/bulk_edit/load?';
+        const params = [];
+
+        if (dateFrom) params.push(`date_from=${dateFrom}`);
+        if (dateTo) params.push(`date_to=${dateTo}`);
+        if (deptId) params.push(`department_id=${deptId}`);
+        if (code) params.push(`code=${code}`);
+
+        url += params.join('&');
+
+        console.log('Loading penalties from:', url);
+
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                console.log('Response:', data);
+                if (data.success) {
+                    penaltiesData = data.penalties;
+                    renderPenalties();
+                    document.getElementById('saveBtn').disabled = false;
+                } else {
+                    alert('خطأ: ' + data.message);
+                }
+            })
+            .catch(err => {
+                alert('حدث خطأ في الاتصال');
+                console.error(err);
+            });
+    }
+
+    function renderPenalties() {
+        const tbody = document.getElementById('bulkEditBody');
+        tbody.innerHTML = '';
+
+        if (penaltiesData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">لا توجد جزاءات</td></tr>';
+            document.getElementById('totalCount').textContent = '0 إجمالي';
+            return;
+        }
+
+        penaltiesData.forEach((penalty, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+            <td class="text-center align-middle">
+                <input type="checkbox" class="penalty-checkbox" data-index="${index}" onchange="updateSelectedCount()">
+            </td>
+            <td class="text-center align-middle">${index + 1}</td>
+            <td class="align-middle">${penalty.employee_code}</td>
+            <td class="align-middle">${penalty.employee_name}</td>
+            <td>
+                <select class="form-select form-select-sm" 
+                        onchange="updatePenalty(${index}, 'days', this.value)">
+                    <option value="0" ${!penalty.days ? 'selected' : ''}>---</option>
+                    <option value="0.25" ${penalty.days == 0.25 ? 'selected' : ''}>1/4 يوم</option>
+                    <option value="0.5" ${penalty.days == 0.5 ? 'selected' : ''}>1/2 يوم</option>
+                    <option value="0.75" ${penalty.days == 0.75 ? 'selected' : ''}>3/4 يوم</option>
+                    <option value="1" ${penalty.days == 1 ? 'selected' : ''}>1 يوم</option>
+                    <option value="2" ${penalty.days == 2 ? 'selected' : ''}>2 يوم</option>
+                    <option value="3" ${penalty.days == 3 ? 'selected' : ''}>3 أيام</option>
+                </select>
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm" 
+                       value="${penalty.amount}" step="0.01" 
+                       onchange="updatePenalty(${index}, 'amount', this.value)">
+            </td>
+            <td>
+                <input type="text" class="form-control form-control-sm date-string" 
+                       value="${penalty.date || ''}" placeholder="DD/MM/YYYY"
+                       onchange="updatePenalty(${index}, 'date', this.value)">
+            </td>
+            <td>
+                <input type="text" class="form-control form-control-sm" 
+                       value="${penalty.reason || ''}" 
+                       onchange="updatePenalty(${index}, 'reason', this.value)">
+            </td>
+        `;
+            tbody.appendChild(row);
+        });
+
+        document.getElementById('totalCount').textContent = `${penaltiesData.length} إجمالي`;
+        updateSelectedCount();
+    }
+
+    function updatePenalty(index, field, value) {
+        penaltiesData[index][field] = value;
+        penaltiesData[index].modified = true;
+    }
+
+    function toggleSelectAll() {
+        const selectAll = document.getElementById('selectAll').checked;
+        document.querySelectorAll('.penalty-checkbox').forEach(cb => {
+            cb.checked = selectAll;
+        });
+        updateSelectedCount();
+    }
+
+    function updateSelectedCount() {
+        const selected = document.querySelectorAll('.penalty-checkbox:checked').length;
+        document.getElementById('selectedCount').textContent = `${selected} محدد`;
+    }
+
+    function saveChanges() {
+        const checkboxes = document.querySelectorAll('.penalty-checkbox:checked');
+
+        if (checkboxes.length === 0) {
+            alert('يرجى تحديد الجزاءات المراد تعديلها');
+            return;
+        }
+
+        const selectedPenalties = [];
+        checkboxes.forEach(cb => {
+            const index = parseInt(cb.dataset.index);
+            selectedPenalties.push(penaltiesData[index]);
+        });
+
+        if (!confirm(`سيتم تعديل ${selectedPenalties.length} جزاء. هل أنت متأكد؟`)) return;
+
+        fetch('{{ url_for("penalties.bulk_edit_save") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ penalties: selectedPenalties })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const msg = data.message || `تم تعديل ${data.updated} جزاء بنجاح!`;
+                    if (typeof showCenteredFlash === 'function') {
+                        showCenteredFlash(msg, 'center');
+                        setTimeout(() => window.location.href = "{{ url_for('penalties.list') }}", 900);
+                    } else {
+                        alert(`تم تعديل ${data.updated} جزاء بنجاح!`);
+                        window.location.href = "{{ url_for('penalties.list') }}";
+                    }
+                } else {
+                    alert('خطأ: ' + data.message);
+                }
+            })
+            .catch(err => {
+                alert('حدث خطأ في الاتصال');
+                console.error(err);
+            });
+    }
+</script>
+
+<script src="{{ url_for('static', filename='js/date_format.js') }}"></script>
+{% endblock %}

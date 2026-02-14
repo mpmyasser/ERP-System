@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}إدارة المكافآت{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-gift me-2"></i> إدارة المكافآت</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('bonuses.bulk') }}" class="btn btn-success me-2">
+            <i class="fas fa-layer-group me-1"></i> إدخال جماعي
+        </a>
+        <a href="{{ url_for('bonuses.bulk_edit') }}" class="btn btn-warning me-2">
+            <i class="fas fa-edit me-1"></i> تعديل جماعي
+        </a>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card bg-light border-info">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-info-circle"></i> معلومات مهمة</h5>
+                <p class="mb-0">
+                    <strong>صرف المكافآت:</strong> يمكنك تحديد ما إذا كانت المكافأة ستُصرف <strong>مع راتب نهاية
+                        الشهر</strong> أو تم <strong>صرفها مسبقاً</strong> خلال الشهر.
+                    هذا يساعد في تتبع الصرف وحساب المرتبات بدقة.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Unified Filter Bar -->
+{% with form_action=url_for('bonuses.list'), reset_url=url_for('bonuses.list') %}
+{% include 'partials/_filter_bar.html' %}
+{% endwith %}
+
+<!-- Stats Bar -->
+<div class="d-flex gap-3 mb-3 flex-wrap">
+    <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
+        <i class="fas fa-gift text-success me-2"></i>
+        <div class="ms-2">
+            <small class="text-muted d-block" style="font-size: 0.75rem;">إجمالي المكافآت</small>
+            <span class="fw-bold">{{ "{:,.2f}".format(total_bonuses_amount) }} جنيه</span>
+        </div>
+    </div>
+    <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
+        <i class="fas fa-list text-primary me-2"></i>
+        <div class="ms-2">
+            <small class="text-muted d-block" style="font-size: 0.75rem;">عدد العمليات</small>
+            <span class="fw-bold">{{ bonuses|length }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-gift me-2"></i>سجل المكافآت المستقلة</h5>
+    </div>
+    <div class="card-body">
+        {% if bonuses %}
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered align-middle datatable" id="bonuses-table">
+                <thead class="table-light">
+                    <tr class="text-center">
+                        <th>التاريخ</th>
+                        <th>الموظف</th>
+                        <th>المبلغ</th>
+                        <th>السبب</th>
+                        <th>حالة الصرف</th>
+                        <th class="no-sort">إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for bonus in bonuses %}
+                    <tr class="text-center">
+                        <td>{{ bonus.date_awarded.strftime('%d/%m/%Y') if bonus.date_awarded else '-' }}</td>
+                        <td class="text-start">
+                            <a href="{{ url_for('bonuses.employee_bonuses', employee_id=bonus.employee_id) }}"
+                                class="text-decoration-none text-dark fw-bold">
+                                {{ bonus.employee.name if bonus.employee else '-' }}
+                            </a>
+                        </td>
+                        <td><strong class="text-success">{{ "%.2f"|format(bonus.amount) }} جنيه</strong></td>
+                        <td>{{ bonus.reason }}</td>
+                        <td>
+                            {% if bonus.paid_with_salary %}
+                            <span class="badge bg-success" title="ستُصرف مع راتب نهاية الشهر">
+                                <i class="fas fa-toggle-on"></i> مع الراتب
+                            </span>
+                            {% else %}
+                            <span class="badge bg-danger" title="تم صرفها مسبقاً خلال الشهر">
+                                <i class="fas fa-toggle-off"></i> صُرفت مسبقاً
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                        <td>
+                            <a href="{{ url_for('bonuses.edit', id=bonus.id) }}" class="btn btn-sm btn-info"
+                                title="تعديل">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <button class="btn btn-sm btn-danger delete-record-btn" data-module="bonuses"
+                                data-id="{{ bonus.id }}" data-confirm="هل أنت متأكد من حذف هذه المكافأة؟" title="حذف">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info text-center">
+            <i class="fas fa-info-circle fa-2x mb-2 d-block"></i> لا توجد بيانات مسجلة تطابق البحث
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/date_format.js') }}"></script>
+{% endblock %}

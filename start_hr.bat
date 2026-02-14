@@ -1,0 +1,85 @@
+@echo off
+REM =====================================================
+REM HR System - Flask Application Launcher
+REM =====================================================
+
+REM Get current directory path automatically
+cd /d %~dp0
+
+REM Display startup information
+cls
+echo.
+echo =====================================================
+echo HR System - Flask Application
+echo =====================================================
+echo.
+echo Project Path: %cd%
+echo.
+
+REM Check for Python installation
+python --version >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] Python is not installed or not in PATH
+    echo [ERROR] Please install Python 3.11 or higher
+    pause
+    exit /b 1
+)
+
+REM Check for and activate virtual environment if it exists
+if exist "venv\Scripts\activate.bat" (
+    echo [INFO] Activating virtual environment...
+    call venv\Scripts\activate.bat
+    echo [OK] Virtual environment activated
+    echo.
+) else (
+    echo [WARNING] Virtual environment not found
+    echo [INFO] Using system Python
+    echo.
+)
+
+REM Check for run.py file
+if not exist "run.py" (
+    echo [ERROR] run.py file not found!
+    echo [ERROR] Make sure you are in the correct project directory
+    pause
+    exit /b 1
+)
+
+REM Check for app folder
+if not exist "app" (
+    echo [ERROR] app folder not found!
+    pause
+    exit /b 1
+)
+
+REM Check for core folder
+if not exist "core" (
+    echo [ERROR] core folder not found!
+    pause
+    exit /b 1
+)
+
+echo [OK] All required files and folders found
+echo.
+echo =====================================================
+echo Starting System...
+echo =====================================================
+echo.
+echo URL: http://127.0.0.1:5000
+echo Press Ctrl + C to stop the server
+echo.
+
+REM Start Flask server in a separate window
+echo [INFO] Starting server and opening browser...
+start "HR System Server" python run.py
+
+REM Wait for server to be ready
+timeout /t 2 /nobreak
+
+REM Open default browser automatically
+start "" http://127.0.0.1:5000
+echo [OK] Browser opened - http://127.0.0.1:5000
+echo.
+
+REM Keep this window open
+pause

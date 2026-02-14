@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}كشف توقيع الرواتب{% endblock %}
+
+{% block content %}
+<div
+    class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom d-print-none">
+    <h1 class="h2"><i class="fas fa-file-signature me-2"></i> كشف توقيع الرواتب</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <button onclick="window.print()" class="btn btn-dark">
+            <i class="fas fa-print me-2"></i> طباعة
+        </button>
+    </div>
+</div>
+
+<!-- Search Form -->
+<div class="card mb-4 d-print-none">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <input type="hidden" name="action" value="view_report">
+            <div class="col-md-3">
+                <label class="form-label">الشهر</label>
+                <select name="month" class="form-select">
+                    {% for m in range(1, 13) %}
+                    <option value="{{ m }}" {% if month==m %}selected{% endif %}>{{ m }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">السنة</label>
+                <input type="number" name="year" class="form-control" value="{{ year }}" min="2020" max="2030">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">الأقسام</label>
+                <select name="department_ids" class="form-select" multiple size="1">
+                    {% for dept in all_departments %}
+                    <option value="{{ dept.id }}" {% if selected_dept_ids and dept.id in selected_dept_ids %}selected{%
+                        endif %}>
+                        {{ dept.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search me-2"></i> عرض
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if report_data %}
+{% for dept_data in report_data %}
+<div class="department-section mb-5" style="page-break-before: always; page-break-inside: avoid;">
+    <!-- Header -->
+    <div class="row mb-4 border-bottom pb-3 align-items-center">
+        <div class="col-4 text-center">
+            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo"
+                style="height: 60px; max-width: 100%;">
+        </div>
+        <div class="col-4 text-center">
+            <h4 class="fw-bold">كشف توقيع الرواتب</h4>
+            <h5 class="text-muted">قسم: {{ dept_data.department.name }}</h5>
+            <p class="mb-0">عن شهر: {{ month }} / {{ year }}</p>
+        </div>
+        <div class="col-4 text-center">
+            <p class="mb-1"><strong>تاريخ الطباعة:</strong></p>
+            <p>{{ now.strftime('%d/%m/%Y') }}</p>
+        </div>
+    </div>
+
+    <table class="table table-bordered table-striped align-middle" style="border-color: #000;">
+        <thead class="table-dark text-center">
+            <tr>
+                <th width="5%">#</th>
+                <th width="15%">كود الموظف</th>
+                <th width="35%">الاسم</th>
+                <th width="10%">أيام العمل</th>
+                <th width="15%">صافي الراتب</th>
+                <th width="20%">التوقيع</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for emp in dept_data.employees %}
+            <tr>
+                <td class="text-center">{{ loop.index }}</td>
+                <td class="text-center">{{ emp.code }}</td>
+                <td><span class="fw-bold">{{ emp.name }}</span></td>
+                <td class="text-center">{{ emp.actual_days }}</td>
+                <td class="text-center fw-bold fs-5">{{ "%.0f"|format(emp.get('Net Salary', 0)) }}</td>
+                <td></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot class="table-light fw-bold">
+            <tr>
+                <td colspan="4" class="text-end p-2">إجمالي القسم:</td>
+                <td class="text-center p-2">{{ "%.0f"|format(dept_data.total_wages) }}</td>
+                <td>{{ dept_data.count }} موظف</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <!-- Signatures Footer -->
+    <div class="row mt-5 d-print-flex">
+        <div class="col-4 text-center">
+            <p class="fw-bold">إعداد</p>
+            <br>
+            <p>..................</p>
+        </div>
+        <div class="col-4 text-center">
+            <p class="fw-bold">مراجعة</p>
+            <br>
+            <p>..................</p>
+        </div>
+        <div class="col-4 text-center">
+            <p class="fw-bold">اعتماد</p>
+            <br>
+            <p>..................</p>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% else %}
+<div class="alert alert-info text-center">
+    <i class="fas fa-info-circle fa-2x mb-3"></i>
+    <p>يرجى اختيار القسم والشهر لعرض الكشف.</p>
+</div>
+{% endif %}
+
+<style>
+    @media print {
+        @page {
+            size: A4;
+            margin: 10mm;
+        }
+
+        body {
+            background: white;
+        }
+
+        .table-dark {
+            background-color: #000 !important;
+            color: #fff !important;
+            -webkit-print-color-adjust: exact;
+        }
+    }
+</style>
+{% endblock %}

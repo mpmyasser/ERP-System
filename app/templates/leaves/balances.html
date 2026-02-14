@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}أرصدة الإجازات{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-chart-pie me-2"></i> أرصدة الإجازات</h1>
+    <div class="btn-toolbar mb-2 mb-md-0 gap-2">
+        <a href="{{ url_for('leaves.initialize_balances', year=year) }}" class="btn btn-warning" onclick="return confirm('هل تريد تهيئة أرصدة جميع الموظفين للسنة {{ year }}؟')">
+            <i class="fas fa-sync me-1"></i> تهيئة الأرصدة
+        </a>
+        <a href="{{ url_for('leaves.bulk') }}" class="btn btn-success">
+            <i class="fas fa-plus-circle me-1"></i> إدخال إجازات
+        </a>
+        <a href="{{ url_for('leaves.list') }}" class="btn btn-primary">
+            <i class="fas fa-list me-1"></i> قائمة الإجازات
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">السنة</label>
+                <input type="number" name="year" class="form-control" value="{{ year }}" min="2020" max="2030">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">القسم</label>
+                <select name="department_id" class="form-select">
+                    <option value="">الكل</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept.id }}" {% if department_id == dept.id %}selected{% endif %}>{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-5 align-self-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search me-1"></i> عرض
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Balances Table -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped">
+                <thead class="table-dark text-center">
+                    <tr>
+                        <th rowspan="2" width="5%">#</th>
+                        <th rowspan="2" width="10%">الكود</th>
+                        <th rowspan="2" width="15%">الاسم</th>
+                        <th rowspan="2" width="10%">القسم</th>
+                        <th colspan="2" class="bg-primary">سنوية</th>
+                        <th colspan="2" class="bg-danger">مرضية</th>
+                        <th colspan="2" class="bg-warning text-dark">عارضة</th>
+                        <th colspan="2" class="bg-info">طارئة</th>
+                    </tr>
+                    <tr>
+                        <!-- سنوية -->
+                        <th class="bg-primary text-white">المستخدم</th>
+                        <th class="bg-primary text-white">المتبقي</th>
+                        <!-- مرضية -->
+                        <th class="bg-danger text-white">المستخدم</th>
+                        <th class="bg-danger text-white">المتبقي</th>
+                        <!-- عارضة -->
+                        <th class="bg-warning text-dark">المستخدم</th>
+                        <th class="bg-warning text-dark">المتبقي</th>
+                        <!-- طارئة -->
+                        <th class="bg-info text-white">المستخدم</th>
+                        <th class="bg-info text-white">المتبقي</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for balance in balances %}
+                    <tr>
+                        <td class="text-center">{{ loop.index }}</td>
+                        <td class="text-center"><strong>{{ balance.employee.code }}</strong></td>
+                        <td><strong>{{ balance.employee.name }}</strong></td>
+                        <td>{{ balance.employee.department.name if balance.employee.department else '-' }}</td>
+                        
+                        <!-- سنوية -->
+                        <td class="text-center">{{ "%.1f"|format(balance.annual_used) }}</td>
+                        <td class="text-center fw-bold text-{% if balance.annual_remaining > 10 %}success{% elif balance.annual_remaining > 5 %}warning{% else %}danger{% endif %}">
+                            {{ "%.1f"|format(balance.annual_remaining) }} / {{ "%.0f"|format(balance.annual_balance) }}
+                        </td>
+                        
+                        <!-- مرضية -->
+                        <td class="text-center">{{ "%.1f"|format(balance.sick_used) }}</td>
+                        <td class="text-center fw-bold text-{% if balance.sick_remaining > 20 %}success{% elif balance.sick_remaining > 10 %}warning{% else %}danger{% endif %}">
+                            {{ "%.1f"|format(balance.sick_remaining) }} / {{ "%.0f"|format(balance.sick_balance) }}
+                        </td>
+                        
+                        <!-- عارضة -->
+                        <td class="text-center">{{ "%.1f"|format(balance.casual_used) }}</td>
+                        <td class="text-center fw-bold text-{% if balance.casual_remaining > 4 %}success{% elif balance.casual_remaining > 2 %}warning{% else %}danger{% endif %}">
+                            {{ "%.1f"|format(balance.casual_remaining) }} / {{ "%.0f"|format(balance.casual_balance) }}
+                        </td>
+                        
+                        <!-- طارئة -->
+                        <td class="text-center">{{ "%.1f"|format(balance.emergency_used) }}</td>
+                        <td class="text-center fw-bold text-{% if balance.emergency_remaining > 2 %}success{% elif balance.emergency_remaining > 1 %}warning{% else %}danger{% endif %}">
+                            {{ "%.1f"|format(balance.emergency_remaining) }} / {{ "%.0f"|format(balance.emergency_balance) }}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="12" class="text-center text-muted py-4">
+                            لا توجد أرصدة مسجلة. 
+                            <a href="{{ url_for('leaves.initialize_balances', year=year) }}" class="btn btn-sm btn-warning ms-2">
+                                <i class="fas fa-sync me-1"></i> تهيئة الأرصدة الآن
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="alert alert-info mt-3">
+    <strong><i class="fas fa-info-circle me-2"></i> ملاحظة:</strong>
+    الأرصدة الافتراضية: سنوية (21 يوم) | مرضية (30 يوم) | عارضة (7 أيام) | طارئة (3 أيام)
+</div>
+{% endblock %}

@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Git Backups{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h3 mb-0"><i class="fas fa-code-branch me-2"></i>Git Version Controller</h1>
+</div>
+
+<div class="alert alert-warning" role="alert">
+    <strong>Safety Warning:</strong> Restoring code will not delete your database records.
+</div>
+
+{% if repo_error %}
+<div class="alert alert-danger" role="alert">
+    {{ repo_error }}
+</div>
+{% else %}
+
+    {% if db_check.ok %}
+    <div class="alert alert-success" role="alert">
+        Database protection check passed: all detected <code>.db</code> files are ignored by Git.
+    </div>
+    {% else %}
+    <div class="alert alert-danger" role="alert">
+        Database protection failed. Restore is blocked because some <code>.db</code> files are not ignored by Git.
+        {% if db_check.not_ignored %}
+        <hr>
+        <div class="small">Not ignored:</div>
+        <ul class="mb-0">
+            {% for file in db_check.not_ignored %}
+            <li><code>{{ file }}</code></li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <strong>Latest 15 Commits</strong>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0" id="commits-table">
+                    <thead class="table-dark">
+                        <tr>
+                            <th style="width: 14%;">Commit ID</th>
+                            <th style="width: 18%;">Date</th>
+                            <th>Message</th>
+                            <th style="width: 14%;" class="text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for commit in commits %}
+                        <tr>
+                            <td><code title="{{ commit.id }}">{{ commit.short_id }}</code></td>
+                            <td>{{ commit.date }}</td>
+                            <td>{{ commit.message }}</td>
+                            <td class="text-center">
+                                <button
+                                    class="btn btn-sm btn-outline-danger restore-btn"
+                                    data-commit-id="{{ commit.id }}"
+                                    data-commit-short="{{ commit.short_id }}"
+                                    data-commit-message="{{ commit.message|e }}"
+                                    {% if not db_check.ok %}disabled{% endif %}
+                                >
+                                    <i class="fas fa-history me-1"></i>Restore
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-4">No commits available.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+{% endif %}
+
+<div class="modal fade" id="restoreModal" tabindex="-1" aria-labelledby="restoreModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="restoreModalLabel">Confirm Restore</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    This action will reset the codebase to commit <code id="targetCommitShort">-</code>.
+                </div>
+                <p class="mb-1"><strong>Commit message:</strong></p>
+                <p class="text-muted" id="targetCommitMessage">-</p>
+
+                <label for="confirmText" class="form-label">
+                    Type <code>CONFIRM</code> to enable restore
+                </label>
+                <input type="text" class="form-control" id="confirmText" autocomplete="off" placeholder="CONFIRM">
+
+                <div id="restoreStatus" class="small mt-3"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmRestoreBtn" disabled>
+                    <i class="fas fa-check me-1"></i>Restore Now
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const modalElement = document.getElementById('restoreModal');
+    const restoreModal = new bootstrap.Modal(modalElement);
+    const confirmInput = document.getElementById('confirmText');
+    const confirmBtn = document.getElementById('confirmRestoreBtn');
+    const statusBox = document.getElementById('restoreStatus');
+    const targetCommitShort = document.getElementById('targetCommitShort');
+    const targetCommitMessage = document.getElementById('targetCommitMessage');
+
+    let selectedCommitId = null;
+
+    function csrfToken() {
+        return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    }
+
+    function setStatus(message, level) {
+        const classMap = {
+            success: 'text-success',
+            danger: 'text-danger',
+            warning: 'text-warning'
+        };
+        statusBox.className = 'small mt-3 ' + (classMap[level] || '');
+        statusBox.textContent = message || '';
+    }
+
+    document.querySelectorAll('.restore-btn').forEach((button) => {
+        button.addEventListener('click', function () {
+            selectedCommitId = this.dataset.commitId;
+            targetCommitShort.textContent = this.dataset.commitShort || '-';
+            targetCommitMessage.textContent = this.dataset.commitMessage || '-';
+            confirmInput.value = '';
+            confirmBtn.disabled = true;
+            setStatus('', '');
+            restoreModal.show();
+        });
+    });
+
+    confirmInput.addEventListener('input', function () {
+        confirmBtn.disabled = (this.value.trim() !== 'CONFIRM');
+    });
+
+    confirmBtn.addEventListener('click', async function () {
+        if (!selectedCommitId) return;
+
+        confirmBtn.disabled = true;
+        setStatus('Restoring selected commit...', 'warning');
+
+        try {
+            const response = await fetch(`/admin/restore/${encodeURIComponent(selectedCommitId)}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken()
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({})
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Restore failed');
+            }
+
+            setStatus(data.message + ' The page will reconnect automatically.', 'success');
+            setTimeout(() => window.location.reload(), 4500);
+        } catch (error) {
+            setStatus(error.message || 'Restore failed', 'danger');
+            confirmBtn.disabled = (confirmInput.value.trim() !== 'CONFIRM');
+        }
+    });
+
+    modalElement.addEventListener('hidden.bs.modal', function () {
+        selectedCommitId = null;
+        confirmInput.value = '';
+        confirmBtn.disabled = true;
+        setStatus('', '');
+    });
+})();
+</script>
+{% endblock %}

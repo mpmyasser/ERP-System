@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}{% if mode == 'create' %}إضافة قسم جديد{% else %}تعديل القسم{% endif %}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-{% if mode == 'create' %}plus{% else %}edit{% endif %} me-2"></i>
+        {% if mode == 'create' %}إضافة قسم جديد{% else %}تعديل القسم{% endif %}
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('departments.list') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-right"></i> رجوع
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="mb-3">
+                        <label for="name" class="form-label">اسم القسم *</label>
+                        <input type="text" class="form-control" id="name" name="name"
+                            value="{{ department.name if department else '' }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="erp_code" class="form-label">كود التكلفة (ERP)</label>
+                        <input type="text" class="form-control" id="erp_code" name="erp_code"
+                            value="{{ department.erp_cost_center_code if department else '' }}">
+                        <small class="text-muted">اختياري - للربط مع نظام ERP</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="display_order" class="form-label">ترتيب العرض</label>
+                        <input type="number" class="form-control" id="display_order" name="display_order"
+                            value="{{ department.display_order if department else '0' }}">
+                        <small class="text-muted">لترتيب القسم في القوائم</small>
+                    </div>
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-save"></i>
+                            {% if mode == 'create' %}إضافة القسم{% else %}حفظ التعديلات{% endif %}
+                        </button>
+                        <a href="{{ url_for('departments.list') }}" class="btn btn-secondary btn-lg">
+                            <i class="fas fa-times"></i> إلغاء
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

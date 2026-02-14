@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}قائمة الإجازات{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-umbrella-beach me-2"></i> قائمة الإجازات</h1>
+    <div class="btn-toolbar mb-2 mb-md-0 gap-2">
+        <a href="{{ url_for('leaves.bulk') }}" class="btn btn-success">
+            <i class="fas fa-plus-circle me-1"></i> إدخال جماعي
+        </a>
+        <a href="{{ url_for('leaves.holidays') }}" class="btn btn-warning text-white">
+            <i class="fas fa-calendar-star me-1"></i> العطلات الرسمية
+        </a>
+        <a href="{{ url_for('leaves.balances') }}" class="btn btn-info text-white">
+            <i class="fas fa-chart-pie me-1"></i> الأرصدة
+        </a>
+    </div>
+</div>
+
+<!-- Unified Filter Bar -->
+<div class="card shadow-sm mb-4" id="unified-filter-bar">
+    <div class="card-header bg-white py-3">
+        <h5 class="mb-0"><i class="fas fa-filter me-2"></i> فلاتر البحث</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" action="{{ url_for('leaves.list') }}" class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label">من تاريخ</label>
+                <input type="text" name="date_from" id="date-from" class="form-control date-string allow-month-end"
+                    placeholder="DD/MM/YYYY" value="{{ date_from or '' }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">إلى تاريخ</label>
+                <input type="text" name="date_to" id="date-to" class="form-control date-string allow-month-end" placeholder="DD/MM/YYYY"
+                    value="{{ date_to or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">الأقسام</label>
+                <select name="department_ids" id="dept-filter" class="form-select" multiple size="1">
+                    {% for dept in departments %}
+                    <option value="{{ dept.id }}" {% if department_ids and dept.id in department_ids %}selected{% endif
+                        %}>
+                        {{ dept.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">نوع الإجازة</label>
+                <select name="leave_type" class="form-select">
+                    <option value="">الكل</option>
+                    {% for lt in leave_types %}
+                    <option value="{{ lt.value }}" {% if leave_type==lt.value %}selected{% endif %}>{{ lt.value }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 text-end">
+                <div class="btn-group w-100">
+                    <button class="btn btn-primary" type="submit">
+                        <i class="fas fa-search me-1"></i> بحث
+                    </button>
+                    {% if date_from or date_to or department_ids or leave_type %}
+                    <a href="{{ url_for('leaves.list') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-undo me-1"></i> إعادة تعيين
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Statistics -->
+<div class="row mb-3">
+    <div class="col-md-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h5 class="card-title">إجمالي الإجازات</h5>
+                <h2>{{ leaves|length }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h5 class="card-title">إجمالي الأيام</h5>
+                <h2>{{ "%.1f"|format(total_days) }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <h5 class="card-title">عدد الموظفين</h5>
+                <h2>{{ employees_count }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Leaves Table -->
+<div class="card">
+    <div class="card-body">
+        {% if leaves %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover datatable" id="leaves-list-table">
+                <thead class="table-dark text-center">
+                    <tr>
+                        <th width="5%">#</th>
+                        <th width="12%">كود الموظف</th>
+                        <th width="20%">الاسم</th>
+                        <th width="10%">القسم</th>
+                        <th width="12%">نوع الإجازة</th>
+                        <th width="10%">من</th>
+                        <th width="10%">إلى</th>
+                        <th width="8%">عدد الأيام</th>
+                        <th width="10%">الحالة</th>
+                        <th width="8%" class="no-sort">إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for leave in leaves %}
+                    <tr>
+                        <td class="text-center">{{ loop.index }}</td>
+                        <td class="text-center"><strong>{{ leave.employee.code }}</strong></td>
+                        <td><strong>{{ leave.employee.name }}</strong></td>
+                        <td>{{ leave.employee.department.name if leave.employee.department else '-' }}</td>
+                        <td class="text-center">
+                            <span
+                                class="badge bg-{% if leave.leave_type == 'سنوية' %}primary{% elif leave.leave_type == 'مرضية' %}danger{% elif leave.leave_type == 'عارضة' %}warning{% else %}secondary{% endif %}">
+                                {{ leave.leave_type }}
+                            </span>
+                        </td>
+                        <td class="text-center">{{ leave.start_date.strftime('%d/%m/%Y') }}</td>
+                        <td class="text-center">{{ leave.end_date.strftime('%d/%m/%Y') }}</td>
+                        <td class="text-center"><strong>{{ leave.days_count }}</strong></td>
+                        <td class="text-center">
+                            <span
+                                class="badge bg-{% if leave.status == 'موافق عليها' %}success{% elif leave.status == 'مرفوضة' %}danger{% else %}warning{% endif %}">
+                                {{ leave.status }}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-danger delete-record-btn" data-module="leaves"
+                                data-id="{{ leave.id }}" data-confirm="هل أنت متأكد من حذف هذه الإجازة؟" title="حذف">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> لا توجد إجازات مسجلة مطابقة لمعايير البحث.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

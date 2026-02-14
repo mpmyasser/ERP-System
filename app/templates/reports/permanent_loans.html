@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}تقرير السلف المستديمة التفصيلي{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        @page {
+            size: A4 landscape;
+            margin: 0.5cm;
+        }
+
+        .no-print {
+            display: none !important;
+        }
+
+        .card {
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        .container-fluid {
+            width: 100% !important;
+            padding: 0 !important;
+        }
+
+        table {
+            font-size: 11px !important;
+            width: 100% !important;
+        }
+
+        .badge {
+            border: 1px solid #ddd !important;
+            color: black !important;
+            background: transparent !important;
+        }
+    }
+
+    .badge-month {
+        font-size: 0.75rem;
+        margin: 1px;
+        display: inline-block;
+        padding: 0.2em 0.5em;
+        border-radius: 4px;
+    }
+
+    .excluded-badge {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeeba;
+    }
+
+    .deduction-badge {
+        background-color: #e7f1ff;
+        color: #0c4128;
+        border: 1px solid #b6d4fe;
+    }
+
+    .table-premium thead th {
+        background-color: #212529;
+        color: white;
+        vertical-align: middle;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 no-print">
+        <h2 class="mb-0 text-primary fw-bold">
+            <i class="fas fa-calendar-check me-2"></i> تقرير السلف المستديمة التفصيلي
+        </h2>
+        <div class="d-flex gap-2">
+            <button onclick="window.print()" class="btn btn-dark px-4 shadow-sm">
+                <i class="fas fa-print me-1"></i> طباعة الكشف
+            </button>
+            <a href="{{ url_for('reports.index') }}" class="btn btn-outline-secondary px-4 shadow-sm">
+                <i class="fas fa-reply me-1"></i> رجوع
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4 no-print border-0 shadow-sm bg-light">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label fw-bold"><i class="fas fa-filter me-1 text-primary"></i> تصفية حسب
+                        القسم</label>
+                    <select name="dept_id" class="form-select border-primary">
+                        <option value="">-- عرض جميع الأقسام --</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}" {% if selected_dept==dept.id %}selected{% endif %}>
+                            {{ dept.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100 shadow-sm">
+                        <i class="fas fa-search me-1"></i> عرض التقرير
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Report Table -->
+    <div class="card shadow border-0 overflow-hidden">
+        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold">قائمة السلف المستديمة النشطة ومخطط السداد</h5>
+            <span class="badge bg-primary rounded-pill px-3">{{ data|length }} سلفة قائمة</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table
+                    class="table table-hover table-bordered table-striped mb-0 align-middle text-center table-sm table-premium">
+                    <thead>
+                        <tr>
+                            <th width="4%">م</th>
+                            <th width="8%">الكود</th>
+                            <th width="15%">اسم الموظف</th>
+                            <th width="10%">القسم</th>
+                            <th width="8%">المبلغ</th>
+                            <th width="8%">تاريخ الصرف</th>
+                            <th width="32%">شهور الخصم المتوقعة (مخطط السداد)</th>
+                            <th width="8%">الاستثناءات</th>
+                            <th width="7%">المتبقي</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if data %}
+                        {% for item in data %}
+                        <tr>
+                            <td class="bg-light fw-bold">{{ loop.index }}</td>
+                            <td class="fw-bold text-primary">{{ item.loan.employee.code }}</td>
+                            <td class="text-start ps-3 fw-bold">{{ item.loan.employee.name }}</td>
+                            <td class="small">{{ item.loan.employee.department.name if item.loan.employee.department
+                                else 'بدون قسم' }}</td>
+                            <td class="fw-bold">{{ "{:,.2f}".format(item.loan.amount) }}</td>
+                            <td>{{ item.loan.date.strftime('%m/%Y') if item.loan.date else '-' }}</td>
+                            <td class="text-start p-2">
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% for month in item.deduction_months %}
+                                    <span class="badge deduction-badge badge-month">{{ month }}</span>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td>
+                                {% if item.excluded_months_list %}
+                                {% for m in item.excluded_months_list %}
+                                <span class="badge excluded-badge badge-month">ش {{ m }}</span>
+                                {% endfor %}
+                                {% else %}
+                                <span class="text-muted small">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="fw-bold text-danger">{{ "{:,.2f}".format(item.current_balance) }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="py-5 text-muted">
+                                <h5 class="italic"><i class="fas fa-info-circle me-2"></i> لا توجد سلف مستديمة مطابقة
+                                    للمعايير حالياً</h5>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-light text-muted small py-3 d-flex justify-content-between align-items-center">
+            <div><i class="far fa-clock me-1"></i> تاريخ استخراج التقرير: {{ now.strftime('%d/%m/%Y %I:%M %p') }}</div>
+            <div class="d-none d-print-block fw-bold border-top pt-2 mt-2 w-100 text-center">
+                توقيع المسؤول: ________________________
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

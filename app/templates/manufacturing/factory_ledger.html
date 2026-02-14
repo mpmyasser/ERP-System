@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="h3 mb-0 text-gray-800"><i class="fas fa-file-invoice-dollar me-2"></i>كشف حساب المصنع</h2>
+        <div class="d-flex g-2">
+            <button class="btn btn-outline-secondary me-2" onclick="window.print()">
+                <i class="fas fa-print me-1"></i> طباعة كشف الحساب
+            </button>
+        </div>
+    </div>
+
+    <!-- Filter Card -->
+    <div class="card shadow mb-4 border-0">
+        <div class="card-body bg-light">
+            <form method="GET" class="row align-items-end g-3">
+                <div class="col-md-5">
+                    <label class="form-label fw-bold">اختر المصنع / الورشة</label>
+                    <select name="factory_id" class="form-select select2" required onchange="this.form.submit()">
+                        <option value="">-- اختر المصنع --</option>
+                        {% for f in factories %}
+                        <option value="{{ f.id }}" {{ 'selected' if selected_factory and selected_factory.id==f.id }}>
+                            {{ f.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary px-4 w-100">
+                        <i class="fas fa-filter me-1"></i> عرض الحساب
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if selected_factory %}
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2 border-0">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">إجمالي المستحقات
+                                (دائن)</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ "{:,.2f}".format(lines | map(attribute='credit') | sum) }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-coins fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2 border-0">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">إجمالي المدفوعات
+                                (مدين)</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ "{:,.2f}".format(lines | map(attribute='debit') | sum) }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-hand-holding-usd fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2 border-0">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">الرصيد المتبقي للمصنع
+                            </div>
+                            <div
+                                class="h5 mb-0 font-weight-bold {{ 'text-danger' if balance < 0 else 'text-success' }}">
+                                {{ "{:,.2f}".format(balance) }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-wallet fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ledger Table -->
+    <div class="card shadow border-0 overflow-hidden">
+        <div class="card-header py-3 bg-white">
+            <h6 class="m-0 font-weight-bold text-dark">تفاصيل الحركات - {{ selected_factory.name }}</h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle mb-0" id="ledgerTable">
+                    <thead class="bg-light text-center">
+                        <tr>
+                            <th style="width: 120px;">التاريخ</th>
+                            <th>نوع الحركة</th>
+                            <th>المرجع</th>
+                            <th>البيان / الملاحظات</th>
+                            <th style="width: 150px;">منه (مدين)</th>
+                            <th style="width: 150px;">له (دائن)</th>
+                            <th style="width: 180px;">الرصيد التراكمي</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if lines %}
+                        {% for l in lines %}
+                        <tr>
+                            <td class="text-center">{{ l.date.strftime('%Y-%m-%d') }}</td>
+                            <td class="text-center">
+                                <span
+                                    class="badge {{ 'bg-success-soft text-success border border-success' if l.credit > 0 else 'bg-warning-soft text-warning border border-warning' }}">
+                                    {{ l.type }}
+                                </span>
+                            </td>
+                            <td class="text-center font-monospace small">{{ l.reference }}</td>
+                            <td class="small">{{ l.notes }}</td>
+                            <td class="text-end text-danger">{{ "{:,.2f}".format(l.debit) if l.debit > 0 else '-' }}
+                            </td>
+                            <td class="text-end text-success">{{ "{:,.2f}".format(l.credit) if l.credit > 0 else '-' }}
+                            </td>
+                            <td class="text-end fw-bold {{ 'text-danger' if l.balance < 0 else 'text-dark' }}">
+                                {{ "{:,.2f}".format(l.balance) }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5 text-muted">لا توجد حركات مسجلة لهذا المصنع في هذه
+                                الفترة.</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <div class="mb-4">
+            <i class="fas fa-search-dollar fa-5x text-light"></i>
+        </div>
+        <h5 class="text-muted">برجاء اختيار مصنع لعرض كشف الحساب</h5>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    @media print {
+
+        .navbar,
+        .btn,
+        .card-header,
+        form,
+        .container-fluid>.d-flex {
+            display: none !important;
+        }
+
+        .card {
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        .table {
+            width: 100% !important;
+            border: 1px solid #dee2e6 !important;
+        }
+
+        body {
+            background: white !important;
+        }
+
+        .card-body {
+            padding: 0 !important;
+        }
+    }
+
+    .bg-success-soft {
+        background-color: #e8f5e9;
+    }
+
+    .bg-warning-soft {
+        background-color: #fff3e0;
+    }
+</style>
+{% endblock %}

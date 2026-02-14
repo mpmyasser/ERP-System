@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4 align-items-center">
+    <div class="col-md-6">
+        <h2 class="fw-bold"><i class="fas fa-bullseye text-danger me-2"></i> مراكز التكلفة</h2>
+        <p class="text-muted">تعريف وإدارة مراكز التكلفة لربط المصاريف والإنتاج</p>
+    </div>
+    <div class="col-md-6 text-start">
+        <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#addCenterModal">
+            <i class="fas fa-plus"></i> إضافة مركز تكلفة
+        </button>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle text-center">
+                <thead class="bg-light">
+                    <tr>
+                        <th width="10%">الترتيب</th>
+                        <th width="15%">الكود</th>
+                        <th width="45%">اسم مركز التكلفة</th>
+                        <th width="30%">الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for center in centers %}
+                    <tr>
+                        <td>{{ center.display_order }}</td>
+                        <td class="fw-bold">{{ center.code }}</td>
+                        <td>{{ center.name }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                                data-bs-target="#editCenterModal{{ center.id }}">
+                                <i class="fas fa-edit"></i> تعديل
+                            </button>
+                            <form action="{{ url_for('accounting.delete_cost_center', id=center.id) }}" method="POST"
+                                onsubmit="return confirm('هل أنت متأكد من حذف مركز التكلفة هذا؟');"
+                                style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="fas fa-trash"></i> حذف
+                                </button>
+                            </form>
+
+                            <!-- Modal Edit Center -->
+                            <div class="modal fade" id="editCenterModal{{ center.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <form method="POST"
+                                            action="{{ url_for('accounting.edit_cost_center', id=center.id) }}">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">تعديل مركز تكلفة</h5>
+                                                <button type="button" class="btn-close"
+                                                    data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body text-start">
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-bold">كود المركز</label>
+                                                    <input type="text" class="form-control" value="{{ center.code }}"
+                                                        readonly disabled>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-bold">اسم مركز التكلفة</label>
+                                                    <input type="text" class="form-control" name="name"
+                                                        value="{{ center.name }}" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-bold">ترتيب العرض</label>
+                                                    <input type="number" class="form-control" name="display_order"
+                                                        value="{{ center.display_order }}" required>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary"
+                                                    data-bs-dismiss="modal">إغلاق</button>
+                                                <button type="submit" class="btn btn-primary">حفظ التغييرات</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center py-5 text-muted">
+                            <i class="fas fa-bullseye fa-3x mb-3 d-block opacity-25"></i>
+                            لا توجد مراكز تكلفة معرفة حالياً.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Add Center -->
+<div class="modal fade" id="addCenterModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('accounting.add_cost_center') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">إضافة مركز تكلفة جديد</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">كود المركز</label>
+                        <input type="text" class="form-control" name="code" required placeholder="مثلاً: CC-101">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">اسم مركز التكلفة</label>
+                        <input type="text" class="form-control" name="name" required placeholder="مثلاً: صالة 8">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">ترتيب العرض</label>
+                        <input type="number" class="form-control" name="display_order" value="0" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+                    <button type="submit" class="btn btn-primary">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

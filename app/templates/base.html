@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}نظام الموارد البشرية{% endblock %}</title>
+
+    <!-- Bootstrap 5 RTL -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+
+    <!-- Google Fonts - Cairo -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/colreorder/1.7.0/css/colReorder.bootstrap5.min.css">
+
+    <!-- Flatpickr (Date Picker) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
+    <!-- AG-Grid CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@30.2.0/styles/ag-grid.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@30.2.0/styles/ag-theme-alpine.min.css">
+
+    <!-- Select2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/treasury-ui.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/print-styles.css') }}">
+
+    {% block extra_css %}{% endblock %}
+
+    <!-- CSRF Token for JavaScript -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+</head>
+
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('main.dashboard') }}">
+                <i class="fas fa-users me-2"></i>
+                نظام الموارد البشرية
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    {% if has_perm('view_dashboard') %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.dashboard') }}">
+                            <i class="fas fa-home"></i> الرئيسية
+                        </a>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employees.list') }}">
+                            <i class="fas fa-users"></i> الموظفين
+                        </a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav ms-auto">
+                    {% if session.get('user_id') %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle fw-bold text-white px-3" href="#" id="userDropdown"
+                            role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-user-circle me-1"></i>
+                            {{ session.get('full_name') or session.get('username') }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2" aria-labelledby="userDropdown">
+                            <li><a class="dropdown-item py-2" href="{{ url_for('auth.profile') }}"><i
+                                        class="fas fa-id-card me-2 text-primary"></i> الملف الشخصي</a></li>
+                            {% if session.get('is_admin') %}
+                            <li><a class="dropdown-item py-2" href="{{ url_for('auth.list_users') }}"><i
+                                        class="fas fa-user-shield me-2 text-warning"></i> إدارة المستخدمين</a></li>
+                            {% endif %}
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li><a class="dropdown-item py-2 text-danger" href="{{ url_for('auth.logout') }}"><i
+                                        class="fas fa-sign-out-alt me-2"></i> تسجيل الخروج</a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Main content -->
+            <main
+                class="{% if session.get('user_id') %}col-md-9 col-lg-10{% else %}col-12{% endif %} px-md-4 order-md-1">
+                <div class="pt-3 pb-2 mb-3">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% set center_messages = [] %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            {# Treat 'center' plus success/error as centered popups #}
+                            {% if category in ['center', 'success', 'danger', 'error'] %}
+                                {# store as [message, category] so JS can set correct icon #}
+                                {% set _ = center_messages.append([message, category]) %}
+                            {% else %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show auto-dismiss" role="alert">
+                                {% if '\n' in message %}
+                                <!-- Multi-line message -->
+                                {% for line in message.split('\n') %}
+                                {% if line.strip() %}
+                                <div>{{ line }}</div>
+                                {% endif %}
+                                {% endfor %}
+                                {% else %}
+                                <!-- Single line message -->
+                                {{ message | safe }}
+                                {% endif %}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                    {% if center_messages %}
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function () {
+                            // If global showCenteredFlash exists, use it, otherwise fallback to alert
+                            function showCenteredFlashLocal(pair) {
+                                const msg = Array.isArray(pair) ? pair[0] : pair;
+                                const category = Array.isArray(pair) ? (pair[1] || 'info') : 'info';
+                                if (typeof showCenteredFlash === 'function') {
+                                    showCenteredFlash(msg, category);
+                                } else {
+                                    // strip HTML for plain alert fallback
+                                    const plain = (typeof msg === 'string') ? msg.replace(/<[^>]*>/g, '') : String(msg);
+                                    alert(plain);
+                                }
+                            }
+                            const msgs = {{ center_messages|tojson|safe }};
+                            msgs.forEach(item => showCenteredFlashLocal(item));
+                        });
+                    </script>
+                    {% endif %}
+                    {% endwith %}
+
+                    {% block content %}{% endblock %}
+                </div>
+            </main>
+
+            <!-- Sidebar - الآن على اليمين -->
+            {% if session.get('user_id') %}
+            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block sidebar collapse order-md-2">
+                <div class="position-sticky pt-3">
+                    <ul class="nav flex-column">
+                        {% if has_perm('view_dashboard') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}"
+                                href="{{ url_for('main.dashboard') }}">
+                                <i class="fas fa-dashboard"></i> لوحة التحكم
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if has_perm('view_employees') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'employees' in request.endpoint %}active{% endif %}"
+                                href="{{ url_for('employees.list') }}">
+                                <i class="fas fa-users"></i> إدارة الموظفين
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if has_perm('view_departments') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'departments' in request.endpoint %}active{% endif %}"
+                                href="{{ url_for('departments.list') }}">
+                                <i class="fas fa-building"></i> الأقسام
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if has_perm('view_attendance') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'attendance' in request.endpoint %}active{% endif %}"
+                                href="{{ url_for('attendance.daily') }}">
+                                <i class="fas fa-clock"></i> الحضور
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if has_perm('view_loans') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'loans' in request.endpoint %}active{% endif %}"
+                                href="{{ url_for('loans.list') }}">
+                                <i class="fas fa-hand-holding-usd"></i> السلف
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if has_perm('view_penalties') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'penalties' in request.endpoint %}active{% endif %}"
+                                href="{{ url_for('penalties.list') }}">
+                                <i class="fas fa-exclamation-triangle"></i> الجزاءات
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if has_perm('view_bonuses') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'bonuses' in request.endpoint %}active{% endif %}"
+                                href="{{ url_for('bonuses.list') }}">
+                                <i class="fas fa-gift"></i> المكافآت
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if has_perm('view_permissions') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'permissions' in request.endpoint %}active{% endif %}"
+                                href="{{ url_for('permissions.list') }}">
+                                <i class="fas fa-calendar-check"></i> التصاريح
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if has_perm('view_leaves') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'leaves' in request.endpoint %}active{% endif %}"
+                                href="{{ url_for('leaves.list') }}">
+                                <i class="fas fa-umbrella-beach"></i> الإجازات
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if has_perm('view_payroll') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'payroll' in request.endpoint %}active{% endif %}"
+                                href="{{ url_for('payroll.index') }}">
+                                <i class="fas fa-money-bill"></i> الرواتب
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if has_perm('view_hr_reports') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'reports' in request.endpoint %}active{% endif %}"
+                                href="{{ url_for('reports.index') }}">
+                                <i class="fas fa-file-alt"></i> التقارير
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if has_perm('view_settings') %}
+                        <li class="nav-item border-top mt-2 pt-2">
+                            <a class="nav-link {% if 'settings' in request.endpoint %}active{% endif %} text-primary"
+                                href="{{ url_for('settings.index') }}">
+                                <i class="fas fa-cog"></i> إعدادات النظام
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% if has_perm('view_accounting') %}
+                        <!-- ERP Modules -->
+                        <li class="nav-item border-top mt-2 pt-2">
+                            <div class="px-3 mb-2 fw-bold text-muted small">نظام الـ ERP</div>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'accounting.coa' in request.endpoint %}active{% endif %}"
+                                href="{{ url_for('accounting.coa') }}">
+                                <i class="fas fa-sitemap"></i> شجرة الحسابات
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'accounting.list_journals' in request.endpoint %}active{% endif %}"
+                                href="{{ url_for('accounting.list_journals') }}">
+                                <i class="fas fa-book-open"></i> قيود اليومية
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'accounting.list_cost_centers' in request.endpoint %}active{% endif %}"
+                                href="{{ url_for('accounting.list_cost_centers') }}">
+                                <i class="fas fa-bullseye"></i> مراكز التكلفة
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if session.is_admin %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'auth.list_users' in request.endpoint %}active{% endif %}"
+                                href="{{ url_for('auth.list_users') }}">
+                                <i class="fas fa-user-shield"></i> المستخدمين والمهمات
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        <!-- {% if has_perm('view_manufacturing') %}
+                        
+                        <li class="nav-item border-top mt-2 pt-2">
+                            <div class="px-3 mb-2 fw-bold text-muted small">إدارة الإنتاج والمخازن</div>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'manufacturing.list_cuts' in request.endpoint %}active{% endif %}"
+                                href="#">
+                                <i class="fas fa-cut"></i> تتبع القصات (Cuts)
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'manufacturing.list_products' in request.endpoint %}active{% endif %}"
+                                href="#">
+                                <i class="fas fa-tshirt"></i> الأصناف والمنتجات
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'manufacturing.list_warehouses' in request.endpoint %}active{% endif %}"
+                                href="#">
+                                <i class="fas fa-warehouse"></i> المخازن
+                            </a>
+                        </li>
+                        {% endif %} -->
+
+                        {% if has_perm('view_treasury') %}
+                        <!-- Treasury Modules -->
+                        <li class="nav-item border-top mt-2 pt-2">
+                            <div class="px-3 mb-2 fw-bold text-muted small">الخزينة والبنوك</div>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'treasury.dashboard' in request.endpoint %}active{% endif %}"
+                                href="{{ url_for('treasury.dashboard') }}">
+                                <i class="fas fa-cash-register"></i> إدارة النقدية والبنوك
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'treasury.list_checks' in request.endpoint %}active{% endif %}"
+                                href="{{ url_for('treasury.list_checks') }}">
+                                <i class="fas fa-money-check-alt"></i> حافظة الشيكات
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        <!-- {% if has_perm('view_commercial') %}
+                        
+                        <li class="nav-item border-top mt-2 pt-2">
+                            <div class="px-3 mb-2 fw-bold text-muted small">المبيعات والمشتريات</div>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'commercial.opening_balances' in request.endpoint %}active{% endif %}"
+                                href="#">
+                                <i class="fas fa-play-circle"></i> أرصدة أول المدة
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'commercial.list_partners' in request.endpoint %}active{% endif %}"
+                                href="#">
+                                <i class="fas fa-handshake"></i> الموردين والعملاء
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'commercial.list_invoices' in request.endpoint and type == 'Purchase' %}active{% endif %}"
+                                href="#">
+                                <i class="fas fa-shopping-cart"></i> فواتير المشتريات
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'commercial.list_invoices' in request.endpoint and type == 'Sales' %}active{% endif %}"
+                                href="#">
+                                <i class="fas fa-file-invoice-dollar"></i> فواتير المبيعات
+                            </a>
+                        </li>
+                        {% endif %} -->
+
+
+
+
+                    </ul>
+                </div>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- jQuery (required for DataTables) -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/colreorder/1.7.0/js/dataTables.colReorder.min.js"></script>
+
+    <!-- DataTables Buttons -->
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.colVis.min.js"></script>
+
+    <!-- Flatpickr (Date Picker) -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <!-- Flatpickr Arabic locale -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ar.js"></script>
+
+    <!-- AG-Grid JS -->
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@30.2.0/dist/ag-grid-community.min.js"></script>
+
+    <!-- Select2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/excel_export_formatter.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/settings_manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/filter_persistence.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/datatables_init.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/aggrid_init.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/table_resizer.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/input_sanitizer.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/enter_navigation.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/date_format.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/flatpickr_init.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/print-handler.js') }}"></script>
+
+    <script>
+        // Failsafe for Bootstrap Dropdowns
+        document.addEventListener('DOMContentLoaded', function () {
+            var dropdownToggles = document.querySelectorAll('.dropdown-toggle');
+            dropdownToggles.forEach(function (toggle) {
+                toggle.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var menu = this.nextElementSibling;
+                    var isExpanded = this.getAttribute('aria-expanded') === 'true';
+
+                    // Close all other dropdowns
+                    document.querySelectorAll('.dropdown-menu.show').forEach(function (openMenu) {
+                        if (openMenu !== menu) openMenu.classList.remove('show');
+                    });
+                    document.querySelectorAll('.dropdown-toggle.show').forEach(function (openToggle) {
+                        if (openToggle !== toggle) openToggle.classList.remove('show');
+                    });
+
+                    // Toggle current
+                    this.setAttribute('aria-expanded', !isExpanded);
+                    this.classList.toggle('show');
+                    menu.classList.toggle('show');
+                });
+            });
+
+            // Close when clicking outside
+            document.addEventListener('click', function () {
+                document.querySelectorAll('.dropdown-menu.show').forEach(function (menu) {
+                    menu.classList.remove('show');
+                });
+                document.querySelectorAll('.dropdown-toggle.show').forEach(function (toggle) {
+                    toggle.setAttribute('aria-expanded', 'false');
+                    toggle.classList.remove('show');
+                });
+            });
+        });
+    </script>
+
+    <!-- Unified Delete Handler -->
+    <script src="{{ url_for('static', filename='js/delete_handler.js') }}"></script>
+
+    <script>
+        // Replace flash alerts with SweetAlert2 modals (global)
+        document.addEventListener('DOMContentLoaded', async function () {
+            if (typeof Swal === 'undefined') return;
+
+            const alerts = Array.from(document.querySelectorAll('.alert.alert-dismissible'));
+            if (!alerts.length) return;
+
+            const iconMap = {
+                success: 'success',
+                danger: 'error',
+                warning: 'warning',
+                info: 'info',
+                primary: 'info',
+                secondary: 'info'
+            };
+
+            for (const alert of alerts) {
+                const classes = Array.from(alert.classList);
+                const category = classes.find(c => c.startsWith('alert-'))?.replace('alert-', '') || 'info';
+                const icon = iconMap[category] || 'info';
+                const text = (alert.innerText || alert.textContent || '').trim();
+
+                if (text) {
+                    // Show modal for each flash message
+                    await Swal.fire({
+                        icon: icon,
+                        title: 'تنبيه',
+                        text: text,
+                        confirmButtonText: 'حسنًا'
+                    });
+                }
+
+                alert.remove();
+            }
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>

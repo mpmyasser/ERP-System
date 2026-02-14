@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+
+{% block title %}الحضور اليومي{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-clock me-2"></i> الحضور والانصراف اليومي</h1>
+    <div class="btn-toolbar mb-2 mb-md-0 gap-2">
+        <a href="{{ url_for('attendance.bulk_entry') }}" class="btn btn-info">
+            <i class="fas fa-layer-group"></i> الإدخال الجماعي
+        </a>
+        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addAttendanceModal">
+            <i class="fas fa-plus"></i> إضافة حضور يدوي
+        </button>
+
+        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteAttendanceModal">
+            <i class="fas fa-trash-alt"></i> حذف الحضور
+        </button>
+
+        <button type="button" class="btn btn-warning text-dark" data-bs-toggle="modal" data-bs-target="#reprocessModal">
+            <i class="fas fa-sync-alt"></i> إعادة معالجة
+        </button>
+
+        <a href="{{ url_for('attendance.import_attendance') }}" class="btn btn-primary">
+            <i class="fas fa-file-import"></i> استيراد من Excel
+        </a>
+    </div>
+</div>
+
+<!-- Unified Filter Bar -->
+<div class="card shadow-sm mb-4" id="unified-filter-bar">
+    <div class="card-header bg-white py-3">
+        <h5 class="mb-0"><i class="fas fa-filter me-2"></i> فلاتر البحث</h5>
+    </div>
+    <div class="card-body">
+        <form action="{{ url_for('attendance.daily') }}" method="get" id="attendanceFilterForm" class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label">من تاريخ</label>
+                <input type="text" name="date_from" class="form-control form-control-sm date-string text-center" value="{{ start_date.strftime('%d/%m/%Y') }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">إلى تاريخ</label>
+                <input type="text" name="date_to" class="form-control form-control-sm date-string text-center" value="{{ end_date.strftime('%d/%m/%Y') }}">
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">الأقسام</label>
+                <select name="department_ids" id="dept-filter" class="form-select" multiple size="1">
+                    {% for dept in departments %}
+                    <option value="{{ dept.id }}" {% if selected_department_ids and dept.id in selected_department_ids %}selected{% endif %}>{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 text-end">
+                <div class="btn-group w-100">
+                    <button class="btn btn-primary btn-sm" type="submit">
+                        <i class="fas fa-search me-1"></i> بحث
+                    </button>
+                    {% if request.args.get('search') or selected_department_ids %}
+                    <a href="{{ url_for('attendance.daily') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-undo me-1"></i> إعادة تعيين
+                    </a>
+                    {% endif %}
+                    <span class="btn btn-dark disabled">
+                        {{ records|length if records else 0 }} موظف
+                    </span>
+                </div>
+            </div>
+
+            <!-- Second row: unified search field like employees page -->
+            <div class="col-md-3">
+                <label class="form-label">البحث بالاسم أو الكود</label>
+                <input type="text" name="search" id="search" class="form-control form-control-sm" placeholder="الاسم أو الكود..." value="{{ request.args.get('search','') }}">
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        {% if records %}
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered align-middle" id="attendance-table">
+                <thead class="table-light">
+                    <tr class="text-center">
+                        <th style="width: 100px;">التاريخ</th>
+                        <th style="width: 80px;">الكود</th>
+                        <th style="width: 200px;">اسم الموظف</th>
+                        <th style="width: 100px;">حضور</th>
+                        <th style="width: 100px;">انصراف</th>
+                        <th style="width: 80px;">تأخير (د)</th>
+                        <th style="width: 80px;">إضافي (س)</th>
+                        <th style="width: 90px;">الحالة</th>
+                        <th style="width: 100px;">إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                    <tr class="text-center">
+                        <td>{{ record.date.strftime('%d/%m/%Y') }}</td>
+                        <td><strong class="text-primary">{{ record.employee.code if record.employee else '-'
+                                }}</strong></td>
+                        <td class="text-start">
+                            <strong>{{ record.employee.name if record.employee else 'غير معروف' }}</strong>
+                        </td>
+                        <td>
+                            {% if record.check_in %}
+                            <span class="badge bg-success fs-6">{{ record.check_in.strftime('%H:%M') }}</span>
+                            {% else %}<span class="badge bg-secondary">-</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if record.check_out %}
+                            <span class="badge bg-danger fs-6">{{ record.check_out.strftime('%H:%M') }}</span>
+                            {% else %}<span class="badge bg-secondary">-</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if record.late_minutes > 0 %}
+                            <span class="text-danger fw-bold">{{ record.late_minutes }}</span>
+                            {% else %} - {% endif %}
+                        </td>
+                        <td>
+                            {% if record.overtime_hours > 0 %}
+                            <span class="text-success fw-bold">{{ "%.2f"|format(record.overtime_hours) }}</span>
+                            {% else %} - {% endif %}
+                        </td>
+                        <td>
+                            {% if record.status == 'Absent' %}
+                            <span class="badge bg-danger">غائب</span>
+                            {% elif record.status == 'Present' %}
+                            <span class="badge bg-success">حاضر</span>
+                            {% elif record.status == 'Late' %}
+                            <span class="badge bg-warning text-dark">تأخير</span>
+                            {% elif record.status == 'Vacation' %}
+                            <span class="badge bg-info text-dark">إجازة</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ record.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-primary edit-btn" data-bs-toggle="modal"
+                                data-bs-target="#editAttendanceModal" data-id="{{ record.id }}"
+                                data-checkin="{{ record.check_in.strftime('%H:%M') if record.check_in else '' }}"
+                                data-checkout="{{ record.check_out.strftime('%H:%M') if record.check_out else '' }}"
+                                data-name="{{ record.employee.name }}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger delete-btn ms-1"
+                                onclick="deleteAttendanceRecord('{{ record.id }}')" title="حذف">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info text-center">
+            <i class="fas fa-info-circle fa-3x mb-3 d-block"></i>
+            <h5>لا توجد سجلات حضور لهذا اليوم</h5>
+            <p class="mb-0">يمكنك إضافة سجل يدوي أو استيراد ملف Excel</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add Modal -->
+<div class="modal fade" id="addAttendanceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form class="modal-content" action="{{ url_for('attendance.add_manual_log') }}" method="post">
+            <div class="modal-header">
+                <h5 class="modal-title">إضافة حضور يدوي</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <div class="mb-3">
+                    <label class="form-label">التاريخ</label>
+                    <input type="date" name="date" class="form-control" value="{{ start_date.strftime('%Y-%m-%d') }}"
+                        required>
+                </div>
+                <label class="form-label">الموظف</label>
+                <select class="form-select" name="employee_id" required>
+                    <option value="">اختر الموظف...</option>
+                    {% for emp in employees %}
+                    <option value="{{ emp.id }}">{{ emp.code }} - {{ emp.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="row">
+                <div class="col-6 mb-3">
+                    <label class="form-label">وقت الحضور</label>
+                    <input type="time" class="form-control" name="check_in" required>
+                </div>
+                <div class="col-6 mb-3">
+                    <label class="form-label">وقت الانصراف</label>
+                    <input type="time" class="form-control" name="check_out">
+                </div>
+            </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+        <button type="submit" class="btn btn-success">حفظ</button>
+    </div>
+    </form>
+</div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editAttendanceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form class="modal-content" action="{{ url_for('attendance.update_manual_log') }}" method="post">
+            <div class="modal-header">
+                <h5 class="modal-title">تعديل سجل الحضور</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <input type="hidden" name="record_id" id="edit-record-id">
+                <div class="mb-3">
+                    <label class="form-label">الموظف</label>
+                    <input type="text" class="form-control" id="edit-emp-name" readonly>
+                </div>
+                <div class="row">
+                    <div class="col-6 mb-3">
+                        <label class="form-label">وقت الحضور</label>
+                        <input type="time" class="form-control" name="check_in" id="edit-check-in">
+                    </div>
+                    <div class="col-6 mb-3">
+                        <label class="form-label">وقت الانصراف</label>
+                        <input type="time" class="form-control" name="check_out" id="edit-check-out">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="submit" class="btn btn-primary">حفظ التغييرات</button>
+            </div>
+        </form>
+    </div>
+</div>
+<!-- Delete Attendance Modal -->
+<div class="modal fade" id="deleteAttendanceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form class="modal-content" action="{{ url_for('attendance.clear_attendance') }}" method="post"
+            onsubmit="return confirm('هل أنت متأكد من الحذف؟');">
+            <div class="modal-header">
+                <h5 class="modal-title text-danger">حذف الحضور</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <p>يرجى تحديد التاريخ الذي تريد حذف جميع سجلات الحضور له:</p>
+                <div class="mb-3">
+                    <label class="form-label">التاريخ</label>
+                    <input type="date" name="date" class="form-control" value="{{ start_date.strftime('%Y-%m-%d') }}"
+                        required>
+                </div>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i> تحذير: سيتم حذف جميع السجلات لهذا اليوم. لا يمكن
+                    التراجع.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="submit" class="btn btn-danger">حذف</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Reprocess Attendance Modal -->
+<div class="modal fade" id="reprocessModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form class="modal-content" action="{{ url_for('attendance.reprocess_attendance') }}" method="post">
+            <div class="modal-header">
+                <h5 class="modal-title text-warning">إعادة معالجة الحضور</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <p>سيتم إعادة حساب التاخير والغياب بناءً على أحدث بيانات الموظفين واللوائح.</p>
+                <div class="mb-3">
+                    <label class="form-label">التاريخ</label>
+                    <input type="date" name="date" class="form-control" value="{{ start_date.strftime('%Y-%m-%d') }}"
+                        required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="submit" class="btn btn-warning text-dark">إعادة معالجة</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function () {
+        if ($('#attendance-table').length > 0) {
+            // Use common default config (includes colReorder, stateSave, colVis, etc.)
+            const cfg = $.extend(true, {}, defaultDataTableConfig, {
+                language: { url: "//cdn.datatables.net/plug-ins/1.13.7/i18n/ar.json" },
+                order: [[0, "asc"]],
+                pageLength: 25
+            });
+            $('#attendance-table').DataTable(cfg);
+        }
+
+        // Handle Edit Button Click
+        $('.edit-btn').click(function () {
+            var id = $(this).data('id');
+            var name = $(this).data('name');
+            var checkin = $(this).data('checkin');
+            var checkout = $(this).data('checkout');
+
+            $('#edit-record-id').val(id);
+            $('#edit-emp-name').val(name);
+            $('#edit-check-in').val(checkin);
+            $('#edit-check-out').val(checkout);
+        });
+
+        // Submit form on Enter in search field
+        $('#search').on('keypress', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                $('#attendanceFilterForm').submit();
+            }
+        });
+    });
+
+    function deleteAttendanceRecord(recordId) {
+        if (!confirm('هل أنت متأكد من حذف سجل الحضور؟')) {
+            return;
+        }
+
+        fetch('/attendance/bulk/delete/' + recordId, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    // Reload page to refresh the table
+                    window.location.reload();
+                } else {
+                    alert('خطأ: ' + (data.message || 'حدث خطأ في الحذف'));
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('حدث خطأ في الاتصال');
+            });
+    }
+</script>
+{% endblock %}

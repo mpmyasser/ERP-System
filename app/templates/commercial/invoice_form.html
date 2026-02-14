@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-md-12">
+        <h3 class="fw-bold">
+            <i class="fas fa-file-invoice text-primary me-2"></i>
+            إصدار فاتورة {% if type == 'Purchase' %}مشتريات{% else %}مبيعات{% endif %} جديدة
+        </h3>
+    </div>
+</div>
+
+<form method="POST" id="invoiceForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">الرقم المرجعي</label>
+                    <input type="text" name="invoice_number" class="form-control" placeholder="تلقائي..." required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">التاريخ</label>
+                    <input type="date" name="date" class="form-control" value="{{ today }}" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">{% if type == 'Purchase' %}المورد{% else %}العميل{% endif
+                        %}</label>
+                    <select name="partner_id" class="form-select" required>
+                        <option value="">اختر الشريك...</option>
+                        {% for p in partners %}
+                        <option value="{{ p.id }}">{{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">المخزن</label>
+                    <select name="warehouse_id" class="form-select" required>
+                        <option value="">اختر المخزن...</option>
+                        {% for w in warehouses %}
+                        <option value="{{ w.id }}">{{ w.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-list me-2"></i> بنود الفاتورة</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle" id="itemsTable">
+                    <thead class="bg-light">
+                        <tr>
+                            <th style="width: 15%;" class="ps-4">الكود</th>
+                            <th style="width: 25%;">اسم المنتج</th>
+                            <th style="width: 12%; text-align: center;">الكمية</th>
+                            <th style="width: 12%; text-align: center;">السعر</th>
+                            <th style="width: 16%; text-align: center;">الإجمالي</th>
+                            <th style="width: 10%;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Dynamic rows here -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-3 border-top bg-light-soft">
+                <button type="button" class="btn btn-outline-primary btn-sm px-4 rounded-pill" onclick="addRow()">
+                    <i class="fas fa-plus me-1"></i> إضافة صنف جديد
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <label class="form-label fw-bold"><i class="fas fa-sticky-note me-2"></i> ملاحظات إضافية</label>
+                    <textarea name="notes" class="form-control border-0 bg-light" rows="5"
+                        placeholder="اكتب أي ملاحظات تتعلق بالفاتورة هنا..."></textarea>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 bg-dark text-white">
+                <div class="card-body py-4">
+                    <div class="d-flex justify-content-between mb-3">
+                        <span class="opacity-75">الإجمالي قبل الضريبة:</span>
+                        <span id="grandTotal" class="fw-bold fs-5">0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-3">
+                        <span class="opacity-75">ضريبة القيمة المضافة (14%):</span>
+                        <span id="taxAmount" class="fw-bold fs-5">0.00</span>
+                    </div>
+                    <hr class="opacity-25">
+                    <div class="d-flex justify-content-between">
+                        <span class="h4 mb-0 fw-bold text-info">الصافي النهائي:</span>
+                        <span class="h4 mb-0 fw-bold text-info" id="netAmount">0.00</span>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0 text-start pb-4">
+                    <button type="submit"
+                        class="btn btn-{{ 'primary' if type == 'Purchase' else 'success' }} btn-lg px-5 shadow">
+                        <i class="fas fa-save me-1"></i> حفظ وتثبيت الفاتورة
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+    // Safe data injection
+    const allProducts = {{ products| tojson | safe if products else '[]' }};
+    const isPurchase = {{ (type == 'Purchase') | tojson }};
+
+    function addRow() {
+        const tbody = document.querySelector('#itemsTable tbody');
+        const rowId = Date.now();
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="ps-4">
+                <input type="text" class="form-control product-code border-0" 
+                       placeholder="الكود وانتر" 
+                       onchange="fetchProductName(this, ${rowId})"
+                       onkeydown="handleProductEnter(event, this, ${rowId})"
+                       autofocus>
+                <input type="hidden" class="product-id" name="product_id[]">
+            </td>
+            <td>
+                <input type="text" class="form-control bg-light product-name border-0" readonly tabindex="-1">
+            </td>
+            <td><input type="number" step="0.01" name="quantity[]" class="form-control text-center qty-input border-0" value="1" required oninput="calculateRow(this)" onkeydown="handleEnter(event, this, 'price-input', ${rowId})"></td>
+            <td><input type="number" step="0.01" name="unit_price[]" class="form-control text-center price-input border-0" value="0" required oninput="calculateRow(this)" onkeydown="handlePriceEnter(event, this, ${rowId})"></td>
+            <td class="text-center fw-bold row-total">0.00</td>
+            <td class="text-center px-4">
+                <button type="button" class="btn btn-link text-danger p-0" onclick="removeRow(this)">
+                    <i class="fas fa-times-circle"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+        // Focus the code input of new row
+        setTimeout(() => row.querySelector('.product-code').focus(), 50);
+    }
+
+    function removeRow(btn) {
+        btn.closest('tr').remove();
+        updateTotals();
+    }
+
+    function fetchProductName(input, rowId) {
+        const code = input.value.trim();
+        const row = input.closest('tr');
+        const nameInput = row.querySelector('.product-name');
+        const idInput = row.querySelector('.product-id');
+        const priceInput = row.querySelector('.price-input');
+
+        if (!code) {
+            nameInput.value = '';
+            idInput.value = '';
+            priceInput.value = '0';
+            calculateRow(input);
+            return;
+        }
+
+        fetch(`/manufacturing/products/check_code/${code}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.found) {
+                    nameInput.value = data.name;
+                    idInput.value = data.id;
+                    const price = isPurchase ? data.cost_price : data.sell_price;
+                    priceInput.value = price || 0;
+                    nameInput.classList.add('is-valid');
+                    nameInput.classList.remove('is-invalid');
+                    row.querySelector('.qty-input').focus();
+                    calculateRow(input);
+                } else {
+                    nameInput.value = 'غير موجود';
+                    idInput.value = '';
+                    priceInput.value = '0';
+                    nameInput.classList.add('is-invalid');
+                    nameInput.classList.remove('is-valid');
+                    input.select();
+                    calculateRow(input);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                nameInput.value = 'خطأ في الاتصال';
+                idInput.value = '';
+                nameInput.classList.add('is-invalid');
+                nameInput.classList.remove('is-valid');
+            });
+    }
+
+    function handleProductEnter(event, input, rowId) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            fetchProductName(input, rowId);
+            const row = input.closest('tr');
+            setTimeout(() => {
+                const qtyInput = row.querySelector('.qty-input');
+                if (qtyInput) qtyInput.focus();
+            }, 100);
+        }
+    }
+
+    function handleEnter(event, currentInput, nextClass, rowId) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            const row = currentInput.closest('tr');
+            const nextInput = row.querySelector('.' + nextClass);
+            if (nextInput) {
+                nextInput.focus();
+            } else {
+                // If this is the last field, add a new row
+                addRow();
+            }
+        }
+    }
+
+    function handlePriceEnter(event, input, rowId) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            calculateRow(input);
+            // Add new row after price input
+            addRow();
+        }
+    }
+
+    function calculateRow(element) {
+        const row = element.closest('tr');
+        const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
+        const price = parseFloat(row.querySelector('.price-input').value) || 0;
+        const total = qty * price;
+        row.querySelector('.row-total').textContent = total.toFixed(2);
+        updateTotals();
+    }
+
+    function updateTotals() {
+        let total = 0;
+        document.querySelectorAll('.row-total').forEach(cell => {
+            total += parseFloat(cell.textContent) || 0;
+        });
+
+        const tax = total * 0.14;
+        const net = total + tax;
+
+        document.getElementById('grandTotal').textContent = total.toFixed(2);
+        document.getElementById('taxAmount').textContent = tax.toFixed(2);
+        document.getElementById('netAmount').textContent = net.toFixed(2);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        addRow();
+    });
+</script>
+
+<style>
+    .bg-light-soft {
+        background-color: #f8f9fa;
+    }
+
+    .table thead th {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #6c757d;
+    }
+
+    .form-select,
+    .form-control {
+        transition: all 0.2s;
+    }
+
+    .form-select:focus,
+    .form-control:focus {
+        background-color: #fff !important;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.1) !important;
+    }
+</style>
+{% endblock %}

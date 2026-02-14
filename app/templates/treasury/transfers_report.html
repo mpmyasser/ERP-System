@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h2 class="fw-bold">تقرير حركة التحويلات</h2>
+        <p class="text-muted">عرض جميع تحويلات الخزائن</p>
+    </div>
+    <div class="col-md-6 text-start">
+        <a href="{{ url_for('treasury.receive_transfers') }}" class="btn btn-success">
+            <i class="fas fa-inbox"></i> استلام التحويلات
+        </a>
+        <a href="{{ url_for('treasury.dashboard') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-right"></i> رجوع
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('treasury.transfers_report') }}" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">من تاريخ</label>
+                <input type="date" name="from_date" class="form-control" value="{{ from_date }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">إلى تاريخ</label>
+                <input type="date" name="to_date" class="form-control" value="{{ to_date }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">الخزينة</label>
+                <select name="cash_id" class="form-select">
+                    <option value="">جميع الخزائن</option>
+                    {% for cash in cash_accounts %}
+                    <option value="{{ cash.id }}" {% if selected_cash_id == cash.id|string %}selected{% endif %}>
+                        {{ cash.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">الحالة</label>
+                <select name="status" class="form-select">
+                    <option value="all" {% if selected_status == 'all' %}selected{% endif %}>الكل</option>
+                    <option value="Pending" {% if selected_status == 'Pending' %}selected{% endif %}>في الانتظار</option>
+                    <option value="Received" {% if selected_status == 'Received' %}selected{% endif %}>مستلم</option>
+                </select>
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search"></i> بحث
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm bg-primary text-white">
+            <div class="card-body">
+                <h6 class="card-title opacity-75">إجمالي التحويلات</h6>
+                <h3 class="mb-0">{{ "{:,.2f}".format(total_amount) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm bg-warning text-dark">
+            <div class="card-body">
+                <h6 class="card-title">في الانتظار</h6>
+                <h3 class="mb-0">{{ pending_count }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm bg-success text-white">
+            <div class="card-body">
+                <h6 class="card-title opacity-75">مستلم</h6>
+                <h3 class="mb-0">{{ received_count }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Report Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        {% if transfers %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="bg-light">
+                    <tr>
+                        <th>#</th>
+                        <th>التاريخ</th>
+                        <th>من الخزينة</th>
+                        <th>إلى الخزينة</th>
+                        <th class="text-end">المبلغ</th>
+                        <th>البيان</th>
+                        <th>الحالة</th>
+                        <th>تاريخ الاستلام</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transfer in transfers %}
+                    <tr>
+                        <td>{{ transfer.id }}</td>
+                        <td>{{ transfer.transfer_date.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <span class="badge bg-secondary">{{ transfer.from_cash.name }}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-primary">{{ transfer.to_cash.name }}</span>
+                        </td>
+                        <td class="text-end fw-bold">{{ "{:,.2f}".format(transfer.amount) }}</td>
+                        <td>{{ transfer.description or '-' }}</td>
+                        <td>
+                            {% if transfer.status == 'Pending' %}
+                            <span class="badge bg-warning text-dark">في الانتظار</span>
+                            {% elif transfer.status == 'Received' %}
+                            <span class="badge bg-success">مستلم</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ transfer.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if transfer.received_date %}
+                            {{ transfer.received_date.strftime('%Y-%m-%d') }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-secondary">
+                    <tr>
+                        <td colspan="4" class="text-end fw-bold">الإجمالي:</td>
+                        <td class="text-end fw-bold">{{ "{:,.2f}".format(total_amount) }}</td>
+                        <td colspan="3"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info text-center">
+            <i class="fas fa-info-circle fa-3x mb-3 d-block opacity-25"></i>
+            <h5>لا توجد تحويلات</h5>
+            <p class="mb-0">لا توجد تحويلات مطابقة للمعايير المحددة</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}التصاريح{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-calendar-check me-2"></i> إدارة التصاريح</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('permissions.bulk') }}" class="btn btn-info me-2">
+            <i class="fas fa-layer-group me-1"></i> إدخال جماعي
+        </a>
+        <a href="{{ url_for('permissions.bulk_edit') }}" class="btn btn-warning me-2">
+            <i class="fas fa-edit me-1"></i> تعديل جماعي
+        </a>
+    </div>
+</div>
+
+<!-- Unified Filter Bar -->
+{% with form_action=url_for('permissions.list'), reset_url=url_for('permissions.list') %}
+{% include 'partials/_filter_bar.html' %}
+{% endwith %}
+
+<!-- Stats Bar -->
+<div class="d-flex gap-3 mb-3 flex-wrap">
+    <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
+        <i class="fas fa-check-circle text-success me-2"></i>
+        <div class="ms-2">
+            <small class="text-muted d-block" style="font-size: 0.75rem;">تصاريح مدفوعة</small>
+            <span class="fw-bold">{{ total_paid }}</span>
+        </div>
+    </div>
+    <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
+        <i class="fas fa-times-circle text-warning me-2"></i>
+        <div class="ms-2">
+            <small class="text-muted d-block" style="font-size: 0.75rem;">تصاريح غير مدفوعة</small>
+            <span class="fw-bold">{{ total_unpaid }}</span>
+        </div>
+    </div>
+    <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
+        <i class="fas fa-money-bill-wave text-success me-2"></i>
+        <div class="ms-2">
+            <small class="text-muted d-block" style="font-size: 0.75rem;">إجمالي القيمة المادية</small>
+            <span class="fw-bold">{{ "%.2f"|format(total_material_value) }} جنيه</span>
+        </div>
+    </div>
+    <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
+        <i class="fas fa-list text-primary me-2"></i>
+        <div class="ms-2">
+            <small class="text-muted d-block" style="font-size: 0.75rem;">إجمالي التصاريح</small>
+            <span class="fw-bold">{{ permissions|length }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-calendar-check me-2"></i>قائمة التصاريح</h5>
+    </div>
+    <div class="card-body">
+        {% if permissions %}
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered align-middle datatable" id="permissions-table">
+                <thead class="table-light">
+                    <tr class="text-center">
+                        <th>التاريخ</th>
+                        <th>كود الموظف</th>
+                        <th>الموظف</th>
+                        <th>من</th>
+                        <th>إلى</th>
+                        <th>المدة</th>
+                        <th>القيمة المادية</th>
+                        <th>السبب</th>
+                        <th>النوع</th>
+                        <th class="no-sort">إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for perm in permissions %}
+                    <tr class="text-center">
+                        <td>{{ perm.date.strftime('%d/%m/%Y') if perm.date else '-' }}</td>
+                        <td><strong class="text-primary">{{ perm.employee.code if perm.employee else '-' }}</strong>
+                        </td>
+                        <td class="text-start"><strong>{{ perm.employee.name if perm.employee else '-' }}</strong></td>
+                        <td><span class="badge bg-light text-dark">{{ perm.from_time.strftime('%H:%M') if perm.from_time
+                                else '-' }}</span></td>
+                        <td><span class="badge bg-light text-dark">{{ perm.to_time.strftime('%H:%M') if perm.to_time
+                                else '-' }}</span></td>
+                        <td>
+                            {% if perm.from_time and perm.to_time %}
+                            {% set hours = ((perm.to_time.hour * 60 + perm.to_time.minute) - (perm.from_time.hour * 60 +
+                            perm.from_time.minute)) / 60 %}
+                            <strong class="text-primary">{{ "%.1f"|format(hours) }} ساعة</strong>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong class="text-secondary">{{ "%.2f"|format(perm.material_value) }}</strong>
+                        </td>
+                        <td>{{ perm.reason or '-' }}</td>
+                        <td>
+                            {% if perm.is_paid %}
+                            <span class="badge bg-success">مدفوع</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">غير مدفوع</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('permissions.edit', id=perm.id) }}" class="btn btn-sm btn-warning"
+                                title="تعديل">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <button class="btn btn-sm btn-danger delete-record-btn" data-module="permissions"
+                                data-id="{{ perm.id }}" data-confirm="هل أنت متأكد من حذف هذا التصريح؟" title="حذف">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info text-center">
+            <i class="fas fa-info-circle fa-2x mb-2 d-block"></i> لا توجد تصاريح مسجلة تطابق البحث
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-md-6">
+        <h3>تتبع أوامر القص (يومية القص)</h3>
+    </div>
+    <div class="col-md-6 text-start">
+        <a href="{{ url_for('manufacturing.bulk_cuts') }}" class="btn btn-outline-primary me-2">
+            <i class="fas fa-layer-group me-1"></i> إدخال جماعي
+        </a>
+        <a href="{{ url_for('manufacturing.new_cut') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> فتح أمر قص جديد
+        </a>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>رقم القصة</th>
+                        <th>المنتج</th>
+                        <th>المصنع / الورشة</th>
+                        <th class="text-center">الكمية</th>
+                        <th class="text-center">سعر الوحدة</th>
+                        <th class="text-center">الإجمالي</th>
+                        <th>التاريخ</th>
+                        <th>الحالة</th>
+                        <th style="width: 120px;">الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for o in orders %}
+                    <tr>
+                        <td class="fw-bold text-primary">
+                            {{ o.cut_number }}
+                            {% if o.is_opening_balance %}
+                            <span class="badge bg-secondary x-small" style="font-size: 0.6rem;">رصيد أول</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if o.product %}
+                            <div class="small fw-bold">{{ o.product.code }}</div>
+                            <div class="text-muted small">{{ o.product.name }} ({{ o.product.size or '-' }})</div>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>{{ o.factory.name if o.factory else (o.current_location or 'تحت التوجيه') }}</td>
+                        <td class="text-center">{{ o.planned_quantity }}</td>
+                        <td class="text-center text-muted">{{ "{:,.2f}".format(o.unit_cost or 0) }}</td>
+                        <td class="text-center fw-bold text-success">{{ "{:,.2f}".format(o.total_value or 0) }}</td>
+                        <td>{{ o.start_date.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <span
+                                class="badge {{ 'bg-info' if o.status=='New' else 'bg-warning' if o.status=='Sewing' else 'bg-success' }}">
+                                {{ o.status }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-sm btn-outline-info" title="توجيه لمصنع"
+                                    onclick="openDispatchModal('{{ o.id }}', '{{ o.cut_number }}')">
+                                    <i class="fas fa-truck-loading"></i>
+                                </button>
+                                <a href="{{ url_for('manufacturing.cut_qc', order_id=o.id) }}"
+                                    class="btn btn-sm btn-outline-success" title="فرز واستلام">
+                                    <i class="fas fa-check-double"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center py-4 text-muted">لا توجد أوامر قص حالياً.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Dispatch Modal -->
+<div class="modal fade" id="dispatchModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">توجيه القصة لمرحلة التشغيل</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="dispatchForm" method="POST" action="">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body">
+                    <p>سيتم تغيير حالة القصة إلى **"تحت التشغيل/خياطة"**.</p>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">جهة التشغيل (المصنع/الصالة)</label>
+                        <input type="text" name="location" class="form-control" required
+                            placeholder="مثلاً: صالة 8، مصنع النور...">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">تأكيد التوجيه</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openDispatchModal(orderId, cutNumber) {
+        const form = document.getElementById('dispatchForm');
+        form.action = `/manufacturing/cuts/${orderId}/dispatch`;
+        const modal = new bootstrap.Modal(document.getElementById('dispatchModal'));
+        modal.show();
+    }
+</script>
+{% endblock %}

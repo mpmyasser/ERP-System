@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}الجزاءات والمكافآت{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-exclamation-triangle me-2"></i> إدارة الجزاءات والمكافآت</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('penalties.bulk') }}" class="btn btn-warning me-2">
+            <i class="fas fa-layer-group me-1"></i> إدخال جماعي
+        </a>
+        <a href="{{ url_for('penalties.bulk_edit') }}" class="btn btn-info me-2">
+            <i class="fas fa-edit me-1"></i> تعديل جماعي
+        </a>
+    </div>
+</div>
+
+<!-- Unified Filter Bar -->
+{% with form_action=url_for('penalties.list'), reset_url=url_for('penalties.list') %}
+{% include 'partials/_filter_bar.html' %}
+{% endwith %}
+
+<!-- Stats Bar -->
+<div class="d-flex gap-3 mb-3 flex-wrap">
+    <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
+        <i class="fas fa-exclamation-circle text-danger me-2"></i>
+        <div class="ms-2">
+            <small class="text-muted d-block" style="font-size: 0.75rem;">إجمالي الجزاءات (القيمة)</small>
+            <span class="fw-bold">{{ "{:,.2f}".format(total_penalties) }} جنيه</span>
+        </div>
+    </div>
+    <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
+        <i class="fas fa-calendar-minus text-warning me-2"></i>
+        <div class="ms-2">
+            <small class="text-muted d-block" style="font-size: 0.75rem;">إجمالي أيام الخصم</small>
+            <span class="fw-bold">{{ "{:,.2f}".format(total_penalty_days) }} يوم</span>
+        </div>
+    </div>
+    <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
+        <i class="fas fa-plus-circle text-success me-2"></i>
+        <div class="ms-2">
+            <small class="text-muted d-block" style="font-size: 0.75rem;">إجمالي المكافآت</small>
+            <span class="fw-bold">{{ "{:,.2f}".format(total_bonuses) }} جنيه</span>
+        </div>
+    </div>
+    <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
+        <i class="fas fa-list text-primary me-2"></i>
+        <div class="ms-2">
+            <small class="text-muted d-block" style="font-size: 0.75rem;">عدد العمليات</small>
+            <span class="fw-bold">{{ penalties|length }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>سجل الجزاءات والمكافآت</h5>
+    </div>
+    <div class="card-body">
+        {% if penalties %}
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered align-middle datatable" id="penalties-table">
+                <thead class="table-light">
+                    <tr class="text-center">
+                        <th>الكود</th>
+                        <th>التاريخ</th>
+                        <th>الموظف</th>
+                        <th>النوع</th>
+                        <th>أيام الخصم</th>
+                        <th>المبلغ/القيمة</th>
+                        <th>السبب</th>
+                        <th class="no-sort">إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for penalty in penalties %}
+                    <tr class="text-center">
+                        <td>{{ penalty.employee.code if penalty.employee else '-' }}</td>
+                        <td>{{ penalty.date.strftime('%d/%m/%Y') if penalty.date else '-' }}</td>
+                        <td class="text-start"><strong>{{ penalty.employee.name if penalty.employee else '-' }}</strong>
+                        </td>
+                        <td>
+                            {% if penalty.type == 'Penalty' %}
+                            <span class="badge bg-danger">خصم (جزاء)</span>
+                            {% elif penalty.type == 'Bonus' %}
+                            <span class="badge bg-success">مكافأة</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ penalty.type }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if penalty.days %}
+                            {% set d = penalty.days|float %}
+                            <span class="badge bg-warning text-dark">
+                                {% if d == 0.25 %}1/4 يوم
+                                {% elif d == 0.5 %}1/2 يوم
+                                {% elif d == 0.75 %}3/4 يوم
+                                {% elif d == 1.0 %}يوم كامل
+                                {% elif d == 0 %} - 
+                                {% else %}{{ d }} يوم
+                                {% endif %}
+                            </span>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong class="{{ 'text-danger' if penalty.type == 'Penalty' else 'text-success' }}">
+                                {% if penalty.days %}
+                                {{ "{:,.2f}".format(penalty.day_value) }}
+                                <small class="text-muted d-block" style="font-size: 0.65rem;">(يوم = {{
+                                    "{:,.2f}".format(penalty.daily_rate) }})</small>
+                                {% else %}
+                                {{ "{:,.2f}".format(penalty.amount) }}
+                                {% endif %}
+                                جنيه
+                            </strong>
+                        </td>
+                        <td>{{ penalty.reason or '-' }}</td>
+                        <td>
+                            <a href="{{ url_for('penalties.edit', id=penalty.id) }}" class="btn btn-sm btn-warning" title="تعديل">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <button class="btn btn-sm btn-danger delete-record-btn" data-module="penalties"
+                                data-id="{{ penalty.id }}" data-confirm="هل أنت متأكد من حذف هذا الجزاء؟" title="حذف">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info text-center">
+            <i class="fas fa-info-circle fa-2x mb-2 d-block"></i> لا توجد بيانات مسجلة تطابق البحث
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

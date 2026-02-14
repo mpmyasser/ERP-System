@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}السجل التاريخي للراتب - {{ employee.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2>📊 السجل التاريخي لراتب الموظف</h2>
+            <h4 class="text-primary">{{ employee.code }} - {{ employee.name }}</h4>
+            <p class="text-muted">
+                <span class="badge bg-info">{{ employee.job_title or 'غير محدد' }}</span>
+                <span class="badge bg-secondary">{{ employee.department.name if employee.department else 'بدون قسم' }}</span>
+            </p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ url_for('reports.salary_history') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-right"></i> العودة للتقرير
+            </a>
+        </div>
+    </div>
+
+    <!-- Current Salary Card -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <h6 class="text-muted">الراتب الحالي</h6>
+                            <h3 class="text-primary">{{ "{:,.2f}".format(employee.effective_salary if employee.effective_salary is not none else employee.basic_salary) }}</h3>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="text-muted">متوسط الراتب</h6>
+                            <h3>{{ "{:,.2f}".format(average_salary) }}</h3>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="text-muted">عدد التعديلات</h6>
+                            <h3 class="text-info">{{ history|length }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">إجمالي الزيادات</h6>
+                    <h3 class="text-success">{{ "{:,.2f}".format(total_increase) }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">إجمالي التخفيضات</h6>
+                    <h3 class="text-danger">{{ "{:,.2f}".format(total_decrease) }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">الفرق الإجمالي</h6>
+                    <h3 class="{% if total_increase + total_decrease >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        {{ "{:+,.2f}".format(total_increase + total_decrease) }}
+                    </h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">% التغيير</h6>
+                    <h3 class="{% if total_increase + total_decrease >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        {% if (employee.effective_salary if employee.effective_salary is not none else employee.basic_salary) > 0 %}
+                            {{ "{:.1f}%".format((total_increase + total_decrease) / (employee.effective_salary if employee.effective_salary is not none else employee.basic_salary) * 100) }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Table -->
+    <div class="card">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">📋 تفاصيل التعديلات</h5>
+        </div>
+        <div class="card-body">
+            {% if history %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>#</th>
+                                <th>تاريخ التعديل</th>
+                                <th>تاريخ التفعيل</th>
+                                <th>الراتب السابق</th>
+                                <th>الراتب الجديد</th>
+                                <th>التغيير</th>
+                                <th>النوع</th>
+                                <th>السبب</th>
+                                <th>ملاحظات</th>
+                                <th>المعدل بواسطة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in history %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td>{{ record.formatted_change_date }}</td>
+                                    <td>{{ record.formatted_effective_date }}</td>
+                                    <td class="text-end"><strong>{{ "{:,.2f}".format(record.old_salary) }}</strong></td>
+                                    <td class="text-end"><strong>{{ "{:,.2f}".format(record.new_salary) }}</strong></td>
+                                    <td class="text-end {% if record.salary_change > 0 %}text-success fw-bold{% elif record.salary_change < 0 %}text-danger fw-bold{% endif %}">
+                                        {{ "{:+,.2f}".format(record.salary_change) }}
+                                    </td>
+                                    <td>
+                                        {% if record.salary_change > 0 %}
+                                            <span class="badge bg-success">📈 زيادة</span>
+                                        {% elif record.salary_change < 0 %}
+                                            <span class="badge bg-danger">📉 تخفيض</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">➖ لا تغيير</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ record.reason or '-' }}</td>
+                                    <td>{{ record.notes or '-' }}</td>
+                                    <td>{{ record.modified_by or 'System' }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Salary Timeline Chart -->
+                <div class="mt-4">
+                    <h6>📈 رسم بياني للتطور الزمني</h6>
+                    <canvas id="salaryChart"></canvas>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> لا توجد تعديلات على راتب هذا الموظف
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js for salary history visualization -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    {% if history %}
+    // Prepare data for chart
+    const salaryHistory = [
+        {% for record in history|reverse %}
+        {
+            date: '{{ record.formatted_change_date }}',
+            salary: {{ record.new_salary }},
+            change: {{ record.salary_change }}
+        }
+        {% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    const ctx = document.getElementById('salaryChart').getContext('2d');
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: salaryHistory.map(h => h.date),
+            datasets: [{
+                label: 'الراتب',
+                data: salaryHistory.map(h => h.salary),
+                borderColor: '#007bff',
+                backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: '#007bff',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    labels: {
+                        font: { size: 12 }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString('ar-EG');
+                        }
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+</script>
+
+<style>
+    .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border: none;
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+
+    .badge {
+        padding: 0.5rem 0.75rem;
+        font-weight: 500;
+    }
+</style>
+{% endblock %}

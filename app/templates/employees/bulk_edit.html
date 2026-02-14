@@ -1,0 +1,860 @@
+{% extends "base.html" %}
+
+{% block title %}تعديل بيانات الموظفين جماعي{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h4 class="mb-0"><i class="fas fa-users-cog me-2"></i> تعديل بيانات الموظفين جماعي (Bulk Edit)</h4>
+        <a href="{{ url_for('employees.list') }}" class="btn btn-light btn-sm text-primary fw-bold">
+            <i class="fas fa-list me-1"></i> قائمة الموظفين
+        </a>
+    </div>
+    <div class="card-body">
+
+        <!-- Filter Section -->
+        <div class="row mb-4 p-3 bg-light border rounded mx-0">
+            <div class="col-md-12 mb-2"><strong><i class="fas fa-filter me-1"></i> تحميل الموظفين للتعديل</strong></div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">بحث (الكود أو الاسم)</label>
+                <input type="text" id="filterSearch" class="form-control form-control-sm" placeholder="بحث">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">القسم</label>
+                <select id="filterDept" class="form-select form-select-sm">
+                    <option value="">الكل</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept.id }}">{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">يعمل / لا يعمل</label>
+                <select id="filterStatus" class="form-select form-select-sm">
+                    <option value="">الكل</option>
+                    <option value="active">يعمل</option>
+                    <option value="inactive">لا يعمل</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">التأمين</label>
+                <select id="filterInsurance" class="form-select form-select-sm">
+                    <option value="">الكل</option>
+                    <option value="insured">مؤمن</option>
+                    <option value="uninsured">غير مؤمن</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">الوظيفة</label>
+                <input type="text" id="filterJobTitle" class="form-control form-control-sm" list="filter-jobs-list"
+                    placeholder="الوظيفة">
+                <datalist id="filter-jobs-list">
+                    {% for job in all_job_titles %}
+                    <option value="{{ job }}">
+                        {% endfor %}
+                </datalist>
+            </div>
+            <div class="col-md-3 align-self-end">
+                <button class="btn btn-primary w-100" onclick="loadEmployees()">
+                    <i class="fas fa-download me-1"></i> تحميل الموظفين
+                </button>
+            </div>
+            <div class="col-md-3 align-self-end">
+                <button class="btn btn-outline-secondary w-100" onclick="clearTable()">
+                    <i class="fas fa-eraser me-1"></i> مسح النتائج
+                </button>
+            </div>
+            <div class="col-md-3 align-self-end">
+                <div class="position-relative">
+                    <button id="columnsBtn" class="btn btn-outline-secondary w-100" onclick="toggleColumnsChooser()">
+                        <i class="fas fa-columns me-1"></i> تحديد الأعمدة
+                    </button>
+                    <div id="columnsChooser" class="card shadow-sm p-3" style="display:none; position:absolute; right:0; top:45px; z-index:1050; max-height:300px; overflow:auto; min-width:280px;">
+                        <div class="fw-bold mb-2">اختر الأعمدة</div>
+                        <div id="columnsList"></div>
+                        <div class="text-end mt-2">
+                            <button class="btn btn-sm btn-primary" onclick="(function(){ document.getElementById('columnsChooser').style.display='none'; })()">تطبيق</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 align-self-end text-end">
+                <span class="text-muted small" id="loadedCount">0 موظف</span>
+            </div>
+        </div>
+
+        <!-- The Grid -->
+        <div class="table-responsive" style="max-height: 70vh; overflow-y: auto;">
+            <table class="table table-bordered table-striped table-sm text-center align-middle"
+                style="min-width: 2500px; font-size: 0.9rem;">
+                <thead class="table-dark sticky-top" style="z-index: 1020;">
+                    <tr>
+                        <th rowspan="2" width="50">#</th>
+                        <th rowspan="2" width="100">الكود *</th>
+                        <th rowspan="2" width="200">الاسم *</th>
+                        <th colspan="6" class="bg-secondary text-white">البيانات الشخصية</th>
+                        <th colspan="7" class="bg-info text-white">بيانات العمل</th>
+                        <th colspan="5" class="bg-success text-white">البيانات المالية</th>
+                        <th colspan="7" class="bg-warning text-dark">التأمين</th>
+                        <th rowspan="2" width="50">حذف</th>
+                    </tr>
+                    <tr>
+                        <th width="160">الرقم القومي (14 رقم)</th>
+                        <th width="120">تاريخ الميلاد</th>
+                        <th width="150">المحافظة</th>
+                        <th width="120">المدينة</th>
+                        <th width="200">العنوان</th>
+                        <th width="140">رقم الموبايل</th>
+                        <th width="150">القسم *</th>
+                        <th width="150">الوظيفة</th>
+                        <th width="120">الفئة</th>
+                        <th width="120">تاريخ التعيين *</th>
+                        <th width="100">وقت البدء</th>
+                        <th width="100">وقت الانتهاء</th>
+                        <th width="80">يعمل؟</th>
+                        <th width="120">الراتب الأساسي</th>
+                        <th width="120">حافز انتظام</th>
+                        <th width="120">بدل حافز</th>
+                        <th width="120">بدل انتقال</th>
+                        <th width="80">إضافي؟</th>
+                        <th width="80">مؤمن؟</th>
+                        <th width="150">الحصة التأمينية – نمط (أ)</th>
+                        <th width="120">ت. بداية التأمين</th>
+                        <th width="120">الرقم التأميني</th>
+                        <th width="120">الشريحة التأمينية</th>
+                        <th width="120">حصة العامل (%)</th>
+                        <th width="120">حصة الشركة (%)</th>
+                    </tr>
+                </thead>
+                <tbody id="bulkBody">
+                    <!-- Rows generated by JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-end mt-3 border-top pt-3">
+            <button class="btn btn-primary btn-lg px-5" onclick="saveAll()">
+                <i class="fas fa-save me-2"></i> حفظ التعديلات
+            </button>
+        </div>
+    </div>
+
+    <!-- شريط المعلومات العائم (Floating Info Bar) -->
+    <div id="floatingInfoBar">
+        تعديل بيانات مـوظـف: <span id="infoEmpCode" class="text-warning ms-2 me-1"></span> | <span id="infoEmpName"
+            class="text-white fw-bold ms-2"></span>
+    </div>
+
+    <style>
+        /* تمييز السطر عند التحويم */
+        #bulkBody tr:hover td {
+            background-color: #f8f9fa !important;
+        }
+
+        /* تمييز السطر النشط (Focus) */
+        #bulkBody tr.active-row td {
+            background-color: #e3f2fd !important;
+            border-top: 2px solid #0d6efd !important;
+            border-bottom: 2px solid #0d6efd !important;
+        }
+
+        /* تنسيق الأشرطة العائمة */
+        #floatingInfoBar {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #212529;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 5px;
+            z-index: 9999;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            display: none;
+            font-size: 1.1rem;
+            border-right: 5px solid #ffc107;
+            min-width: 400px;
+            text-align: center;
+        }
+
+        .table-responsive {
+            position: relative;
+        }
+
+        /* تحسين شكل المدخلات داخل الجدول */
+        .form-control-sm {
+            border-radius: 2px;
+            border: 1px solid #dee2e6;
+        }
+
+        .form-control-sm:focus {
+            background-color: #fff !important;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+    </style>
+</div>
+
+<!-- Template Row -->
+<template id="rowTemplate">
+    <tr>
+        <td class="row-index bg-light font-monospace small">
+            <span class="row-number"></span>
+            <input type="hidden" class="emp-id">
+        </td>
+        <td><input type="text" class="form-control form-control-sm emp-code" placeholder="كود"></td>
+        <td><input type="text" class="form-control form-control-sm emp-name" placeholder="الاسم الكامل"></td>
+        <td><input type="text" class="form-control form-control-sm emp-nid" maxlength="14" placeholder="14 رقم"></td>
+        <td><input type="text" class="form-control form-control-sm emp-dob date-string" placeholder="تاريخ الميلاد">
+        </td>
+        <td><input type="text" class="form-control form-control-sm emp-gov" placeholder="المحافظة"></td>
+        <td><input type="text" class="form-control form-control-sm emp-city" placeholder="المدينة"></td>
+        <td><input type="text" class="form-control form-control-sm emp-address" placeholder="العنوان"></td>
+        <td><input type="text" class="form-control form-control-sm emp-mobile" maxlength="11" placeholder="الموبايل">
+        </td>
+        <td>
+            <select class="form-select form-select-sm emp-dept">
+                <option value="">القسم</option>
+                {% for dept in departments %}
+                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                {% endfor %}
+            </select>
+        </td>
+        <td>
+            <input type="text" class="form-control form-control-sm emp-job" placeholder="الوظيفة">
+            <datalist></datalist>
+        </td>
+        <td>
+            <select class="form-select form-select-sm emp-category">
+                <option value="Employee">موظف</option>
+                <option value="Manager">مدير</option>
+                <option value="Worker">عامل</option>
+            </select>
+        </td>
+        <td><input type="text" class="form-control form-control-sm emp-hire-date date-string"
+                placeholder="تاريخ التعيين"></td>
+        <td><input type="time" class="form-control form-control-sm emp-start-time"></td>
+        <td><input type="time" class="form-control form-control-sm emp-end-time"></td>
+        <td><input class="form-check-input emp-is-active" type="checkbox" checked></td>
+        <td><input type="number" class="form-control form-control-sm emp-salary" value="0"></td>
+        <td><input type="number" class="form-control form-control-sm emp-incentive-reg" value="0"></td>
+        <td><input type="number" class="form-control form-control-sm emp-incentive-all" value="0"></td>
+        <td><input type="number" class="form-control form-control-sm emp-transport" value="0"></td>
+        <td><input class="form-check-input emp-overtime" type="checkbox"></td>
+        <td><input class="form-check-input emp-is-insured" type="checkbox"></td>
+        <td>
+            <select class="form-select form-select-sm emp-ins-policy" disabled>
+                <option value="employee_only">قانونية</option>
+                <option value="both_from_employee">استقطاع عامل</option>
+                <option value="company_pays_all">استقطاع شركة</option>
+            </select>
+        </td>
+        <td><input type="text" class="form-control form-control-sm emp-ins-date date-string" disabled></td>
+        <td><input type="text" class="form-control form-control-sm emp-ins-num" disabled></td>
+        <td><input type="number" class="form-control form-control-sm emp-ins-salary" value="0" disabled></td>
+        <td><input type="number" class="form-control form-control-sm emp-ins-share-emp" value="11" disabled></td>
+        <td><input type="number" class="form-control form-control-sm emp-ins-share-comp" value="18.75" disabled></td>
+        <td>
+            <button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); reindexRows();">
+                <i class="fas fa-times"></i>
+            </button>
+        </td>
+    </tr>
+</template>
+
+<script>
+
+</script>
+
+
+
+<div id="server-data-jobs" data-job-titles="{{ all_job_titles|tojson|forceescape }}" style="display:none;"></div>
+
+<script>
+    let rowCounter = 0;
+    // All job titles available at page load for fallback and filter population
+    let ALL_JOB_TITLES = [];
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize job titles from server data
+        const dataDiv = document.getElementById('server-data-jobs');
+        if (dataDiv && dataDiv.dataset.jobTitles) {
+            try {
+                ALL_JOB_TITLES = JSON.parse(dataDiv.dataset.jobTitles) || [];
+            } catch (e) {
+                console.error(e);
+                ALL_JOB_TITLES = [];
+            }
+        }
+
+        // لا توجد صفوف افتراضية، يتم التحميل من الفلاتر
+        const deptFilter = document.getElementById('filterDept');
+        if (deptFilter) {
+            deptFilter.addEventListener('change', function () {
+                fetchJobsForFilter(this.value);
+                // Clear job title when department changes
+                const jobInput = document.getElementById('filterJobTitle');
+                if (jobInput) jobInput.value = '';
+                saveFiltersToStorage();
+            });
+        }
+
+        // Save filters on change/input
+        const searchInput = document.getElementById('filterSearch');
+        if (searchInput) searchInput.addEventListener('input', saveFiltersToStorage);
+        const statusInput = document.getElementById('filterStatus');
+        if (statusInput) statusInput.addEventListener('change', saveFiltersToStorage);
+        const jobInput = document.getElementById('filterJobTitle');
+        if (jobInput) jobInput.addEventListener('input', saveFiltersToStorage);
+        const insuranceInput = document.getElementById('filterInsurance');
+        if (insuranceInput) insuranceInput.addEventListener('change', saveFiltersToStorage);
+
+        // Restore saved filters and columns, then build jobs list
+        restoreFiltersFromStorage();
+        buildColumnsChooser();
+        restoreColumnsFromStorage();
+
+        // Initialize filter jobs list with all titles
+        populateFilterJobsList(ALL_JOB_TITLES);
+
+        // Auto-load if any filter is set
+        const filters = window.HRSettingsUtil.getObject('employees_bulk_edit_filters', {});
+        if (filters && (filters.search || filters.department_id || filters.status || filters.job_title || filters.is_insured)) {
+            loadEmployees();
+        }
+    });
+
+    function populateFilterJobsList(jobs) {
+        const dl = document.getElementById('filter-jobs-list');
+        if (!dl) return;
+        dl.innerHTML = '';
+        jobs.forEach(job => {
+            const opt = document.createElement('option');
+            opt.value = job;
+            dl.appendChild(opt);
+        });
+    }
+
+    function fetchJobsForFilter(deptId) {
+        const dl = document.getElementById('filter-jobs-list');
+        if (!dl) return;
+        if (!deptId) {
+            populateFilterJobsList(ALL_JOB_TITLES);
+            return;
+        }
+        fetch(`/employees/get_jobs/${deptId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.jobs) populateFilterJobsList(data.jobs);
+                else dl.innerHTML = '';
+            })
+            .catch(err => { console.error(err); dl.innerHTML = ''; });
+    }
+
+    function updateLoadedCount(count) {
+        const el = document.getElementById('loadedCount');
+        if (el) el.textContent = `${count} موظف`;
+    }
+
+    function clearTable() {
+        const tbody = document.getElementById('bulkBody');
+        tbody.innerHTML = '';
+        rowCounter = 0;
+        updateLoadedCount(0);
+    }
+
+    function saveFiltersToStorage() {
+        const filters = {
+            search: document.getElementById('filterSearch').value.trim(),
+            department_id: document.getElementById('filterDept').value,
+            status: document.getElementById('filterStatus').value,
+            job_title: document.getElementById('filterJobTitle').value.trim(),
+            is_insured: document.getElementById('filterInsurance') ? document.getElementById('filterInsurance').value : ''
+        };
+        window.HRSettingsUtil.setObject('employees_bulk_edit_filters', filters);
+    }
+
+    function restoreFiltersFromStorage() {
+        const filters = window.HRSettingsUtil.getObject('employees_bulk_edit_filters', {});
+        if (!filters) return;
+        if (typeof filters.search !== 'undefined') document.getElementById('filterSearch').value = filters.search;
+        if (typeof filters.department_id !== 'undefined') document.getElementById('filterDept').value = filters.department_id;
+        if (typeof filters.status !== 'undefined') document.getElementById('filterStatus').value = filters.status;
+        if (typeof filters.job_title !== 'undefined') document.getElementById('filterJobTitle').value = filters.job_title;
+        if (typeof filters.is_insured !== 'undefined' && document.getElementById('filterInsurance')) document.getElementById('filterInsurance').value = filters.is_insured;
+    }
+
+    function buildColumnsChooser() {
+        const columnsList = document.getElementById('columnsList');
+        if (!columnsList) return;
+        columnsList.innerHTML = '';
+        const headerRow = document.querySelector('table thead tr:nth-child(2)');
+        if (!headerRow) return;
+        const ths = Array.from(headerRow.querySelectorAll('th'));
+        ths.forEach((th, idx) => {
+            const label = th.textContent.trim() || `عمود ${idx+1}`;
+            const id = `colchk-${idx}`;
+            const div = document.createElement('div');
+            div.className = 'form-check';
+            div.innerHTML = `<input class="form-check-input col-chk" type="checkbox" id="${id}" data-col-index="${idx}" checked>
+                             <label class="form-check-label small" for="${id}">${label}</label>`;
+            columnsList.appendChild(div);
+        });
+        // Attach change handlers to checkboxes
+        columnsList.querySelectorAll('.col-chk').forEach(chk => {
+            chk.addEventListener('change', function () {
+                const idx = parseInt(this.getAttribute('data-col-index'), 10);
+                toggleColumnVisibility(idx, this.checked);
+                saveColumnsToStorage();
+            });
+        });
+
+        // Close chooser when clicking outside
+        document.addEventListener('click', function (e) {
+            const chooser = document.getElementById('columnsChooser');
+            const btn = document.getElementById('columnsBtn');
+            if (!chooser) return;
+            if (chooser.style.display === 'block') {
+                if (!chooser.contains(e.target) && (!btn || !btn.contains(e.target))) {
+                    chooser.style.display = 'none';
+                }
+            }
+        });
+    }
+
+    function toggleColumnsChooser() {
+        const el = document.getElementById('columnsChooser');
+        if (!el) return;
+        el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none';
+    }
+
+    function saveColumnsToStorage() {
+        const map = {};
+        document.querySelectorAll('#columnsList .col-chk').forEach(chk => {
+            map[chk.getAttribute('data-col-index')] = chk.checked;
+        });
+        window.HRSettingsUtil.setObject('employees_bulk_edit_columns', map);
+    }
+
+    function restoreColumnsFromStorage() {
+        const map = window.HRSettingsUtil.getObject('employees_bulk_edit_columns', {});
+        if (!map) return;
+        Object.keys(map).forEach(k => {
+            const idx = parseInt(k, 10);
+            const show = map[k];
+            const chk = document.querySelector(`#columnsList .col-chk[data-col-index="${idx}"]`);
+            if (chk) chk.checked = show;
+            toggleColumnVisibility(idx, show);
+        });
+    }
+
+    function toggleColumnVisibility(idx, show) {
+        document.querySelectorAll('table tr').forEach(tr => {
+            const cell = tr.children[idx];
+            if (!cell) return;
+            if (show) cell.classList.remove('d-none');
+            else cell.classList.add('d-none');
+        });
+    }
+
+    function loadEmployees() {
+        saveFiltersToStorage();
+        const search = document.getElementById('filterSearch').value.trim();
+        const dept = document.getElementById('filterDept').value;
+        const status = document.getElementById('filterStatus').value;
+        const jobTitle = document.getElementById('filterJobTitle').value.trim();
+        const insurance = document.getElementById('filterInsurance') ? document.getElementById('filterInsurance').value : '';
+
+        const params = new URLSearchParams();
+        if (search) params.append('search', search);
+        if (dept) params.append('department_id', dept);
+        if (status) params.append('status', status);
+        if (jobTitle) params.append('job_title', jobTitle);
+        if (insurance) params.append('is_insured', insurance);
+
+        fetch(`/employees/bulk_edit/load?${params.toString()}`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) {
+                    alert(data.message || 'حدث خطأ أثناء التحميل');
+                    return;
+                }
+                clearTable();
+                let employees = data.employees || [];
+                employees = sortEmployeesByCode(employees);
+                employees.forEach(emp => addRowFromData(emp));
+                updateLoadedCount(employees.length);
+                if (employees.length === 0) {
+                    const tbody = document.getElementById('bulkBody');
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td colspan="29" class="text-center text-muted">لا توجد بيانات مطابقة</td>`;
+                    tbody.appendChild(tr);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('حدث خطأ في الاتصال');
+            });
+    }
+
+    function sortEmployeesByCode(arr) {
+        return arr.slice().sort((a, b) => {
+            const ca = (a.code || '').toString().trim();
+            const cb = (b.code || '').toString().trim();
+            const na = /^\d+$/.test(ca) ? parseInt(ca, 10) : null;
+            const nb = /^\d+$/.test(cb) ? parseInt(cb, 10) : null;
+            if (na !== null && nb !== null) return na - nb;
+            if (na !== null) return -1;
+            if (nb !== null) return 1;
+            return ca.localeCompare(cb, 'ar', { numeric: true });
+        });
+    }
+
+    function addRowFromData(emp) {
+        const tbody = document.getElementById('bulkBody');
+        const template = document.getElementById('rowTemplate');
+        const clone = template.content.cloneNode(true);
+        const tr = clone.querySelector('tr');
+
+        rowCounter++;
+
+        // Assign ID
+        tr.dataset.empId = emp.id;
+        const idInput = tr.querySelector('.emp-id');
+        if (idInput) idInput.value = emp.id;
+
+        // Fix datalist ID uniqueness
+        const jobInput = tr.querySelector('.emp-job');
+        const datalist = tr.querySelector('datalist');
+        const listId = `jobs-list-${rowCounter}`;
+        jobInput.setAttribute('list', listId);
+        datalist.id = listId;
+
+        // Fill values
+        tr.querySelector('.emp-code').value = emp.code || '';
+        tr.querySelector('.emp-name').value = emp.name || '';
+        tr.querySelector('.emp-nid').value = emp.national_id || '';
+        tr.querySelector('.emp-dob').value = emp.date_of_birth || '';
+        tr.querySelector('.emp-gov').value = emp.governorate || '';
+        tr.querySelector('.emp-city').value = emp.city || '';
+        tr.querySelector('.emp-address').value = emp.address || '';
+        tr.querySelector('.emp-mobile').value = emp.mobile_number || '';
+
+        tr.querySelector('.emp-dept').value = emp.department_id || '';
+        tr.querySelector('.emp-job').value = emp.job_title || '';
+        tr.querySelector('.emp-category').value = emp.category || 'Employee';
+        tr.querySelector('.emp-hire-date').value = emp.hire_date || '';
+        tr.querySelector('.emp-start-time').value = emp.standard_start_time || '';
+        tr.querySelector('.emp-end-time').value = emp.standard_end_time || '';
+        tr.querySelector('.emp-is-active').checked = !!emp.is_active;
+
+        tr.querySelector('.emp-salary').value = emp.basic_salary || 0;
+        tr.querySelector('.emp-incentive-reg').value = emp.regularity_incentive || 0;
+        tr.querySelector('.emp-incentive-all').value = emp.incentive_allowance || 0;
+        tr.querySelector('.emp-transport').value = emp.transport_allowance || 0;
+        tr.querySelector('.emp-overtime').checked = !!emp.overtime_allowed;
+
+        tr.querySelector('.emp-is-insured').checked = !!emp.is_insured;
+        tr.querySelector('.emp-ins-policy').value = emp.insurance_policy || 'employee_only';
+        tr.querySelector('.emp-ins-date').value = emp.insurance_start_date || '';
+        tr.querySelector('.emp-ins-num').value = emp.insurance_number || '';
+        tr.querySelector('.emp-ins-salary').value = emp.insurance_salary || 0;
+        tr.querySelector('.emp-ins-share-emp').value = emp.insurance_employee_share || 11;
+        tr.querySelector('.emp-ins-share-comp').value = emp.insurance_company_share || 18.75;
+
+        // Toggle insurance fields
+        toggleInsurance(tr, !!emp.is_insured);
+
+        // Update jobs list for department if set
+        if (emp.department_id) {
+            fetchJobsForRow(tr, emp.department_id);
+        }
+
+        // Attach listeners
+        attachRowListeners(tr);
+        initFlatpickrForRow(tr);
+
+        tbody.appendChild(tr);
+        reindexRows();
+    }
+
+    function reindexRows() {
+        document.querySelectorAll('#bulkBody tr').forEach((row, index) => {
+            const cell = row.querySelector('.row-index');
+            if (!cell) return;
+            const numSpan = cell.querySelector('.row-number');
+            if (numSpan) {
+                numSpan.textContent = index + 1;
+            } else {
+                cell.textContent = index + 1;
+            }
+        });
+    }
+
+    function initFlatpickrForRow(row) {
+        // Init flatpickr on .date-string inputs in this row
+        const dateInputs = row.querySelectorAll('.date-string');
+        if (typeof flatpickr !== 'undefined') {
+            dateInputs.forEach(input => {
+                flatpickr(input, {
+                    dateFormat: "d/m/Y",
+                    allowInput: true,
+                    disableMobile: "true"
+                });
+            });
+        }
+    }
+
+    function attachRowListeners(row) {
+        const inputs = row.querySelectorAll('input, select');
+        inputs.forEach(input => {
+            input.addEventListener('focus', function () {
+                document.querySelectorAll('#bulkBody tr').forEach(r => r.classList.remove('active-row'));
+                row.classList.add('active-row');
+
+                const code = row.querySelector('.emp-code').value || 'جديد';
+                const name = row.querySelector('.emp-name').value || '---';
+
+                document.getElementById('infoEmpCode').innerText = code;
+                document.getElementById('infoEmpName').innerText = name;
+                document.getElementById('floatingInfoBar').style.display = 'block';
+            });
+        });
+
+        const nidInput = row.querySelector('.emp-nid');
+
+        // 1. National ID Parser
+        nidInput.addEventListener('change', function () { parseNationalId(this, row); });
+        nidInput.addEventListener('blur', function () { parseNationalId(this, row); });
+
+        // 2. Department Change -> Fetch Jobs
+        const deptSelect = row.querySelector('.emp-dept');
+        deptSelect.addEventListener('change', function () {
+            fetchJobsForRow(row, this.value);
+        });
+
+        // 3. Insurance Toggle
+        const insCheck = row.querySelector('.emp-is-insured');
+        insCheck.addEventListener('change', function () { toggleInsurance(row, this.checked); });
+
+        // 4. Insurance Date Sync (Start Date defaults to Hire Date if not set)
+        const hireDateInput = row.querySelector('.emp-hire-date');
+        hireDateInput.addEventListener('change', function () {
+            const insDateInput = row.querySelector('.emp-ins-date');
+            const isInsured = row.querySelector('.emp-is-insured').checked;
+            if (isInsured && !insDateInput.value) {
+                insDateInput.value = this.value;
+            }
+        });
+
+        // 5. Mobile Number Validation
+        const mobileInput = row.querySelector('.emp-mobile');
+        mobileInput.addEventListener('change', function () { validateMobile(this); });
+        mobileInput.addEventListener('blur', function () { validateMobile(this); });
+
+    }
+
+    // Excel-like Column Resize (Auto-Expand) logic
+    // Column resizing and autosize behavior handled globally by `static/js/table_resizer.js` which provides independent resizing and persistence across reloads.
+    // For keyboard autosize on Enter, the global script will handle the event and call autosize without interfering with navigation.
+
+
+
+    // --- Logic Functions ---
+
+    function checkEmployeeDuplicates(row) {
+        const codeInput = row.querySelector('.emp-code');
+        const nidInput = row.querySelector('.emp-nid');
+        const code = codeInput.value.trim();
+        const nid = nidInput.value.trim();
+
+        // 1. Local Grid Check
+        const allRows = document.querySelectorAll('#bulkBody tr');
+        let duplicateInGrid = false;
+
+        allRows.forEach(otherRow => {
+            if (otherRow === row) return;
+            const otherCode = otherRow.querySelector('.emp-code').value.trim();
+            const otherNid = otherRow.querySelector('.emp-nid').value.trim();
+
+            if (code && otherCode === code) {
+                duplicateInGrid = true;
+                codeInput.classList.add('is-invalid');
+            }
+            if (nid && otherNid === nid) {
+                duplicateInGrid = true;
+                nidInput.classList.add('is-invalid');
+            }
+        });
+
+        if (duplicateInGrid) {
+            // Non-intrusive marking
+        } else {
+            if (!codeInput.getAttribute('data-db-duplicate')) {
+                codeInput.classList.remove('is-invalid');
+            }
+            if (!nidInput.getAttribute('data-db-duplicate')) {
+                nidInput.classList.remove('is-invalid');
+            }
+        }
+
+        // 2. Database Check
+        if (code || nid) {
+            fetch(`/employees/check_duplicate?code=${code}&national_id=${nid}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.exists) {
+                        if (code && data.code_exists) {
+                            codeInput.classList.add('is-invalid');
+                            codeInput.setAttribute('data-db-duplicate', 'true');
+                        }
+                        if (nid && data.nid_exists) {
+                            nidInput.classList.add('is-invalid');
+                            nidInput.setAttribute('data-db-duplicate', 'true');
+                        }
+                    } else {
+                        codeInput.removeAttribute('data-db-duplicate');
+                        nidInput.removeAttribute('data-db-duplicate');
+                    }
+                });
+        }
+    }
+
+    function parseNationalId(input, row) {
+        const nid = input.value.trim();
+        if (nid.length !== 14 || isNaN(nid)) {
+            if (nid.length > 0) input.classList.add('is-invalid');
+            return;
+        }
+        const centuryCode = nid[0];
+        const yearPart = nid.substring(1, 3);
+        const monthPart = nid.substring(3, 5);
+        const dayPart = nid.substring(5, 7);
+        const govCode = nid.substring(7, 9);
+        let fullYear = (centuryCode == '2') ? '19' + yearPart : '20' + yearPart;
+        const dob = `${dayPart}/${monthPart}/${fullYear}`;
+        const dobInput = row.querySelector('.emp-dob');
+        if (!dobInput.value) {
+            dobInput.value = dob;
+            if (dobInput._flatpickr) dobInput._flatpickr.setDate(dob, true, "d/m/Y");
+        }
+        const govMap = {
+            '01': 'القاهرة', '02': 'الإسكندرية', '03': 'بورسعيد', '04': 'السويس',
+            '11': 'دمياط', '12': 'الدقهلية', '13': 'الشرقية', '14': 'القليوبية',
+            '15': 'كفر الشيخ', '16': 'الغربية', '17': 'المنوفية', '18': 'البحيرة',
+            '19': 'الإسماعيلية', '21': 'الجيزة', '22': 'بني سويف', '23': 'الفيوم',
+            '24': 'المنيا', '25': 'أسيوط', '26': 'سوهاج', '27': 'قنا',
+            '28': 'أسوان', '29': 'الأقصر', '31': 'البحر الأحمر', '32': 'الوادي الجديد',
+            '33': 'مطروح', '34': 'شمال سيناء', '35': 'جنوب سيناء', '88': 'خارج الجمهورية'
+        };
+        const govName = govMap[govCode] || '';
+        const govInput = row.querySelector('.emp-gov');
+        if (govName && !govInput.value) govInput.value = govName;
+        input.classList.remove('is-invalid');
+        input.classList.add('is-valid');
+    }
+
+    function validateMobile(input) {
+        const mobile = input.value.trim();
+        if (mobile && mobile.length !== 11) {
+            input.classList.add('is-invalid');
+        } else if (mobile) {
+            input.classList.remove('is-invalid', 'is-valid');
+            input.classList.add('is-valid');
+        }
+    }
+
+    function fetchJobsForRow(row, deptId) {
+        if (!deptId) return;
+        fetch(`/employees/get_jobs/${deptId}`)
+            .then(res => res.json())
+            .then(data => {
+                const datalist = row.querySelector('datalist');
+                datalist.innerHTML = '';
+                if (data.jobs) {
+                    data.jobs.forEach(job => {
+                        const opt = document.createElement('option');
+                        opt.value = job;
+                        datalist.appendChild(opt);
+                    });
+                }
+            })
+            .catch(err => console.error(err));
+    }
+
+    function toggleInsurance(row, isInsured) {
+        const fields = ['.emp-ins-policy', '.emp-ins-date', '.emp-ins-num', '.emp-ins-salary', '.emp-ins-share-emp', '.emp-ins-share-comp'];
+        fields.forEach(selector => {
+            const el = row.querySelector(selector);
+            if (el) el.disabled = !isInsured;
+            if (isInsured) el.classList.remove('bg-light');
+            else el.classList.add('bg-light');
+        });
+        if (isInsured) {
+            const salary = row.querySelector('.emp-salary').value;
+            const insSalary = row.querySelector('.emp-ins-salary');
+            if (!insSalary.value || insSalary.value == '0') insSalary.value = salary;
+        }
+    }
+
+    function saveAll() {
+        const rows = document.querySelectorAll('#bulkBody tr');
+        const employees = [];
+        let hasErrors = false;
+
+        rows.forEach((row, index) => {
+            const nameInput = row.querySelector('.emp-name');
+            const codeInput = row.querySelector('.emp-code');
+            if (!nameInput || !codeInput) return;
+
+            const name = nameInput.value.trim();
+            const code = codeInput.value.trim();
+            if (!name) return;
+
+            const empId = row.querySelector('.emp-id') ? row.querySelector('.emp-id').value : null;
+            if (!empId) return;
+
+            if (row.querySelector('.is-invalid')) { hasErrors = true; return; }
+            if (!code) { alert(`صف رقم ${index + 1}: الكود مطلوب للموظف ${name}`); hasErrors = true; return; }
+
+            employees.push({
+                id: empId,
+                code: code, name: name, mobile_number: row.querySelector('.emp-mobile').value,
+                national_id: row.querySelector('.emp-nid').value, date_of_birth: row.querySelector('.emp-dob').value,
+                governorate: row.querySelector('.emp-gov').value, city: row.querySelector('.emp-city').value,
+                address: row.querySelector('.emp-address').value, department_id: row.querySelector('.emp-dept').value,
+                job_title: row.querySelector('.emp-job').value, category: row.querySelector('.emp-category').value,
+                hire_date: row.querySelector('.emp-hire-date').value, standard_start_time: row.querySelector('.emp-start-time').value,
+                standard_end_time: row.querySelector('.emp-end-time').value, is_active: row.querySelector('.emp-is-active').checked,
+                basic_salary: row.querySelector('.emp-salary').value, regularity_incentive: row.querySelector('.emp-incentive-reg').value,
+                incentive_allowance: row.querySelector('.emp-incentive-all').value, transport_allowance: row.querySelector('.emp-transport').value,
+                overtime_allowed: row.querySelector('.emp-overtime').checked, is_insured: row.querySelector('.emp-is-insured').checked,
+                insurance_policy: row.querySelector('.emp-ins-policy').value, insurance_start_date: row.querySelector('.emp-ins-date').value,
+                insurance_number: row.querySelector('.emp-ins-num').value, insurance_salary: row.querySelector('.emp-ins-salary').value,
+                insurance_employee_share: row.querySelector('.emp-ins-share-emp').value, insurance_company_share: row.querySelector('.emp-ins-share-comp').value
+            });
+        });
+
+        if (hasErrors) { alert('يرجى تصحيح الأخطاء (الخلايا المحددة باللون الأحمر)'); return; }
+        if (employees.length === 0) { alert('لا توجد بيانات للحفظ'); return; }
+
+        fetch('{{ url_for("employees.bulk_edit_save") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}' },
+            body: JSON.stringify({ employees: employees })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const msg = data.message || `تم الحفظ بنجاح! عدد: ${data.count}`;
+                    if (typeof showCenteredFlash === 'function') showCenteredFlash(msg, 'center');
+                    else alert(msg);
+                } else {
+                    const m = data.message || 'حدث خطأ';
+                    if (typeof showCenteredFlash === 'function') showCenteredFlash(m, 'danger');
+                    else alert('حدث خطأ:\n' + m);
+                }
+            })
+            .catch(err => { console.error(err); if (typeof showCenteredFlash === 'function') showCenteredFlash('حدث خطأ في الاتصال', 'danger'); else alert('حدث خطأ في الاتصال'); });
+    }
+</script>
+{% endblock %}

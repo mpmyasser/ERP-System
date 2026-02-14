@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h2 class="fw-bold">سندات القبض والصرف</h2>
+        <p class="text-muted">عرض سجل حركات النقدية والبنوك</p>
+    </div>
+    <div class="col-md-6 text-start">
+        <a href="{{ url_for('treasury.new_voucher', type='receipt') }}" class="btn btn-success">
+            <i class="fas fa-plus"></i> سند قبض
+        </a>
+        <a href="{{ url_for('treasury.new_voucher', type='payment') }}" class="btn btn-danger">
+            <i class="fas fa-minus"></i> سند صرف
+        </a>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>الرقم</th>
+                        <th>التاريخ</th>
+                        <th>النوع</th>
+                        <th>الخزينة/البنك</th>
+                        <th>الحساب المقابل</th>
+                        <th>المبلغ</th>
+                        <th>البيان</th>
+                        <th>الحالة</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in vouchers %}
+                    <tr>
+                        <td>{{ v.id }}</td>
+                        <td>{{ v.date.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <span class="badge {{ 'bg-success' if 'قبض' in v.description else 'bg-danger' }}">
+                                {{ 'قبض' if 'قبض' in v.description else 'صرف' }}
+                            </span>
+                        </td>
+                        <td>{{ v.treasury_name }}</td>
+                        <td>{{ v.other_account_name }}</td>
+                        <td class="fw-bold">{{ v.amount }}</td>
+                        <td class="small">{{ v.description }}</td>
+                        <td>
+                            <span class="badge bg-light text-dark border">{{ v.status }}</span>
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('treasury.print_voucher', entry_id=v.id) }}" target="_blank"
+                                    class="btn btn-sm btn-light border" title="طباعة">
+                                    <i class="fas fa-print"></i>
+                                </a>
+                                <form action="{{ url_for('treasury.delete_voucher', entry_id=v.id) }}" method="POST"
+                                    onsubmit="return confirm('هل أنت متأكد من حذف هذا السند؟');"
+                                    style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="حذف">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center py-4 text-muted">لا توجد سندات مسجلة حالياً.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

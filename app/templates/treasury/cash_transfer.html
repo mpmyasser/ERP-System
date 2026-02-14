@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-md-12">
+        <h3>تحويل رصيد بين الخزائن</h3>
+        <p class="text-muted">تحويل مبلغ من خزينة إلى خزينة أخرى</p>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-exchange-alt me-2"></i> سند تحويل بين الخزائن</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">التاريخ</label>
+                            <input type="date" name="date" class="form-control" value="{{ today }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">من الخزينة (العمومية)</label>
+                            <select name="from_cash_id" id="from_cash_id" class="form-select" required>
+                                <option value="">اختر الخزينة المصدر...</option>
+                                {% for cash in cash_accounts %}
+                                <option value="{{ cash.id }}" {% if selected_account and selected_account.id == cash.id %}selected{% endif %}>{{ cash.name }} ({{ cash.account.code }})</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">الخزينة التي سيتم تحويل المبلغ منها</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">إلى الخزينة (الفرعية)</label>
+                            <select name="to_cash_id" id="to_cash_id" class="form-select" required>
+                                <option value="">اختر الخزينة المستلمة...</option>
+                                {% for cash in cash_accounts %}
+                                <option value="{{ cash.id }}">{{ cash.name }} ({{ cash.account.code }})</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">الخزينة التي سيتم استلام المبلغ فيها</div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">المبلغ</label>
+                            <input type="number" step="0.01" name="amount" class="form-control form-control-lg text-primary fw-bold" required placeholder="0.00">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">البيان / الوصف</label>
+                            <input type="text" name="description" class="form-control" placeholder="مثلاً: تحويل رصيد للتشغيل اليومي">
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>ملاحظة:</strong> سيتم إنشاء قيد يومية تلقائياً بمدين ودائن بين حسابي الخزينتين المحددتين.
+                    </div>
+
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-primary btn-lg px-5">
+                            <i class="fas fa-exchange-alt"></i> تنفيذ التحويل وترحيله
+                        </button>
+                        <a href="{{ url_for('treasury.dashboard') }}" class="btn btn-outline-secondary btn-lg">إلغاء</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

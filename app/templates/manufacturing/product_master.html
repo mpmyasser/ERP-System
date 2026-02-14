@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}دليل الأصناف - Manufacturing{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-tshirt me-2"></i> دليل الأصناف والمنتجات</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('manufacturing.export_products') }}" class="btn btn-outline-success me-2">
+            <i class="fas fa-file-excel me-1"></i> تصدير إكسيل
+        </a>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProductModal">
+            <i class="fas fa-plus"></i> إضافة صنف جديد
+        </button>
+    </div>
+</div>
+
+<!-- Search & Filter -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('manufacturing.products_master') }}" class="row g-3">
+            <div class="col-md-4">
+                <input type="text" name="search" class="form-control" placeholder="بحث بالكود أو الاسم..."
+                    value="{{ request.args.get('search', '') }}">
+            </div>
+            <div class="col-md-3">
+                <select name="type" class="form-select">
+                    <option value="">الكل (أنواع الهيكل)</option>
+                    <option value="Single" {{ 'selected' if request.args.get('type')=='Single' }}>قطعة مفردة</option>
+                    <option value="Set_Parent" {{ 'selected' if request.args.get('type')=='Set_Parent' }}>طقم كامل
+                        (Parent)</option>
+                    <option value="Set_Part_Top" {{ 'selected' if request.args.get('type')=='Set_Part_Top' }}>قطعة علوية
+                        (A)</option>
+                    <option value="Set_Part_Bottom" {{ 'selected' if request.args.get('type')=='Set_Part_Bottom' }}>قطعة
+                        سفلية (B)</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary w-100">بحث</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Products Grid -->
+<div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-4">
+    {% for product in products %}
+    <div class="col">
+        <div class="card h-100 shadow-sm product-card position-relative border-0">
+            <div class="position-absolute top-0 end-0 p-2">
+                {% if product.structure_type == 'Set_Parent' %}
+                <span class="badge bg-purple text-white shadow-sm"><i class="fas fa-layer-group"></i> طقم</span>
+                {% elif product.structure_type == 'Set_Part_Top' %}
+                <span class="badge bg-info text-dark shadow-sm">جزء علوي (A)</span>
+                {% elif product.structure_type == 'Set_Part_Bottom' %}
+                <span class="badge bg-warning text-dark shadow-sm">جزء سفلي (B)</span>
+                {% else %}
+                <span class="badge bg-success shadow-sm">قطعة مفردة</span>
+                {% endif %}
+            </div>
+
+            <div class="card-img-top bg-light d-flex align-items-center justify-content-center overflow-hidden"
+                style="height: 200px;">
+                {% if product.image_path %}
+                <img src="{{ url_for('static', filename=product.image_path) }}" class="img-fluid"
+                    alt="{{ product.name }}" style="max-height: 100%;">
+                {% else %}
+                <i class="fas fa-image fa-4x text-muted opacity-25"></i>
+                {% endif %}
+            </div>
+
+            <div class="card-body text-center">
+                <h5 class="card-title fw-bold mb-1">{{ product.code }}</h5>
+                {% if product.size %}
+                <div class="text-primary fw-bold mb-1">{{ product.size }}</div>
+                {% endif %}
+                <p class="card-text text-muted mb-2">{{ product.name }}</p>
+                <div class="badge bg-light text-dark border">{{ product.unit }}</div>
+            </div>
+
+            <div class="card-footer bg-white border-top-0 d-flex justify-content-between">
+                <button class="btn btn-sm btn-outline-primary" data-id="{{ product.id }}"
+                    onclick="editProduct(this.dataset.id)">
+                    <i class="fas fa-edit"></i> تعديل
+                </button>
+                {% if product.structure_type == 'Set_Parent' %}
+                <a href="{{ url_for('manufacturing.assembly', product_id=product.id) }}"
+                    class="btn btn-sm btn-outline-success">
+                    <i class="fas fa-cogs"></i> تجميع
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12 text-center py-5">
+        <div class="text-muted">
+            <i class="fas fa-box-open fa-3x mb-3"></i>
+            <p>لا توجد أصناف معرفة حالياً.</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal fade" id="addProductModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">إضافة صنف جديد</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('manufacturing.save_product') }}" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="id" id="productId">
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">كود الصنف <span class="text-danger">*</span></label>
+                        <input type="text" name="code" id="productCode" class="form-control" required>
+                        <div class="form-text">للطقم استخدم الرقم فقط (مثلاً 1001). للأجزاء A/B سيتم توليدها أو إدخالها
+                            يدوياً.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">اسم الصنف <span class="text-danger">*</span></label>
+                        <input type="text" name="name" id="productName" class="form-control" required>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">نوع الهيكل</label>
+                            <select name="structure_type" id="productStructure" class="form-select">
+                                <option value="Single">قطعة مفردة (Single)</option>
+                                <option value="Set_Parent">طقم كامل (Set Parent)</option>
+                                <option value="Set_Part_Top">جزء علوي (Part A)</option>
+                                <option value="Set_Part_Bottom">جزء سفلي (Part B)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">المقاس</label>
+                            <input type="text" name="size" id="productSize" class="form-control"
+                                placeholder="مثلاً 2XL">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">الوحدة</label>
+                        <select name="unit" id="productUnit" class="form-select">
+                            <option value="Piece">قطعة (Piece)</option>
+                            <option value="Dozen">دستة (Dozen)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">صورة الصنف</label>
+                        <input type="file" name="image" class="form-control" accept="image/*">
+                    </div>
+
+                    <div id="setOptions" class="alert alert-info d-none">
+                        <i class="fas fa-info-circle"></i> عند إنشاء طقم (Set Parent)، يمكنك لاحقاً تكوين أجزائه A و B
+                        من خلال عمليات التجميع.
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">حفظ الصنف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('productStructure').addEventListener('change', function () {
+        const setOptions = document.getElementById('setOptions');
+        if (this.value === 'Set_Parent') {
+            setOptions.classList.remove('d-none');
+        } else {
+            setOptions.classList.add('d-none');
+        }
+    });
+
+    function editProduct(id) {
+        // Simple fetch to get product details and populate modal
+        // For MVP, we might just reload or implement a specific API. 
+        // Assuming user will just create new for now or we add an edit route later.
+        alert('ميزة التعديل قيد التطوير الكامل، يرجى حذف الصنف وإعادة إضافته إذا لزم الأمر.');
+    }
+</script>
+
+<style>
+    .bg-purple {
+        background-color: #6f42c1;
+    }
+
+    .product-card {
+        transition: transform 0.2s;
+    }
+
+    .product-card:hover {
+        transform: translateY(-5px);
+    }
+</style>
+{% endblock %}

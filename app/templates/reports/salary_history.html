@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}تقرير السجل التاريخي للرواتب{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2>📊 تقرير السجل التاريخي للرواتب</h2>
+            <p class="text-muted">متابعة جميع التعديلات التي تتم على رواتب الموظفين</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ url_for('reports.export_salary_history_excel', employee_id=employee_id, from_date=from_date, to_date=to_date) }}" class="btn btn-success">
+                <i class="fas fa-download"></i> تصدير Excel
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">🔍 المرشحات</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <label for="employee_filter" class="form-label">الموظف:</label>
+                    <select class="form-select" id="employee_filter" name="employee_id">
+                        <option value="">-- جميع الموظفين --</option>
+                        {% for emp in employees %}
+                            <option value="{{ emp.id }}" {% if emp.id == employee_id %}selected{% endif %}>
+                                {{ emp.code }} - {{ emp.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label for="date_from" class="form-label">من التاريخ:</label>
+                    <input type="date" class="form-control" id="date_from" name="from_date" value="{{ from_date or '' }}">
+                </div>
+
+                <div class="col-md-3">
+                    <label for="date_to" class="form-label">إلى التاريخ:</label>
+                    <input type="date" class="form-control" id="date_to" name="to_date" value="{{ to_date or '' }}">
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search"></i> بحث
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Statistics Section -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">إجمالي التعديلات</h6>
+                    <h3 class="text-primary">{{ change_count }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">إجمالي الزيادات</h6>
+                    <h3 class="text-success">{{ "{:,.2f}".format(total_increases) }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">إجمالي التخفيضات</h6>
+                    <h3 class="text-danger">{{ "{:,.2f}".format(total_decreases) }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">الفرق الإجمالي</h6>
+                    <h3 class="{% if total_increases + total_decreases >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        {{ "{:,.2f}".format(total_increases + total_decreases) }}
+                    </h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Table -->
+    <div class="card">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">📋 السجل التاريخي</h5>
+        </div>
+        <div class="card-body">
+            {% if history_records %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm">
+                        <thead class="table-light">
+                            <tr>
+                                <th>رقم الموظف</th>
+                                <th>اسم الموظف</th>
+                                <th>تاريخ التعديل</th>
+                                <th>تاريخ التفعيل</th>
+                                <th>الراتب السابق</th>
+                                <th>الراتب الجديد</th>
+                                <th>التغيير</th>
+                                <th>النوع</th>
+                                <th>السبب</th>
+                                <th>ملاحظات</th>
+                                <th>المعدل بواسطة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in history_records %}
+                                <tr>
+                                    <td>
+                                        <a href="{{ url_for('reports.salary_history_employee', emp_id=record.employee_id) }}">
+                                            {{ record.employee.code if record.employee else record.employee_id }}
+                                        </a>
+                                    </td>
+                                    <td>{{ record.employee.name if record.employee else '-' }}</td>
+                                    <td>{{ record.formatted_change_date }}</td>
+                                    <td>{{ record.formatted_effective_date }}</td>
+                                    <td class="text-end">{{ "{:,.2f}".format(record.old_salary) }}</td>
+                                    <td class="text-end">{{ "{:,.2f}".format(record.new_salary) }}</td>
+                                    <td class="text-end {% if record.salary_change > 0 %}text-success fw-bold{% elif record.salary_change < 0 %}text-danger fw-bold{% endif %}">
+                                        {{ "{:+,.2f}".format(record.salary_change) }}
+                                    </td>
+                                    <td>
+                                        {% if record.salary_change > 0 %}
+                                            <span class="badge bg-success">📈 زيادة</span>
+                                        {% elif record.salary_change < 0 %}
+                                            <span class="badge bg-danger">📉 تخفيض</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">➖ لا تغيير</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ record.reason or '-' }}</td>
+                                    <td>{{ record.notes or '-' }}</td>
+                                    <td>{{ record.modified_by or 'System' }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> لا توجد سجلات تعديلات رواتب مطابقة للمرشحات المحددة
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border: none;
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+
+    .badge {
+        padding: 0.5rem 0.75rem;
+        font-weight: 500;
+    }
+</style>
+{% endblock %}

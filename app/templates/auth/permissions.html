@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-3">
+        <h3>تخصيص الصلاحيات: <span class="text-primary">{{ user.full_name }}</span> ({{ user.username }})</h3>
+        <a href="{{ url_for('auth.list_users') }}" class="btn btn-secondary btn-sm">عودة للقائمة</a>
+    </div>
+</div>
+
+<form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="row">
+        {% for category, perms in perms_by_cat.items() %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header fw-bold">
+                    {{ category }}
+                </div>
+                <div class="card-body">
+                    {% for perm in perms %}
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="permissions" value="{{ perm.id }}"
+                            id="perm_{{ perm.id }}" {% if user.has_permission(perm.name) %}checked{% endif %}>
+                        <label class="form-check-label" for="perm_{{ perm.id }}">
+                            {{ perm.description }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Cash Account Access section -->
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header fw-bold bg-primary text-white">
+                    صلاحيات الوصول للخزائن
+                </div>
+                <div class="card-body">
+                    {% set user_cash_ids = user.accessible_cash_accounts | map(attribute='id') | list %}
+                    {% for cash in all_cash_accounts %}
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="cash_accounts" value="{{ cash.id }}"
+                            id="cash_{{ cash.id }}" {% if cash.id in user_cash_ids or user.is_admin %}checked{% endif %}
+                            {% if user.is_admin %}disabled{% endif %}>
+                        <label class="form-check-label" for="cash_{{ cash.id }}">
+                            {{ cash.name }} ({{ cash.get_account_type_label() }})
+                        </label>
+                    </div>
+                    {% endfor %}
+                    {% if user.is_admin %}
+                    <div class="alert alert-sm alert-info small py-1 mt-2">
+                        الأدمن يملك صلاحية الوصول لكافة الخزائن تلقائياً.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-12 text-center">
+            <button type="submit" class="btn btn-success btn-lg px-5">حفظ الصلاحيات</button>
+        </div>
+    </div>
+</form>
+{% endblock %}

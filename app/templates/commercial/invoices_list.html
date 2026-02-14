@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h2 class="fw-bold">
+            {% if type == 'Purchase' %}فواتير المشتريات{% else %}فواتير المبيعات{% endif %}
+        </h2>
+        <p class="text-muted">إدارة فواتير {% if type == 'Purchase' %}التوريد من الموردين{% else %}البيع للعملاء{% endif
+            %}</p>
+    </div>
+    <div class="col-md-6 text-start">
+        <a href="{{ url_for('commercial.new_invoice', type=type) }}"
+            class="btn btn-{{ 'primary' if type == 'Purchase' else 'success' }}">
+            <i class="fas fa-plus"></i> فاتورة جديدة
+        </a>
+    </div>
+
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>رقم الفاتورة</th>
+                        <th>التاريخ</th>
+                        <th>شريك العمل</th>
+                        <th>المبلغ الصافي</th>
+                        <th>المخزن</th>
+                        <th>الحالة</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inv in invoices %}
+                    <tr>
+                        <td class="fw-bold">{{ inv.invoice_number }}</td>
+                        <td>{{ inv.date.strftime('%Y-%m-%d') }}</td>
+                        <td>{{ inv.partner.name }}</td>
+                        <td class="fw-bold text-primary">{{ inv.net_amount }}</td>
+                        <td>{{ inv.warehouse.name if inv.warehouse else '-' }}</td>
+                        <td>
+                            <span class="badge bg-light text-dark border">{{ inv.status }}</span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-light border"><i class="fas fa-eye"></i></button>
+                            <button class="btn btn-sm btn-light border"><i class="fas fa-print"></i></button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">لا توجد فواتير مسجلة حالياً.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

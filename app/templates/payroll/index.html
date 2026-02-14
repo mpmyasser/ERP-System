@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}حساب الرواتب{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-money-bill me-2"></i> حساب الرواتب</h1>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white py-3">
+        <h5 class="mb-0"><i class="fas fa-calculator me-2"></i> مسير رواتب الموظفين</h5>
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-0">يمكنك هنا مراجعة رواتب الموظفين وحساب المستحقات للشهر الحالي.</p>
+    </div>
+</div>
+
+<!-- Stats Bar -->
+<div class="d-flex gap-3 mb-3 flex-wrap">
+    <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
+        <i class="fas fa-users text-primary me-2"></i>
+        <div class="ms-2">
+            <small class="text-muted d-block" style="font-size: 0.75rem;">عدد الموظفين</small>
+            <span class="fw-bold">{{ employees|length }}</span>
+        </div>
+    </div>
+    <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
+        <i class="fas fa-money-bill-wave text-success me-2"></i>
+        <div class="ms-2">
+            <small class="text-muted d-block" style="font-size: 0.75rem;">إجمالي الرواتب الأساسية المعنية</small>
+            <span class="fw-bold">{{ "{:,.2f}".format(total_basic_salary) }} جنيه</span>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-users me-2"></i>قائمة الموظفين</h5>
+    </div>
+    <div class="card-body">
+        {% if employees %}
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered align-middle datatable" id="payroll-table">
+                <thead class="table-light">
+                    <tr class="text-center">
+                        <th>الكود</th>
+                        <th>الاسم</th>
+                        <th>القسم</th>
+                        <th>الراتب الأساسي</th>
+                        <th class="no-sort">خيارات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for emp in employees %}
+                    <tr class="text-center">
+                        <td><strong class="text-primary">{{ emp.code }}</strong></td>
+                        <td class="text-start"><strong>{{ emp.name }}</strong></td>
+                        <td>{{ emp.department.name if emp.department else '-' }}</td>
+                        <td><strong>{{ "%.2f"|format(emp.effective_salary if emp.effective_salary is not none else emp.basic_salary) }} جنيه</strong></td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('payroll.calculate', emp_id=emp.id) }}"
+                                    class="btn btn-sm btn-primary">
+                                    <i class="fas fa-calculator me-1"></i> احسب
+                                </a>
+                                <a href="{{ url_for('reports.detailed_salary', emp_id=emp.id) }}"
+                                    class="btn btn-sm btn-outline-info" title="تقرير تفصيلي">
+                                    <i class="fas fa-file-invoice-dollar"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info mb-0">
+            <i class="fas fa-info-circle me-2"></i> لا يوجد موظفين مسجلين حالياً.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

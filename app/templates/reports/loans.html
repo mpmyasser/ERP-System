@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}تقرير السلف{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-hand-holding-usd me-2"></i> تقرير السلف</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">السلف والقروض</h5>
+            </div>
+            <div class="card-body">
+                {% if loans %}
+                <div class="table-responsive">
+                    <table class="table table-striped datatable" id="loans-report-table">
+                        <thead>
+                            <tr>
+                                <th>الموظف</th>
+                                <th>المبلغ</th>
+                                <th>النوع</th>
+                                <th>عدد الأقساط</th>
+                                <th>المتبقي</th>
+                                <th>تاريخ الإصدار</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for loan in loans %}
+                            <tr>
+                                <td>{{ loan.employee.name if loan.employee else '-' }}</td>
+                                <td>{{ loan.amount }} جنيه</td>
+                                <td>
+                                    {% if loan.type == 'monthly' or loan.type == 'permanent' %}
+                                    <span class="badge bg-primary">مستديمة</span>
+                                    {% elif loan.type == 'emergency' or loan.type == 'temporary' %}
+                                    <span class="badge bg-warning text-dark">مؤقتة</span>
+                                    {% else %}
+                                    {{ loan.type }}
+                                    {% endif %}
+                                </td>
+                                <td>{{ loan.installments_count }}</td>
+                                <td>{{ loan.auto_remaining_balance }} جنيه</td>
+                                <td>{{ loan.date.strftime('%d/%m/%Y') if loan.date else '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> لا توجد سلف مسجلة
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm bg-gradient-primary text-white h-100 overflow-hidden position-relative">
+            <div class="card-body">
+                <i class="fas fa-money-bill-wave fa-3x position-absolute opacity-25" style="top: 10px; left: 10px;"></i>
+                <h6 class="text-uppercase small fw-bold">إجمالي نقدية الخزائن</h6>
+                <h3 class="fw-bold mb-0">{% set total_cash = cash_accounts | map(attribute='id') | list | length %} {{
+                    total_cash }} <small class="fs-6 fw-normal">خزنة</small></h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm bg-gradient-success text-white h-100 overflow-hidden position-relative">
+            <div class="card-body">
+                <i class="fas fa-university fa-3x position-absolute opacity-25" style="top: 10px; left: 10px;"></i>
+                <h6 class="text-uppercase small fw-bold">الحسابات البنكية</h6>
+                <h3 class="fw-bold mb-0">{{ bank_accounts | length }} <small class="fs-6 fw-normal">بنك</small></h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 text-start d-flex align-items-center justify-content-end gap-2">
+        <div class="glass-nav p-2 rounded-3 shadow-sm d-flex gap-2 bg-white flex-wrap justify-content-end">
+            <a href="{{ url_for('treasury.list_pending_loans') }}"
+                class="btn btn-warning px-3 rounded-pill position-relative">
+                <i class="fas fa-clock me-1"></i> السلف
+                {% if pending_loans_count > 0 %}
+                <span class="position-absolute top-0 start-0 translate-middle badge rounded-pill bg-danger shadow-sm">
+                    {{ pending_loans_count }}
+                </span>
+                {% endif %}
+            </a>
+            <a href="{{ url_for('treasury.receive_transfers') }}" class="btn btn-outline-success px-3 rounded-pill">
+                <i class="fas fa-inbox me-1"></i> استلام التحويلات
+            </a>
+            <a href="{{ url_for('treasury.new_voucher', type='receipt') }}" class="btn btn-success px-4 rounded-pill">
+                <i class="fas fa-plus-circle me-1"></i> سند قبض
+            </a>
+            <a href="{{ url_for('treasury.new_voucher', type='payment') }}" class="btn btn-danger px-4 rounded-pill">
+                <i class="fas fa-minus-circle me-1"></i> سند صرف
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- General Treasuries -->
+    <div class="col-md-12 mb-4">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-bold"><i class="fas fa-shield-alt text-primary me-2"></i> الخزائن العمومية (رئيسية)
+                </h5>
+                {% if is_admin %}
+                <button class="btn btn-sm btn-primary rounded-pill px-3" data-bs-toggle="modal"
+                    data-bs-target="#addCashModal">
+                    <i class="fas fa-plus me-1"></i> إضافة خزينة
+                </button>
+                {% endif %}
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light-blue text-primary border-0">
+                            <tr>
+                                <th class="ps-4">الترتيب</th>
+                                <th>اسم الخزنة</th>
+                                <th>الحساب المحاسبي</th>
+                                <th>المسؤول</th>
+                                <th class="text-start pe-4">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in general_accounts %}
+                            <tr class="hover-shadow-sm transition">
+                                <td class="ps-4"><span class="badge bg-light text-primary rounded-pill px-3">{{
+                                        c.display_order }}</span></td>
+                                <td class="fw-bold text-dark">{{ c.name }}</td>
+                                <td><span class="text-muted">{{ c.account.code }} -</span> <span class="fw-medium">{{
+                                        c.account.name }}</span></td>
+                                <td>
+                                    {% if c.user_id %}
+                                    {% set assigned_user = users|selectattr('id', 'equalto', c.user_id)|first %}
+                                    <span class="badge bg-soft-info text-info"><i class="fas fa-user-circle me-1"></i>
+                                        {{ assigned_user.full_name or assigned_user.username if assigned_user else
+                                        'مستخدم' }}</span>
+                                    {% else %}
+                                    <span class="badge bg-soft-secondary text-secondary">إدارة عامة</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-start pe-4">
+                                    <div class="btn-group">
+                                        <a href="{{ url_for('treasury.new_voucher', type='receipt', cash_id=c.id) }}"
+                                            class="btn btn-sm btn-soft-success" title="قبض"><i
+                                                class="fas fa-download"></i></a>
+                                        <a href="{{ url_for('treasury.new_voucher', type='payment', cash_id=c.id) }}"
+                                            class="btn btn-sm btn-soft-danger" title="صرف"><i
+                                                class="fas fa-upload"></i></a>
+                                        <a href="{{ url_for('treasury.cash_transfer', from_account=c.id) }}"
+                                            class="btn btn-sm btn-soft-info" title="تحويل"><i
+                                                class="fas fa-exchange-alt"></i></a>
+                                        <button class="btn btn-sm btn-soft-primary" data-bs-toggle="modal"
+                                            data-bs-target="#editCashModal{{ c.id }}"><i
+                                                class="fas fa-edit"></i></button>
+                                        <form action="{{ url_for('treasury.delete_cash_account', id=c.id) }}"
+                                            method="POST" style="display:inline;"
+                                            onsubmit="return confirm('هل أنت متأكد من حذف هذه الخزينة؟');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-sm btn-soft-danger" title="حذف"><i
+                                                    class="fas fa-trash"></i></button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-5 text-muted">لا توجد خزائن عمومية متاحة لصلاحيتك.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subsidiary Treasuries -->
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+            <div class="card-header bg-white border-0 py-3">
+                <h5 class="mb-0 fw-bold"><i class="fas fa-store-alt text-info me-2"></i> الخزائن الفرعية (عهدة / فروع)
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light-cyan text-info">
+                            <tr>
+                                <th class="ps-4">اسم الخزنة</th>
+                                <th>الحساب</th>
+                                <th>المسؤول</th>
+                                <th class="text-start pe-4">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in subsidiary_accounts %}
+                            <tr>
+                                <td class="ps-4 fw-bold">{{ c.name }}</td>
+                                <td><small class="text-muted">{{ c.account.code }}</small><br>{{ c.account.name }}</td>
+                                <td>
+                                    {% if c.user_id %}
+                                    {% set assigned_user = users|selectattr('id', 'equalto', c.user_id)|first %}
+                                    <span class="badge bg-soft-info text-info">{{ assigned_user.full_name or
+                                        assigned_user.username if assigned_user else 'مستخدم' }}</span>
+                                    {% else %}
+                                    <span class="badge bg-soft-secondary text-secondary">إدارة عامة</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-start pe-4">
+                                    <div class="btn-group">
+                                        <a href="{{ url_for('treasury.new_voucher', type='receipt', cash_id=c.id) }}"
+                                            class="btn btn-sm btn-soft-success"><i class="fas fa-download"></i></a>
+                                        <a href="{{ url_for('treasury.new_voucher', type='payment', cash_id=c.id) }}"
+                                            class="btn btn-sm btn-soft-danger"><i class="fas fa-upload"></i></a>
+                                        <button class="btn btn-sm btn-soft-primary" data-bs-toggle="modal"
+                                            data-bs-target="#editCashModal{{ c.id }}"><i
+                                                class="fas fa-edit"></i></button>
+                                        <form action="{{ url_for('treasury.delete_cash_account', id=c.id) }}"
+                                            method="POST" style="display:inline;"
+                                            onsubmit="return confirm('هل أنت متأكد من حذف هذه الخزينة؟');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-sm btn-soft-danger" title="حذف"><i
+                                                    class="fas fa-trash"></i></button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center py-5 text-muted">لا توجد خزائن فرعية مصرح لك بها.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bank Accounts -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 h-100">
+            <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-bold"><i class="fas fa-university text-success me-2"></i> البنوك</h5>
+                <button class="btn btn-sm btn-soft-success rounded-circle" data-bs-toggle="modal"
+                    data-bs-target="#addBankModal"><i class="fas fa-plus"></i></button>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    {% for b in bank_accounts %}
+                    <li
+                        class="list-group-item d-flex justify-content-between align-items-center py-3 border-light border-0 border-bottom">
+                        <div>
+                            <div class="fw-bold mb-1">{{ b.bank_name }}</div>
+                            <small class="text-muted font-monospace">{{ b.account_number or 'لا يوجد رقم حساب'
+                                }}</small>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-soft-primary" data-bs-toggle="modal"
+                                data-bs-target="#editBankModal{{ b.id }}"><i class="fas fa-edit"></i></button>
+                            <form action="{{ url_for('treasury.delete_bank_account', id=b.id) }}" method="POST"
+                                style="display:inline;" onsubmit="return confirm('هل أنت متأكد؟');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-soft-danger"><i
+                                        class="fas fa-trash"></i></button>
+                            </form>
+                        </div>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item text-center py-5 text-muted">لا توجد حسابات بنكية.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="card-footer bg-white border-0 py-4 text-center">
+                <a href="{{ url_for('treasury.transfers_report') }}"
+                    class="btn btn-light rounded-pill px-4 text-primary fw-bold">
+                    <i class="fas fa-file-invoice-dollar me-2"></i> تقرير التحويلات البنكية
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Cash Modal -->
+<div class="modal fade" id="addCashModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">إضافة خزنة جديدة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('treasury.add_cash_account') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">اسم الخزنة</label>
+                        <input type="text" name="name" class="form-control" required
+                            placeholder="مثلاً: الخزنة الرئيسية">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">نوع الخزينة</label>
+                        <select name="type" class="form-select" required>
+                            <option value="General">عمومية</option>
+                            <option value="Subsidiary">فرعية</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الحساب المحاسبي المرتبط</label>
+                        <select name="account_id" class="form-select select2-select" required>
+                            <option value="">اختر حساب من شجرة الحسابات...</option>
+                            {% for acc in accounts %}
+                            <option value="{{ acc.id }}">{{ acc.code }} - {{ acc.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% if is_admin %}
+                    <div class="mb-3">
+                        <label class="form-label">المستخدم المسؤول</label>
+                        <select name="user_id" class="form-select">
+                            <option value="">لا يوجد (عام)</option>
+                            {% for user in users %}
+                            <option value="{{ user.id }}">{{ user.full_name or user.username }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">اختر المستخدم المسؤول عن هذه الخزينة</div>
+                    </div>
+                    {% endif %}
+                    <div class="mb-3">
+                        <label class="form-label">ترتيب العرض</label>
+                        <input type="number" name="display_order" class="form-control" value="0" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+                    <button type="submit" class="btn btn-primary">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Bank Modal -->
+<div class="modal fade" id="addBankModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">إضافة حساب بنك جديد</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('treasury.add_bank_account') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">اسم البنك</label>
+                        <input type="text" name="bank_name" class="form-control" required
+                            placeholder="مثلاً: البنك الأهلي المصري">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">رقم الحساب (اختياري)</label>
+                        <input type="text" name="account_number" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الحساب المحاسبي المرتبط</label>
+                        <select name="account_id" class="form-select select2-select" required>
+                            <option value="">اختر حساب من شجرة الحسابات...</option>
+                            {% for acc in accounts %}
+                            <option value="{{ acc.id }}">{{ acc.code }} - {{ acc.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">ترتيب العرض</label>
+                        <input type="number" name="display_order" class="form-control" value="0" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+                    <button type="submit" class="btn btn-primary">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
