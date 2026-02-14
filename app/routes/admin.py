@@ -23,10 +23,18 @@ def _project_root() -> Path:
 
 def _get_repo() -> tuple[Repo, Path]:
     project_root = _project_root()
-    repo = Repo(str(project_root), search_parent_directories=True)
+    if not (project_root / '.git').exists():
+        raise InvalidGitRepositoryError('Local .git directory not found in project root.')
+
+    repo = Repo(str(project_root))
     if repo.bare or not repo.working_tree_dir:
         raise InvalidGitRepositoryError('Repository is bare or has no working tree.')
-    return repo, Path(repo.working_tree_dir).resolve()
+
+    working_tree = Path(repo.working_tree_dir).resolve()
+    if working_tree != project_root:
+        raise InvalidGitRepositoryError('Resolved repository root does not match project root.')
+
+    return repo, working_tree
 
 
 def _scan_db_files(project_root: Path) -> list[str]:
