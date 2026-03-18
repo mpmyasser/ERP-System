@@ -109,45 +109,54 @@
                     {% with messages = get_flashed_messages(with_categories=true) %}
                     {% set center_messages = [] %}
                     {% if messages %}
-                        {% for category, message in messages %}
-                            {# Treat 'center' plus success/error as centered popups #}
-                            {% if category in ['center', 'success', 'danger', 'error'] %}
-                                {# store as [message, category] so JS can set correct icon #}
-                                {% set _ = center_messages.append([message, category]) %}
-                            {% else %}
-                            <div class="alert alert-{{ category }} alert-dismissible fade show auto-dismiss" role="alert">
-                                {% if '\n' in message %}
-                                <!-- Multi-line message -->
-                                {% for line in message.split('\n') %}
-                                {% if line.strip() %}
-                                <div>{{ line }}</div>
-                                {% endif %}
-                                {% endfor %}
-                                {% else %}
-                                <!-- Single line message -->
-                                {{ message | safe }}
-                                {% endif %}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                            </div>
-                            {% endif %}
+                    {% for category, message in messages %}
+                    {# Treat 'center' plus success/error as centered popups #}
+                    {% if category in ['center', 'success', 'danger', 'error'] %}
+                    {# store as [message, category] so JS can set correct icon #}
+                    {% set _ = center_messages.append([message, category]) %}
+                    {% else %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show auto-dismiss" role="alert">
+                        {% if '\n' in message %}
+                        <!-- Multi-line message -->
+                        {% for line in message.split('\n') %}
+                        {% if line.strip() %}
+                        <div>{{ line }}</div>
+                        {% endif %}
                         {% endfor %}
+                        {% else %}
+                        <!-- Single line message -->
+                        {{ message | safe }}
+                        {% endif %}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
                     {% endif %}
                     {% if center_messages %}
+                    <div id="center-messages-data" data-messages="{{ center_messages|tojson }}" style="display: none;">
+                    </div>
                     <script>
                         document.addEventListener('DOMContentLoaded', function () {
-                            // If global showCenteredFlash exists, use it, otherwise fallback to alert
+                            const dataEl = document.getElementById('center-messages-data');
+                            if (!dataEl) return;
+
+                            let msgs = [];
+                            try {
+                                msgs = JSON.parse(dataEl.dataset.messages);
+                            } catch (e) {
+                                console.error('Error parsing center_messages:', e);
+                            }
+
                             function showCenteredFlashLocal(pair) {
                                 const msg = Array.isArray(pair) ? pair[0] : pair;
                                 const category = Array.isArray(pair) ? (pair[1] || 'info') : 'info';
                                 if (typeof showCenteredFlash === 'function') {
                                     showCenteredFlash(msg, category);
                                 } else {
-                                    // strip HTML for plain alert fallback
                                     const plain = (typeof msg === 'string') ? msg.replace(/<[^>]*>/g, '') : String(msg);
                                     alert(plain);
                                 }
                             }
-                            const msgs = {{ center_messages|tojson|safe }};
                             msgs.forEach(item => showCenteredFlashLocal(item));
                         });
                     </script>
@@ -289,6 +298,12 @@
                             <a class="nav-link {% if 'auth.list_users' in request.endpoint %}active{% endif %}"
                                 href="{{ url_for('auth.list_users') }}">
                                 <i class="fas fa-user-shield"></i> المستخدمين والمهمات
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'admin.backups_dashboard' in request.endpoint %}active{% endif %}"
+                                href="{{ url_for('admin.backups_dashboard') }}">
+                                <i class="fas fa-history"></i> النسخ الاحتياطي
                             </a>
                         </li>
                         {% endif %}
