@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}إجازات الموظف{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-umbrella-beach me-2"></i> إجازات الموظف: {{ employee.name }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('leaves.list') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-right me-1"></i> الرجوع لقائمة الإجازات
+        </a>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3 col-sm-6">
+                <small class="text-muted d-block">الكود</small>
+                <span class="fw-bold">{{ employee.code }}</span>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <small class="text-muted d-block">الاسم</small>
+                <span class="fw-bold">{{ employee.name }}</span>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <small class="text-muted d-block">القسم</small>
+                <span class="fw-bold">{{ employee.department.name if employee.department else '-' }}</span>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <small class="text-muted d-block">السنة</small>
+                <span class="fw-bold">{{ year }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if leaves %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover datatable" id="employee-leaves-table">
+                <thead class="table-dark text-center">
+                    <tr>
+                        <th width="6%">#</th>
+                        <th width="18%">نوع الإجازة</th>
+                        <th width="14%">من</th>
+                        <th width="14%">إلى</th>
+                        <th width="10%">عدد الأيام</th>
+                        <th width="12%">الحالة</th>
+                        <th width="26%" class="no-sort">إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for leave in leaves %}
+                    <tr>
+                        <td class="text-center">{{ loop.index }}</td>
+                        <td class="text-center">
+                            <span
+                                class="badge bg-{% if leave.leave_type == 'سنوية' %}primary{% elif leave.leave_type == 'مرضية' %}danger{% elif leave.leave_type == 'عارضة' %}warning{% else %}secondary{% endif %}">
+                                {{ leave.leave_type }}
+                            </span>
+                        </td>
+                        <td class="text-center">{{ leave.start_date.strftime('%d/%m/%Y') }}</td>
+                        <td class="text-center">{{ leave.end_date.strftime('%d/%m/%Y') }}</td>
+                        <td class="text-center"><strong>{{ leave.days_count }}</strong></td>
+                        <td class="text-center">
+                            <span
+                                class="badge bg-{% if leave.status == 'موافق عليها' %}success{% elif leave.status == 'مرفوضة' %}danger{% else %}warning{% endif %}">
+                                {{ leave.status }}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <a href="{{ url_for('leaves.edit_leave', leave_id=leave.id) }}" class="btn btn-sm btn-warning" title="تعديل">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <button class="btn btn-sm btn-danger delete-record-btn" data-module="leaves"
+                                data-delete-url="{{ url_for('leaves.delete', leave_id=leave.id) }}"
+                                data-id="{{ leave.id }}" data-confirm="هل أنت متأكد من حذف هذه الإجازة؟" title="حذف">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> لا توجد إجازات مسجلة لهذا الموظف في السنة المحددة.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

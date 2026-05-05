@@ -324,7 +324,7 @@
                     start_date: startDate,
                     end_date: endDate,
                     days_count: parseFloat(days) || 1,
-                    is_paid: true,
+                    is_paid: leaveType !== 'بدون راتب',
                     reason: reason
                 });
             } else if (empCode && !empId) {

@@ -68,6 +68,7 @@
                         <th>المبلغ</th>
                         <th>السبب</th>
                         <th>حالة الصرف</th>
+                        <th>القسم</th>
                         <th class="no-sort">إجراءات</th>
                     </tr>
                 </thead>
@@ -81,6 +82,7 @@
                                 {{ bonus.employee.name if bonus.employee else '-' }}
                             </a>
                         </td>
+                        <td>{{ bonus.employee.department.name if bonus.employee and bonus.employee.department else '-' }}</td>
                         <td><strong class="text-success">{{ "%.2f"|format(bonus.amount) }} جنيه</strong></td>
                         <td>{{ bonus.reason }}</td>
                         <td>
@@ -94,7 +96,6 @@
                             </span>
                             {% endif %}
                         </td>
-                        <td>
                         <td>
                             <a href="{{ url_for('bonuses.edit', id=bonus.id) }}" class="btn btn-sm btn-info"
                                 title="تعديل">

@@ -1,14 +1,13 @@
 import sys
 import os
 
-# Add core to sys.path
+# Add the project root to sys.path so we can import from core
 current_dir = os.path.dirname(os.path.abspath(__file__))
-core_dir = os.path.join(current_dir, 'core')
-if core_dir not in sys.path:
-    sys.path.insert(0, core_dir)
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
 
-from db_manager import DBManager
-from auth_models import SystemPermission
+from core.db_manager import DBManager
+from core.auth_models import SystemPermission
 
 def add_new_permissions():
     print("Adding HR granular permissions...")
@@ -35,7 +34,8 @@ def add_new_permissions():
         # Commercial Detailed
         {'name': 'view_commercial', 'desc': 'عرض دورة المبيعات والمشتريات', 'cat': 'Commercial'},
         {'name': 'view_treasury', 'desc': 'عرض الخزينة والحسابات البنكية', 'cat': 'Treasury'},
-        {'name': 'view_manufacturing', 'desc': 'عرض الإنتاج وتتبع القصات', 'cat': 'Manufacturing'}
+        {'name': 'view_manufacturing', 'desc': 'عرض الإنتاج وتتبع القصات', 'cat': 'Manufacturing'},
+        {'name': 'view_interactive_detailed_salary', 'desc': 'تقرير الراتب التفصيلي (تعديل مباشر)', 'cat': 'HR'},
     ]
     
     added_count = 0

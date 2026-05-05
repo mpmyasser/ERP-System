@@ -16,10 +16,11 @@ All calculations are based on the official HR policy (policy/hr_policy.py)
 """
 
 from datetime import datetime, date, timedelta
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import Dict, List, Optional
 from policy.hr_policy import HRPolicy
-from database_models import Employee, DailyRecord, Loan, PenaltyBonus, Bonus, Permission, PublicHoliday, Leave, LeaveStatus
+from database_models import Employee, DailyRecord, Loan, PenaltyBonus, Bonus, Permission, PublicHoliday, Leave, LeaveStatus, LeaveTypeEnum
 
 
 class PayrollCalculator:
@@ -121,40 +122,54 @@ class PayrollCalculator:
         daily_records = self._get_monthly_records(employee_id, month, year)
         start_date, end_date = self.get_salary_month_date_range(month, year)
         
-        # جلب الراتب الفعال في نهاية دورة الرواتب (يوم 25)
         effective_basic_salary = self._get_effective_salary(employee, end_date)
+
+        configured_work_days = int(HRPolicy.WORKING_DAYS_PER_MONTH or 26)
+        if configured_work_days <= 0:
+            configured_work_days = 26
+
+        daily_salary = (effective_basic_salary / configured_work_days) if configured_work_days > 0 else 0.0
+        attendance_data = self.calculate_attendance_deductions(daily_records, employee, effective_basic_salary, start_date, end_date)
+        paid_leave_days = self._get_paid_leave_days(employee_id, start_date, end_date, daily_records)
+        unpaid_leave_days = self._get_unpaid_leave_days(employee_id, start_date, end_date, daily_records)
+        absence_days_for_salary = max(0, int(attendance_data.get('absence_days', 0) or 0))
+        today = date.today()
+
+        is_hospitality = (employee.salary_type == 'ضيافة')
         
-        # 1. الحسابات الأساسية لليومية والمكونات باستعمال الراتب الفعال
-        daily_salary = HRPolicy.calculate_daily_salary(effective_basic_salary)
-        attendance_data = self.calculate_attendance_deductions(daily_records, employee, effective_basic_salary)
+        if today < start_date:
+            payable_days = 0
+            unpaid_missing_days = 0
+        elif is_hospitality:
+            # CRITICAL: Hospitality employees get full salary regardless of attendance.
+            # Only Loans and Insurance are allowed as deductions for this category.
+            payable_days = configured_work_days
+            unpaid_missing_days = 0
+        elif today <= end_date:
+            # Open payroll period (current month): dynamic based on actual signed attendance + paid leaves + excused holidays.
+            payable_days = min(configured_work_days, attendance_data['attendance_days'] + paid_leave_days + attendance_data.get('excused_holiday_days', 0))
+            elapsed_work_days = min(configured_work_days, self._count_working_days_in_range(start_date, today))
+            unpaid_missing_days = max(0, elapsed_work_days - payable_days)
+        else:
+            # Closed payroll period: configured days minus absence and unpaid leave.
+            payable_days = max(0, configured_work_days - absence_days_for_salary - unpaid_leave_days)
+            payable_days = min(configured_work_days, payable_days)
+            unpaid_missing_days = min(configured_work_days, absence_days_for_salary + unpaid_leave_days)
         overtime_value = self.calculate_overtime(daily_records, employee, effective_basic_salary)
-        incentive_value = self.calculate_incentive(attendance_data['attendance_days'], employee.incentive_allowance)
+        incentive_value = self.calculate_incentive(attendance_data['incentive_attendance_days'], employee.incentive_allowance)
         loans_deduction = self.calculate_loans_deduction(employee_id, month, year)
         permissions_deduction = self.calculate_permissions_deduction(daily_records, employee, effective_basic_salary)
         admin_penalties = self._get_administrative_penalties(employee_id, month, year)
         
-        # 2. تحديد نوع الحساب (هل نحن في نهاية الشهر؟)
-        today = date.today()
-        is_end_of_month = today.day >= HRPolicy.PAYROLL_START_DAY
+        # الراتب الإجمالي = أجر اليوم × (الحضور الفعلي + الإجازات المدفوعة)
+        gross_salary = payable_days * daily_salary
         
-        # 3. حساب الراتب الإجمالي (Gross Salary) بناءً على أيام الحضور الفعلية
-        # القاعدة الجديدة: الراتب الإجمالي = عدد أيام الحضور * الراتب اليومي
-        # بحد أقصى الراتب الأساسي (لضمان عدم تجاوز العقد في شهور الـ 30 يوم)
-        if employee.salary_type == 'ضيافة':
-            # الضيافة دائماً الأساسي كاملاً حسب الرغبة السابقة ولكن نطبق حد أيام الحضور إذا طلب المستخدم
-            # سأبقيه الأساسي كاملاً لحين الاعتراض، أو نجعله min(days, 26) * rate
-            gross_salary = employee.basic_salary
-        else:
-            # الحساب الفعلي المفسر: يومية * أيام
-            gross_salary = min(attendance_data['attendance_days'] * daily_salary, employee.basic_salary)
-            # استثناء: إذا كان الشهر قد انتهى والموظف انتظم، يحصل على الأساسي كاملاً حتى لو ناقص يوم (اختياري)
-            # ولكن المستخدم طلب تفسيراً رياضياً (25 يوم = مبلغ أقل)، لذا سألتزم بالحساب الفعلي.
-
-        # 4. المكافآت وحافز الانتظام
+        # حافز الانتظام
         regularity_incentive_value = 0.0
-        if employee.salary_type == 'ضيافة' or attendance_data['attendance_days'] >= HRPolicy.INCENTIVE_FULL_THRESHOLD:
+        if employee.salary_type == 'ضيافة' or attendance_data['incentive_attendance_days'] >= HRPolicy.INCENTIVE_FULL_THRESHOLD:
             regularity_incentive_value = getattr(employee, 'regularity_incentive', 0.0) or 0.0
-
+        
+        # المكافآت
         bonuses_with_salary = 0.0
         try:
             bonuses_true = self.session.query(Bonus).filter(
@@ -173,7 +188,7 @@ class PayrollCalculator:
             ).all()
             bonuses_with_salary += sum(b.amount for b in legacy_bonuses) if legacy_bonuses else 0.0
         except: pass
-
+        
         bonuses_paid_during_month = 0.0
         try:
             bonuses_false = self.session.query(Bonus).filter(
@@ -184,27 +199,31 @@ class PayrollCalculator:
             ).all()
             bonuses_paid_during_month = sum(b.amount for b in bonuses_false) if bonuses_false else 0.0
         except: pass
-
-        # 5. التجميع النهائي للمستحقات
+        
+        # إجمالي المستحقات
         total_additions = overtime_value + incentive_value + employee.transport_allowance + regularity_incentive_value + bonuses_with_salary
-
-        # 6. التجميع النهائي للاستقطاعات مع نظام التأمين المرن
+        
+        # التأمين
         insurance_data = employee.calculate_insurance_values()
         insurance_deduction = insurance_data['employee_deduction']
         
-        total_deductions = (
-            attendance_data['lateness_deduction'] +
-            attendance_data.get('early_deduction', 0.0) +
-            0.0 +  
-            attendance_data['absence_penalty_deduction'] +
-            loans_deduction +
-            permissions_deduction +
-            admin_penalties +
-            insurance_deduction
-        )
+        # إجمالي الاستقطاعات
+        if is_hospitality:
+            # CRITICAL: Hospitality only pays for Loans and Insurance (as per company policy).
+            total_deductions = loans_deduction + insurance_deduction
+        else:
+            total_deductions = (
+                attendance_data['lateness_deduction'] +
+                attendance_data.get('early_deduction', 0.0) +
+                attendance_data['absence_penalty_deduction'] +
+                loans_deduction +
+                permissions_deduction +
+                admin_penalties +
+                insurance_deduction
+            )
         
+        # الراتب الصافي
         net_salary = gross_salary + total_additions - total_deductions
-        # التقريب الديناميكي حسب الإعدادات
         rounding_base = HRPolicy.ROUNDING_BASE
         if rounding_base > 0:
             net_salary = round(float(net_salary) / rounding_base) * rounding_base
@@ -217,6 +236,10 @@ class PayrollCalculator:
             'Basic Salary': effective_basic_salary,
             'Gross Salary': gross_salary,
             'Daily Salary': daily_salary,
+            'Paid Leave Days': paid_leave_days,
+            'Unpaid Leave Days': unpaid_leave_days,
+            'Payable Days': payable_days,
+            'Unpaid Missing Days': unpaid_missing_days,
             'Incentive': incentive_value,
             'Regularity Incentive': regularity_incentive_value,
             'Bonuses': bonuses_with_salary, # 🆕 إجمالي المكافآت المستحقة
@@ -224,9 +247,11 @@ class PayrollCalculator:
             'OT Value': overtime_value,
             'Transport Allowance': employee.transport_allowance,
             'Total Additions': total_additions,
-            'Attendance Days': attendance_data['attendance_days'],
-            'Actual Days': attendance_data['attendance_days'],  # للتوافق مع التقارير الأخرى
-            'Absence Days': attendance_data['absence_days'],
+            'Attendance Days': payable_days,
+            'Actual Days': payable_days,  # للتوافق مع التقارير الأخرى
+            'Present Attendance Days': attendance_data['attendance_days'],
+            'Absence Days': unpaid_missing_days,
+            'Penalty Absence Days': attendance_data['absence_days'],
             'Lateness Deduction': attendance_data['lateness_deduction'],
             'Early Deduction': attendance_data['early_deduction'],
             'Absence Deduction': 0.0,
@@ -244,7 +269,7 @@ class PayrollCalculator:
         }
     
     
-    def calculate_attendance_deductions(self, daily_records: List[DailyRecord], employee: Employee, basic_salary_override: float = None) -> Dict:
+    def calculate_attendance_deductions(self, daily_records: List[DailyRecord], employee: Employee, basic_salary_override: float = None, start_date: date = None, end_date: date = None) -> Dict:
         """
         حساب خصومات الحضور (التأخير، الغياب، الجزاءات)
         
@@ -252,15 +277,15 @@ class PayrollCalculator:
             daily_records: سجلات الحضور اليومية
             employee: بيانات الموظف
             basic_salary_override: الراتب الأساسي (يستخدم في حالة الأثر الرجعي)
+            start_date: تاريخ بداية الفترة
+            end_date: تاريخ نهاية الفترة
             
         Returns:
             dict: تفاصيل خصومات الحضور
         """
-        # استخدام الراتب الممرر أو الراتب الحالي للموظف
         basic_salary = basic_salary_override if basic_salary_override is not None else employee.basic_salary
 
         if not basic_salary or basic_salary <= 0:
-            # بدلاً من رفع ValueError، نعيد قيم صفرية لعدم كسر النظام
             return {
                 'attendance_days': 0,
                 'absence_days': 0,
@@ -275,7 +300,6 @@ class PayrollCalculator:
                 'permissions_hours': 0.0,
             }
         
-        # Calculate hourly rate
         daily_hours = employee.daily_work_hours if employee.daily_work_hours else 8.0
         hourly_salary = HRPolicy.calculate_hourly_salary(basic_salary, daily_hours)
         daily_salary = HRPolicy.calculate_daily_salary(basic_salary)
@@ -287,51 +311,123 @@ class PayrollCalculator:
         total_absence_days = 0
         total_overtime_hours = 0.0
         total_permissions_hours = 0.0
-        attendance_days = 0
+        attendance_days = len({r.date for r in daily_records})
         
         for record in daily_records:
-            if record.status and 'غائب' in record.status:
-                total_absence_days += 1
-            else:
-                attendance_days += 1
-            
-            # Late minutes
-            if record.late_minutes and record.late_minutes > 0:
-                total_late_minutes += record.late_minutes
-            # Late minutes
             if record.late_minutes and record.late_minutes > 0:
                 total_late_minutes += record.late_minutes
                 deduction = self.calculate_lateness_penalty(record.late_minutes, hourly_salary)
                 total_lateness_deduction += deduction
             
-            # Early leave minutes
             if record.early_leave_minutes and record.early_leave_minutes > 0:
                 total_early_minutes += record.early_leave_minutes
                 deduction = HRPolicy.calculate_early_departure_deduction(record.early_leave_minutes, hourly_salary)
                 total_early_deduction += deduction
             
-            # Overtime hours
             if record.overtime_hours and record.overtime_hours > 0:
                 total_overtime_hours += record.overtime_hours
             
-            # Permissions (from manual_adjustment if used for permissions)
-            # Note: This is a simplified approach; permissions should ideally have their own table
             if record.manual_adjustment and record.manual_adjustment < 0:
-                # Assume negative manual adjustments are permissions in hours
                 hours = abs(record.manual_adjustment)
                 total_permissions_hours += hours
         
-        # Calculate absence deduction
-        absence_deduction = total_absence_days * daily_salary
+        # حساب الغياب الفعلي
+        if start_date and end_date:
+            today = date.today()
+            actual_end_date = min(end_date, today)
+            total_calendar_days = (actual_end_date - start_date).days + 1
+            
+            # استبعد الإجازات الأسبوعية
+            weekly_off_count = 0
+            for d in range(total_calendar_days):
+                current_date = start_date + timedelta(days=d)
+                weekday_mapping = {
+                    "الاثنين": "Monday",
+                    "الثلاثاء": "Tuesday",
+                    "الأربعاء": "Wednesday",
+                    "الخميس": "Thursday",
+                    "الجمعة": "Friday",
+                    "السبت": "Saturday",
+                    "الأحد": "Sunday"
+                }
+                target_weekday = weekday_mapping.get(HRPolicy.WEEKLY_HOLIDAY, "Friday")
+                if current_date.strftime('%A') == target_weekday:
+                    weekly_off_count += 1
+            
+            # استبعد الإجازات المعتمدة
+            leaves = self.session.query(Leave).filter(
+                Leave.employee_id == employee.id,
+                Leave.start_date <= actual_end_date,
+                Leave.end_date >= start_date,
+                Leave.status == LeaveStatus.APPROVED.value
+            ).all()
+            
+            leave_days = 0
+            for leave in leaves:
+                d = leave.start_date
+                while d <= leave.end_date:
+                    if start_date <= d <= actual_end_date:
+                        leave_days += 1
+                    d += timedelta(days=1)
+            
+            # حساب العطلات الرسمية وتأثيرها (Public Holidays)
+            # تم إضافة هذا الجزء لتنفيذ طلب الإجازات الخاصة (مثل ليلة العيد)
+            public_holidays = self.session.query(PublicHoliday).filter(
+                PublicHoliday.start_date <= actual_end_date,
+                PublicHoliday.end_date >= start_date
+            ).all()
+            
+            target_weekday = weekday_mapping.get(HRPolicy.WEEKLY_HOLIDAY, "Friday")
+            excused_holiday_days = 0  # أيام عطلة سيتم استثناؤها من الغياب (فتصبح مدفوعة)
+            unpaid_holiday_days = 0   # أيام عطلة غير مدفوعة (لغير المؤمنين) ولكن لا تسبب جزاء
+            incentive_virtual_presence = 0 # أيام ستضاف للحضور لمقاصد حافز الانتظام فقط
+            
+            attended_dates = {r.date for r in daily_records}
+            
+            for h in public_holidays:
+                d = h.start_date
+                while d <= h.end_date:
+                    if start_date <= d <= actual_end_date:
+                        # استبعد إذا كان اليوم هو يوم الإجازة الأسبوعية أصلاً
+                        if d.strftime('%A') != target_weekday:
+                            is_special = getattr(h, 'is_unpaid_for_uninsured', False)
+                            
+                            # لضمان عدم التأثير على الحافز (للمؤمن وغير المؤمن)
+                            if is_special and d not in attended_dates:
+                                incentive_virtual_presence += 1
+                            
+                            # المنطق المالي والجزائي
+                            if d not in attended_dates:
+                                if is_special and employee.is_insured:
+                                    # إجازة خاصة + مؤمن عليه -> مدفوعة (استثنها من الغياب الكلي)
+                                    excused_holiday_days += 1
+                                else:
+                                    # إجازة (عادية أو خاصة غير مدفوعة) -> تضاف للغياب المالي لكن تُطرح من الجزاء
+                                    unpaid_holiday_days += 1
+                                
+                    d += timedelta(days=1)
+
+            # الغياب المالي = الأيام الفعلية - الحضور - الإجازات الأسبوعية - الإجازات المعتمدة - العطلات المدفوعة
+            total_absence_days = total_calendar_days - attendance_days - weekly_off_count - leave_days - excused_holiday_days
+            total_absence_days = max(0, total_absence_days)
+            
+            # أيام الجزاء الإداري = إجمالي الغياب - أيام العطلات التي لم تُدفع (لأن العطلة لا جزاء عليها)
+            penalty_eligible_days = max(0, total_absence_days - unpaid_holiday_days)
+        else:
+            total_absence_days = 0
+            penalty_eligible_days = 0
+            incentive_virtual_presence = 0
+            excused_holiday_days = 0
         
-        # Calculate absence penalty (ربع يوم بداية من اليوم الثالث)
-        absence_penalty_days = self.calculate_absence_penalty(total_absence_days)
+        absence_deduction = total_absence_days * daily_salary
+        absence_penalty_days = self.calculate_absence_penalty(penalty_eligible_days)
         absence_penalty_deduction = absence_penalty_days * daily_salary
         
         return {
             'attendance_days': attendance_days,
+            'incentive_attendance_days': attendance_days + incentive_virtual_presence,
+            'excused_holiday_days': excused_holiday_days,
             'absence_days': total_absence_days,
-            'late_minutes': total_late_minutes,
             'late_minutes': total_late_minutes,
             'lateness_deduction': total_lateness_deduction,
             'early_minutes': total_early_minutes,
@@ -456,6 +552,10 @@ class PayrollCalculator:
         calculation_date = dt_date(year, month, 25)
 
         for loan in active_loans:
+            # إذا كانت السلفة بدأت بعد تاريخ الحساب الحالي، فتجاهلها
+            if loan.date > calculation_date:
+                continue
+
             # الرصيد المتبقي في نهاية هذا الشهر (قبل خصم قسط هذا الشهر)
             remaining_at_end_of_month = loan.get_remaining_balance(calculation_date)
             
@@ -528,14 +628,199 @@ class PayrollCalculator:
     def _get_monthly_records(self, employee_id: int, month: int, year: int) -> List[DailyRecord]:
         """Get all daily records for an employee in a specific salary month"""
         start_date, end_date = self.get_salary_month_date_range(month, year)
+        work_statuses = ['Present', 'Late', 'حاضر', 'عمل']
         
         records = self.session.query(DailyRecord).filter(
             DailyRecord.employee_id == employee_id,
             DailyRecord.date >= start_date,
             DailyRecord.date <= end_date
-        ).order_by(DailyRecord.date).all()
-        
-        return records
+        ).filter(
+            or_(
+                DailyRecord.check_in.isnot(None),
+                DailyRecord.check_out.isnot(None),
+                DailyRecord.status.in_(work_statuses)
+            )
+        ).order_by(DailyRecord.date.asc(), DailyRecord.id.desc()).all()
+
+        # Deduplicate by date to avoid overcounting when duplicate rows exist.
+        def _score(rec: DailyRecord) -> int:
+            return int(rec.check_in is not None) + int(rec.check_out is not None)
+
+        best_by_date = {}
+        for rec in records:
+            current = best_by_date.get(rec.date)
+            if current is None:
+                best_by_date[rec.date] = rec
+                continue
+
+            if _score(rec) > _score(current):
+                best_by_date[rec.date] = rec
+            elif _score(rec) == _score(current) and rec.id > current.id:
+                best_by_date[rec.date] = rec
+
+        return [best_by_date[d] for d in sorted(best_by_date.keys())]
+
+    def _get_paid_leave_days(self, employee_id: int, start_date: date, end_date: date, daily_records: List[DailyRecord]) -> int:
+        """Count approved paid leave days in range, excluding overlap with attendance/weekends/official holidays."""
+        leaves = self.session.query(Leave).filter(
+            Leave.employee_id == employee_id,
+            Leave.start_date <= end_date,
+            Leave.end_date >= start_date,
+            Leave.status == LeaveStatus.APPROVED.value,
+            Leave.is_paid == True,
+            Leave.leave_type != LeaveTypeEnum.UNPAID.value
+        ).all()
+
+        attendance_dates = {r.date for r in daily_records}
+        weekday_mapping = {
+            "الاثنين": "Monday",
+            "الثلاثاء": "Tuesday",
+            "الأربعاء": "Wednesday",
+            "الخميس": "Thursday",
+            "الجمعة": "Friday",
+            "السبت": "Saturday",
+            "الأحد": "Sunday"
+        }
+        weekly_off_day = weekday_mapping.get(HRPolicy.WEEKLY_HOLIDAY, "Friday")
+
+        holiday_rows = self.session.query(PublicHoliday).filter(
+            PublicHoliday.start_date <= end_date,
+            PublicHoliday.end_date >= start_date
+        ).all()
+        official_holiday_dates = set()
+        for holiday in holiday_rows:
+            d = holiday.start_date
+            while d <= holiday.end_date:
+                if start_date <= d <= end_date:
+                    official_holiday_dates.add(d)
+                d += timedelta(days=1)
+
+        leave_dates = set()
+        for leave in leaves:
+            if leave.leave_type == LeaveTypeEnum.UNPAID.value:
+                continue
+            d = leave.start_date
+            while d <= leave.end_date:
+                if not (start_date <= d <= end_date):
+                    d += timedelta(days=1)
+                    continue
+
+                if d in attendance_dates:
+                    d += timedelta(days=1)
+                    continue
+
+                if d in official_holiday_dates:
+                    d += timedelta(days=1)
+                    continue
+
+                if d.strftime('%A') == weekly_off_day:
+                    d += timedelta(days=1)
+                    continue
+
+                if start_date <= d <= end_date:
+                    leave_dates.add(d)
+                d += timedelta(days=1)
+
+        return len(leave_dates)
+
+    def _get_unpaid_leave_days(self, employee_id: int, start_date: date, end_date: date, daily_records: List[DailyRecord]) -> int:
+        """Count approved unpaid leave days in range, excluding overlap with attendance/weekends/official holidays."""
+        leaves = self.session.query(Leave).filter(
+            Leave.employee_id == employee_id,
+            Leave.start_date <= end_date,
+            Leave.end_date >= start_date,
+            Leave.status == LeaveStatus.APPROVED.value,
+            or_(
+                Leave.is_paid == False,
+                Leave.leave_type == LeaveTypeEnum.UNPAID.value
+            )
+        ).all()
+
+        attendance_dates = {r.date for r in daily_records}
+        weekday_mapping = {
+            "الاثنين": "Monday",
+            "الثلاثاء": "Tuesday",
+            "الأربعاء": "Wednesday",
+            "الخميس": "Thursday",
+            "الجمعة": "Friday",
+            "السبت": "Saturday",
+            "الأحد": "Sunday"
+        }
+        weekly_off_day = weekday_mapping.get(HRPolicy.WEEKLY_HOLIDAY, "Friday")
+
+        holiday_rows = self.session.query(PublicHoliday).filter(
+            PublicHoliday.start_date <= end_date,
+            PublicHoliday.end_date >= start_date
+        ).all()
+        official_holiday_dates = set()
+        for holiday in holiday_rows:
+            d = holiday.start_date
+            while d <= holiday.end_date:
+                if start_date <= d <= end_date:
+                    official_holiday_dates.add(d)
+                d += timedelta(days=1)
+
+        leave_dates = set()
+        for leave in leaves:
+            d = leave.start_date
+            while d <= leave.end_date:
+                if not (start_date <= d <= end_date):
+                    d += timedelta(days=1)
+                    continue
+
+                if d in attendance_dates:
+                    d += timedelta(days=1)
+                    continue
+
+                if d in official_holiday_dates:
+                    d += timedelta(days=1)
+                    continue
+
+                if d.strftime('%A') == weekly_off_day:
+                    d += timedelta(days=1)
+                    continue
+
+                leave_dates.add(d)
+                d += timedelta(days=1)
+
+        return len(leave_dates)
+
+    def _count_working_days_in_range(self, start_date: date, end_date: date) -> int:
+        """Count working days in range excluding weekly off and official holidays."""
+        if end_date < start_date:
+            return 0
+
+        weekday_mapping = {
+            "الاثنين": "Monday",
+            "الثلاثاء": "Tuesday",
+            "الأربعاء": "Wednesday",
+            "الخميس": "Thursday",
+            "الجمعة": "Friday",
+            "السبت": "Saturday",
+            "الأحد": "Sunday"
+        }
+        weekly_off_day = weekday_mapping.get(HRPolicy.WEEKLY_HOLIDAY, "Friday")
+
+        holiday_rows = self.session.query(PublicHoliday).filter(
+            PublicHoliday.start_date <= end_date,
+            PublicHoliday.end_date >= start_date
+        ).all()
+        official_holiday_dates = set()
+        for holiday in holiday_rows:
+            d = holiday.start_date
+            while d <= holiday.end_date:
+                if start_date <= d <= end_date:
+                    official_holiday_dates.add(d)
+                d += timedelta(days=1)
+
+        total = 0
+        d = start_date
+        while d <= end_date:
+            if d.strftime('%A') != weekly_off_day and d not in official_holiday_dates:
+                total += 1
+            d += timedelta(days=1)
+
+        return total
     
     
     def _get_administrative_penalties(self, employee_id: int, month: int, year: int) -> float:
@@ -755,15 +1040,16 @@ class PayrollCalculator:
                  else:
                      installment = min(loan.amount / loan.installments_count, rem_balance)
              
-             if (start_date <= loan.date <= end_date) or (installment > 0) or (rem_balance > 0):
-                 loans_details.append({
-                     'type': loan.type,
-                     'amount': loan.amount,
-                     'date': loan.date,
-                     'installment': installment,
-                     'remaining': rem_balance,
-                     'end_date': loan.end_date
-                 })
+             if loan.date <= end_date and ((start_date <= loan.date <= end_date) or (installment > 0) or (rem_balance > 0)):
+                  loans_details.append({
+                      'id': loan.id,
+                      'type': loan.type,
+                      'amount': loan.amount,
+                      'date': loan.date,
+                      'installment': installment,
+                      'remaining': rem_balance,
+                      'end_date': loan.end_date
+                  })
 
         # 4. Penalties Details
         penalties_details = []
@@ -775,11 +1061,12 @@ class PayrollCalculator:
         ).all()
         
         for p in raw_penalties:
-             penalties_details.append({
-                 'date': p.date,
-                 'reason': p.reason,
-                 'amount': p.amount
-             })
+              penalties_details.append({
+                  'id': p.id,
+                  'date': p.date,
+                  'reason': p.reason,
+                  'amount': p.amount
+              })
 
         # Final consistent structure
         return {

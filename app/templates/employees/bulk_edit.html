@@ -5,23 +5,23 @@
 {% block content %}
 <div class="card shadow-sm">
     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-        <h4 class="mb-0"><i class="fas fa-users-cog me-2"></i> تعديل بيانات الموظفين جماعي (Bulk Edit)</h4>
+        <h4 class="mb-0"><i class="fas fa-users-cog me-2" aria-hidden="true"></i> تعديل بيانات الموظفين جماعي (Bulk Edit)</h4>
         <a href="{{ url_for('employees.list') }}" class="btn btn-light btn-sm text-primary fw-bold">
-            <i class="fas fa-list me-1"></i> قائمة الموظفين
+            <i class="fas fa-list me-1" aria-hidden="true"></i> قائمة الموظفين
         </a>
     </div>
     <div class="card-body">
 
         <!-- Filter Section -->
         <div class="row mb-4 p-3 bg-light border rounded mx-0">
-            <div class="col-md-12 mb-2"><strong><i class="fas fa-filter me-1"></i> تحميل الموظفين للتعديل</strong></div>
+            <div class="col-md-12 mb-2"><strong><i class="fas fa-filter me-1" aria-hidden="true"></i> تحميل الموظفين للتعديل</strong></div>
             <div class="col-md-3">
-                <label class="form-label small fw-bold">بحث (الكود أو الاسم)</label>
+                <label for="filterSearch" class="form-label small fw-bold">بحث (الكود أو الاسم)</label>
                 <input type="text" id="filterSearch" class="form-control form-control-sm" placeholder="بحث">
             </div>
             <div class="col-md-3">
-                <label class="form-label small fw-bold">القسم</label>
-                <select id="filterDept" class="form-select form-select-sm">
+                <label for="filterDept" class="form-label small fw-bold">القسم</label>
+                <select id="filterDept" class="form-select form-select-sm" title="اختر القسم">
                     <option value="">الكل</option>
                     {% for dept in departments %}
                     <option value="{{ dept.id }}">{{ dept.name }}</option>
@@ -29,23 +29,23 @@
                 </select>
             </div>
             <div class="col-md-3">
-                <label class="form-label small fw-bold">يعمل / لا يعمل</label>
-                <select id="filterStatus" class="form-select form-select-sm">
+                <label for="filterStatus" class="form-label small fw-bold">يعمل / لا يعمل</label>
+                <select id="filterStatus" class="form-select form-select-sm" title="فلترة حسب حالة العمل">
                     <option value="">الكل</option>
                     <option value="active">يعمل</option>
                     <option value="inactive">لا يعمل</option>
                 </select>
             </div>
             <div class="col-md-3">
-                <label class="form-label small fw-bold">التأمين</label>
-                <select id="filterInsurance" class="form-select form-select-sm">
+                <label for="filterInsurance" class="form-label small fw-bold">التأمين</label>
+                <select id="filterInsurance" class="form-select form-select-sm" title="فلترة حسب حالة التأمين">
                     <option value="">الكل</option>
                     <option value="insured">مؤمن</option>
                     <option value="uninsured">غير مؤمن</option>
                 </select>
             </div>
             <div class="col-md-3">
-                <label class="form-label small fw-bold">الوظيفة</label>
+                <label for="filterJobTitle" class="form-label small fw-bold">الوظيفة</label>
                 <input type="text" id="filterJobTitle" class="form-control form-control-sm" list="filter-jobs-list"
                     placeholder="الوظيفة">
                 <datalist id="filter-jobs-list">
@@ -55,45 +55,44 @@
                 </datalist>
             </div>
             <div class="col-md-3 align-self-end">
-                <button class="btn btn-primary w-100" onclick="loadEmployees()">
-                    <i class="fas fa-download me-1"></i> تحميل الموظفين
+                <button class="btn btn-primary w-100" onclick="loadEmployees()" aria-label="تحميل الموظفين">
+                    <i class="fas fa-download me-1" aria-hidden="true"></i> تحميل الموظفين
                 </button>
             </div>
             <div class="col-md-3 align-self-end">
-                <button class="btn btn-outline-secondary w-100" onclick="clearTable()">
-                    <i class="fas fa-eraser me-1"></i> مسح النتائج
+                <button class="btn btn-outline-secondary w-100" onclick="clearTable()" aria-label="مسح النتائج">
+                    <i class="fas fa-eraser me-1" aria-hidden="true"></i> مسح النتائج
                 </button>
             </div>
             <div class="col-md-3 align-self-end">
                 <div class="position-relative">
-                    <button id="columnsBtn" class="btn btn-outline-secondary w-100" onclick="toggleColumnsChooser()">
-                        <i class="fas fa-columns me-1"></i> تحديد الأعمدة
+                    <button id="columnsBtn" class="btn btn-outline-secondary w-100" onclick="toggleColumnsChooser()" aria-label="تحديد الأعمدة">
+                        <i class="fas fa-columns me-1" aria-hidden="true"></i> تحديد الأعمدة
                     </button>
-                    <div id="columnsChooser" class="card shadow-sm p-3" style="display:none; position:absolute; right:0; top:45px; z-index:1050; max-height:300px; overflow:auto; min-width:280px;">
+                    <div id="columnsChooser" class="card shadow-sm p-3 columns-chooser-dropdown d-none">
                         <div class="fw-bold mb-2">اختر الأعمدة</div>
                         <div id="columnsList"></div>
                         <div class="text-end mt-2">
-                            <button class="btn btn-sm btn-primary" onclick="(function(){ document.getElementById('columnsChooser').style.display='none'; })()">تطبيق</button>
+                            <button class="btn btn-sm btn-primary" onclick="(function(){ document.getElementById('columnsChooser').classList.add('d-none'); })()">تطبيق</button>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="col-md-6 align-self-end text-end">
-                <span class="text-muted small" id="loadedCount">0 موظف</span>
+                <span class="text-muted small" id="loadedCount" aria-live="polite">0 موظف</span>
             </div>
         </div>
 
         <!-- The Grid -->
-        <div class="table-responsive" style="max-height: 70vh; overflow-y: auto;">
-            <table class="table table-bordered table-striped table-sm text-center align-middle"
-                style="min-width: 2500px; font-size: 0.9rem;">
-                <thead class="table-dark sticky-top" style="z-index: 1020;">
+        <div class="table-responsive table-max-height-70">
+            <table class="table table-bordered table-striped table-sm text-center align-middle table-min-width-2500 font-size-09">
+                <thead class="table-dark sticky-top table-header-zindex">
                     <tr>
                         <th rowspan="2" width="50">#</th>
                         <th rowspan="2" width="100">الكود *</th>
                         <th rowspan="2" width="200">الاسم *</th>
                         <th colspan="6" class="bg-secondary text-white">البيانات الشخصية</th>
-                        <th colspan="7" class="bg-info text-white">بيانات العمل</th>
+                        <th colspan="8" class="bg-info text-white">بيانات العمل</th>
                         <th colspan="5" class="bg-success text-white">البيانات المالية</th>
                         <th colspan="7" class="bg-warning text-dark">التأمين</th>
                         <th rowspan="2" width="50">حذف</th>
@@ -111,6 +110,7 @@
                         <th width="120">تاريخ التعيين *</th>
                         <th width="100">وقت البدء</th>
                         <th width="100">وقت الانتهاء</th>
+                        <th width="100">ساعات العمل</th>
                         <th width="80">يعمل؟</th>
                         <th width="120">الراتب الأساسي</th>
                         <th width="120">حافز انتظام</th>
@@ -234,6 +234,7 @@
                 placeholder="تاريخ التعيين"></td>
         <td><input type="time" class="form-control form-control-sm emp-start-time"></td>
         <td><input type="time" class="form-control form-control-sm emp-end-time"></td>
+        <td><input type="number" step="0.01" class="form-control form-control-sm emp-daily-hours" value="8"></td>
         <td><input class="form-check-input emp-is-active" type="checkbox" checked></td>
         <td><input type="number" class="form-control form-control-sm emp-salary" value="0"></td>
         <td><input type="number" class="form-control form-control-sm emp-incentive-reg" value="0"></td>
@@ -383,32 +384,148 @@
         if (typeof filters.is_insured !== 'undefined' && document.getElementById('filterInsurance')) document.getElementById('filterInsurance').value = filters.is_insured;
     }
 
+
+    function getBulkEditColumnLayout() {
+        const table = document.getElementById('bulkEditTable');
+        if (!table || !table.tHead || table.tHead.rows.length < 2) return null;
+
+        const headerRows = Array.from(table.tHead.rows);
+        const colCount = headerRows.reduce((maxCols, row) => {
+            const sum = Array.from(row.cells).reduce((acc, cell) => acc + (cell.colSpan || 1), 0);
+            return Math.max(maxCols, sum);
+        }, 0);
+
+        const grid = Array.from({ length: headerRows.length }, () => Array(colCount).fill(null));
+
+        headerRows.forEach((row, rowIndex) => {
+            let colIndex = 0;
+            Array.from(row.cells).forEach((cell) => {
+                while (grid[rowIndex][colIndex]) colIndex++;
+
+                const colSpan = cell.colSpan || 1;
+                const rowSpan = cell.rowSpan || 1;
+
+                for (let r = 0; r < rowSpan; r++) {
+                    for (let c = 0; c < colSpan; c++) {
+                        if (grid[rowIndex + r] && typeof grid[rowIndex + r][colIndex + c] !== 'undefined') {
+                            grid[rowIndex + r][colIndex + c] = cell;
+                        }
+                    }
+                }
+
+                colIndex += colSpan;
+            });
+        });
+
+        const leafRowIndex = headerRows.length - 1;
+        const leafHeaders = Array.from(headerRows[leafRowIndex].cells);
+        const leafAbsoluteIndices = leafHeaders.map((headerCell) => grid[leafRowIndex].findIndex((cell) => cell === headerCell));
+
+        const groupHeaders = Array.from(headerRows[0].cells)
+            .filter((cell) => (cell.colSpan || 1) > 1)
+            .map((cell) => {
+                const coveredColumns = [];
+                grid[0].forEach((owner, index) => {
+                    if (owner === cell) coveredColumns.push(index);
+                });
+                return {
+                    cell,
+                    coveredColumns,
+                    originalColSpan: cell.colSpan || coveredColumns.length
+                };
+            });
+
+        return {
+            table,
+            totalColumns: colCount,
+            leafHeaders,
+            leafAbsoluteIndices,
+            groupHeaders
+        };
+    }
+
+    function getLeafVisibilityMap(layout) {
+        const visibility = {};
+        layout.leafAbsoluteIndices.forEach((absIndex, leafIndex) => {
+            if (absIndex >= 0) {
+                visibility[absIndex] = !layout.leafHeaders[leafIndex].classList.contains('d-none');
+            }
+        });
+
+        for (let i = 0; i < layout.totalColumns; i++) {
+            if (typeof visibility[i] === 'undefined') visibility[i] = true;
+        }
+
+        return visibility;
+    }
+
+    function refreshGroupHeaderSpans(layout) {
+        const visibility = getLeafVisibilityMap(layout);
+
+        layout.groupHeaders.forEach((group) => {
+            const visibleCount = group.coveredColumns.filter((absIndex) => visibility[absIndex]).length;
+            if (visibleCount <= 0) {
+                group.cell.classList.add('d-none');
+            } else {
+                group.cell.classList.remove('d-none');
+                group.cell.colSpan = visibleCount;
+            }
+        });
+    }
+
+    function applyStoredColumnVisibility() {
+        const map = window.HRSettingsUtil.getObject('employees_bulk_edit_columns', {});
+        const layout = getBulkEditColumnLayout();
+        if (!layout) return;
+
+        Object.keys(map || {}).forEach((key) => {
+            const leafIndex = parseInt(key, 10);
+            if (!Number.isInteger(leafIndex)) return;
+
+            const show = !(map[key] === false || map[key] === 'false');
+            const checkbox = document.querySelector(`#columnsList .col-chk[data-col-index="${leafIndex}"]`);
+            if (checkbox) checkbox.checked = show;
+
+            const absIndex = layout.leafAbsoluteIndices[leafIndex];
+            if (Number.isInteger(absIndex) && absIndex >= 0) {
+                toggleColumnVisibility(absIndex, show);
+            }
+        });
+
+        refreshGroupHeaderSpans(layout);
+    }
+
     function buildColumnsChooser() {
         const columnsList = document.getElementById('columnsList');
         if (!columnsList) return;
+
+        const layout = getBulkEditColumnLayout();
+        if (!layout) return;
+
         columnsList.innerHTML = '';
-        const headerRow = document.querySelector('table thead tr:nth-child(2)');
-        if (!headerRow) return;
-        const ths = Array.from(headerRow.querySelectorAll('th'));
-        ths.forEach((th, idx) => {
-            const label = th.textContent.trim() || `عمود ${idx+1}`;
-            const id = `colchk-${idx}`;
+        layout.leafHeaders.forEach((th, leafIndex) => {
+            const label = th.textContent.trim() || `Column ${leafIndex + 1}`;
+            const absIndex = layout.leafAbsoluteIndices[leafIndex];
+            const id = `colchk-${leafIndex}`;
+
             const div = document.createElement('div');
             div.className = 'form-check';
-            div.innerHTML = `<input class="form-check-input col-chk" type="checkbox" id="${id}" data-col-index="${idx}" checked>
-                             <label class="form-check-label small" for="${id}">${label}</label>`;
+            div.innerHTML = `
+                <input class="form-check-input col-chk" type="checkbox" id="${id}" data-col-index="${leafIndex}" data-col-abs-index="${absIndex}" checked>
+                <label class="form-check-label small" for="${id}">${label}</label>
+            `;
             columnsList.appendChild(div);
         });
-        // Attach change handlers to checkboxes
-        columnsList.querySelectorAll('.col-chk').forEach(chk => {
+
+        columnsList.querySelectorAll('.col-chk').forEach((chk) => {
             chk.addEventListener('change', function () {
-                const idx = parseInt(this.getAttribute('data-col-index'), 10);
-                toggleColumnVisibility(idx, this.checked);
+                const absIndex = parseInt(this.getAttribute('data-col-abs-index'), 10);
+                if (!Number.isInteger(absIndex) || absIndex < 0) return;
+                toggleColumnVisibility(absIndex, this.checked);
                 saveColumnsToStorage();
             });
         });
 
-        // Close chooser when clicking outside
         document.addEventListener('click', function (e) {
             const chooser = document.getElementById('columnsChooser');
             const btn = document.getElementById('columnsBtn');
@@ -429,32 +546,36 @@
 
     function saveColumnsToStorage() {
         const map = {};
-        document.querySelectorAll('#columnsList .col-chk').forEach(chk => {
+        document.querySelectorAll('#columnsList .col-chk').forEach((chk) => {
             map[chk.getAttribute('data-col-index')] = chk.checked;
         });
         window.HRSettingsUtil.setObject('employees_bulk_edit_columns', map);
     }
 
     function restoreColumnsFromStorage() {
-        const map = window.HRSettingsUtil.getObject('employees_bulk_edit_columns', {});
-        if (!map) return;
-        Object.keys(map).forEach(k => {
-            const idx = parseInt(k, 10);
-            const show = map[k];
-            const chk = document.querySelector(`#columnsList .col-chk[data-col-index="${idx}"]`);
-            if (chk) chk.checked = show;
-            toggleColumnVisibility(idx, show);
-        });
+        applyStoredColumnVisibility();
     }
 
-    function toggleColumnVisibility(idx, show) {
-        document.querySelectorAll('table tr').forEach(tr => {
-            const cell = tr.children[idx];
-            if (!cell) return;
-            if (show) cell.classList.remove('d-none');
-            else cell.classList.add('d-none');
+    function toggleColumnVisibility(absIndex, show) {
+        const layout = getBulkEditColumnLayout();
+        if (!layout) return;
+
+        // Toggle matching leaf header using the same absolute index used for body cells.
+        layout.leafHeaders.forEach((th, leafIndex) => {
+            if (layout.leafAbsoluteIndices[leafIndex] === absIndex) {
+                th.classList.toggle('d-none', !show);
+            }
         });
+
+        // Toggle all body cells in the same column index.
+        layout.table.querySelectorAll('tbody tr').forEach((tr) => {
+            const cell = tr.children[absIndex];
+            if (cell) cell.classList.toggle('d-none', !show);
+        });
+
+        refreshGroupHeaderSpans(layout);
     }
+
 
     function loadEmployees() {
         saveFiltersToStorage();
@@ -483,6 +604,7 @@
                 employees = sortEmployeesByCode(employees);
                 employees.forEach(emp => addRowFromData(emp));
                 updateLoadedCount(employees.length);
+                applyStoredColumnVisibility();
                 if (employees.length === 0) {
                     const tbody = document.getElementById('bulkBody');
                     const tr = document.createElement('tr');
@@ -545,6 +667,7 @@
         tr.querySelector('.emp-hire-date').value = emp.hire_date || '';
         tr.querySelector('.emp-start-time').value = emp.standard_start_time || '';
         tr.querySelector('.emp-end-time').value = emp.standard_end_time || '';
+        tr.querySelector('.emp-daily-hours').value = emp.daily_work_hours || 0;
         tr.querySelector('.emp-is-active').checked = !!emp.is_active;
 
         tr.querySelector('.emp-salary').value = emp.basic_salary || 0;
@@ -645,6 +768,25 @@
                 insDateInput.value = this.value;
             }
         });
+
+        // 6. Work Hours Calculator
+        const startTimeInput = row.querySelector('.emp-start-time');
+        const endTimeInput = row.querySelector('.emp-end-time');
+        const dailyHoursInput = row.querySelector('.emp-daily-hours');
+
+        function calculateHours() {
+            const start = startTimeInput.value;
+            const end = endTimeInput.value;
+            if (start && end) {
+                const [startH, startM] = start.split(':').map(Number);
+                const [endH, endM] = end.split(':').map(Number);
+                let diffInMins = (endH * 60 + endM) - (startH * 60 + startM);
+                if (diffInMins < 0) diffInMins += 24 * 60;
+                dailyHoursInput.value = (diffInMins / 60).toFixed(2);
+            }
+        }
+        startTimeInput.addEventListener('change', calculateHours);
+        endTimeInput.addEventListener('change', calculateHours);
 
         // 5. Mobile Number Validation
         const mobileInput = row.querySelector('.emp-mobile');
@@ -824,7 +966,8 @@
                 address: row.querySelector('.emp-address').value, department_id: row.querySelector('.emp-dept').value,
                 job_title: row.querySelector('.emp-job').value, category: row.querySelector('.emp-category').value,
                 hire_date: row.querySelector('.emp-hire-date').value, standard_start_time: row.querySelector('.emp-start-time').value,
-                standard_end_time: row.querySelector('.emp-end-time').value, is_active: row.querySelector('.emp-is-active').checked,
+                standard_end_time: row.querySelector('.emp-end-time').value, daily_work_hours: row.querySelector('.emp-daily-hours').value,
+                is_active: row.querySelector('.emp-is-active').checked,
                 basic_salary: row.querySelector('.emp-salary').value, regularity_incentive: row.querySelector('.emp-incentive-reg').value,
                 incentive_allowance: row.querySelector('.emp-incentive-all').value, transport_allowance: row.querySelector('.emp-transport').value,
                 overtime_allowed: row.querySelector('.emp-overtime').checked, is_insured: row.querySelector('.emp-is-insured').checked,

@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+
+{% block title %}مرجع الأصناف{% endblock %}
+
+{% block content %}
+<style>
+    .reference-table-wrapper thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background-color: var(--bs-secondary-bg, #e9ecef);
+    }
+</style>
+<script>
+    (() => {
+        try {
+            const pathKey = window.location.pathname.replace(/\//g, '_');
+            const collapsedIds = ['referenceEntryCard', 'referenceDataCard']
+                .filter((id) => localStorage.getItem(`fold_state_${pathKey}_${id}`) === 'true');
+            if (!collapsedIds.length) return;
+
+            const collapsedSelector = collapsedIds
+                .map((id) => `#${id} .card-body, #${id} .card-footer, #${id} .table-responsive, #${id} .table-container, #${id} .excel-export-btn-wrap, #${id} .card-header button, #${id} .card-header .btn, #${id} .card-header input, #${id} .card-header select, #${id} .card-header .input-group, #${id} .card-header .table-toolbar-actions, #${id} .card-header .table-toolbar-secondary, #${id} .card-header #unifiedPrintSettings, #${id} .card-header .form-text`)
+                .join(', ');
+
+            const style = document.createElement('style');
+            style.textContent = `${collapsedSelector} { display: none !important; }`;
+            document.head.appendChild(style);
+            document.addEventListener('DOMContentLoaded', () => {
+                requestAnimationFrame(() => style.remove());
+            }, { once: true });
+        } catch (_) {}
+    })();
+</script>
+<div class="row g-3">
+    <!-- Entry Card (Right side in RTL means it will be on the right, but usually we want Entry on the narrow side) -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-0 h-100" id="referenceEntryCard" data-foldable="true">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="text-muted small">إضافة صنف جديد</div>
+                    <h5 class="mb-0">بيانات الصنف</h5>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row g-2 mb-3" data-enter-scope>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold">الكود</label>
+                        <input type="text" id="refCode" class="form-control form-control-sm input-code" placeholder="الكود">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold">اسم الصنف</label>
+                        <input type="text" id="refName" class="form-control form-control-sm input-name" placeholder="اسم الصنف">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold">المقاس</label>
+                        <input type="text" id="refSize" class="form-control form-control-sm input-size" placeholder="المقاس">
+                    </div>
+                    <div class="col-12 mt-3">
+                        <button class="btn btn-success btn-sm w-100" id="addReferenceBtn" title="إضافة صنف">
+                            <i class="fas fa-plus me-1"></i> إضافة لقاعدة البيانات
+                        </button>
+                    </div>
+                </div>
+                <div class="alert d-flex align-items-center small mb-0 d-none" id="inlineMessage" role="alert"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Card -->
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0 h-100" id="referenceDataCard" data-foldable="true">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                    <div class="text-muted small">قائمة الأصناف المرجعية</div>
+                    <h5 class="mb-0">جدول البحث</h5>
+                </div>
+                <div class="d-flex gap-2 align-items-center">
+                    <div class="input-group input-group-sm smart-search-group" style="width: 300px;">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" id="referenceSearchInput" class="form-control" placeholder="بحث...">
+                        <button type="button" class="btn btn-outline-primary" id="referenceSearchBtn">بحث</button>
+                        <button type="button" class="btn btn-outline-secondary" id="referenceSearchClearBtn">مسح</button>
+                    </div>
+                    <input type="file" id="referenceExcel" accept=".xlsx,.xls" hidden>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="importReferenceBtn">
+                        <i class="fas fa-file-import me-1"></i> استيراد
+                    </button>
+                </div>
+            </div>
+
+            <div class="card-body p-0">
+                <div class="table-responsive reference-table-wrapper" style="max-height: 85vh; overflow:auto;">
+                    <table class="table table-striped table-hover table-sm mb-0" id="referenceTable">
+                        <thead class="table-secondary sticky-top">
+                            <tr>
+                                <th style="width: 140px;">الكود</th>
+                                <th>اسم الصنف</th>
+                                <th style="width: 120px;">المقاس</th>
+                                <th style="width: 140px;">الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="referenceBody">
+                            <tr>
+                                <td colspan="4" class="text-center text-muted p-4">لا توجد بيانات محفوظة حتى الآن.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    const referenceBody = document.getElementById('referenceBody');
+    const refCode = document.getElementById('refCode');
+    const refName = document.getElementById('refName');
+    const refSize = document.getElementById('refSize');
+    const referenceExcel = document.getElementById('referenceExcel');
+    const importReferenceBtn = document.getElementById('importReferenceBtn');
+    const addReferenceBtn = document.getElementById('addReferenceBtn');
+    const inlineMessage = document.getElementById('inlineMessage');
+    const referenceSearchInput = document.getElementById('referenceSearchInput');
+    const referenceSearchClearBtn = document.getElementById('referenceSearchClearBtn');
+
+    function showInlineMessage(message, type) {
+        inlineMessage.className = `alert alert-${type} d-flex align-items-center small`;
+        inlineMessage.textContent = message;
+    }
+
+    function clearInlineMessage() {
+        inlineMessage.className = 'alert d-flex align-items-center small';
+        inlineMessage.textContent = '';
+    }
+
+    function setRowEditing(row, editable) {
+        if (!row) {
+            return;
+        }
+        row.dataset.editing = editable ? '1' : '0';
+        const nameInput = row.querySelector('.row-name');
+        const sizeInput = row.querySelector('.row-size');
+        if (nameInput) {
+            nameInput.readOnly = !editable;
+        }
+        if (sizeInput) {
+            sizeInput.readOnly = !editable;
+        }
+        row.classList.toggle('table-warning', editable);
+    }
+
+    function renderRows(items) {
+        if (!Array.isArray(items) || items.length === 0) {
+            referenceBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted p-4">لا توجد بيانات محفوظة حتى الآن.</td></tr>';
+            return;
+        }
+
+        referenceBody.innerHTML = items
+            .map((item) => `
+                <tr data-code="${item.code || ''}" data-enter-scope>
+                    <td>
+                        <input type="text" class="form-control form-control-sm input-code row-code" value="${item.code || ''}" readonly>
+                    </td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm input-name row-name" value="${item.name || ''}" readonly>
+                    </td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm input-size row-size" value="${item.size || ''}" readonly>
+                    </td>
+                    <td>
+                        <div class="d-flex gap-1">
+                            <button type="button" class="btn btn-sm btn-outline-primary ref-row-edit" title="تعديل">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-success ref-row-save" title="حفظ">
+                                <i class="fas fa-save"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger ref-row-delete" title="حذف">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+        Array.from(referenceBody.querySelectorAll('tr[data-code]')).forEach((row) => setRowEditing(row, false));
+        applyReferenceSearch();
+    }
+
+    function applyReferenceSearch() {
+        const query = (referenceSearchInput?.value || '').trim().toLowerCase();
+        const rows = Array.from(referenceBody.querySelectorAll('tr[data-code]'));
+        
+        rows.forEach(row => {
+            const code = row.querySelector('.row-code')?.value.toLowerCase() || '';
+            const name = row.querySelector('.row-name')?.value.toLowerCase() || '';
+            const size = row.querySelector('.row-size')?.value.toLowerCase() || '';
+            
+            const match = code.includes(query) || name.includes(query) || size.includes(query);
+            row.classList.toggle('d-none', !match);
+        });
+    }
+
+    referenceSearchInput?.addEventListener('input', applyReferenceSearch);
+    referenceSearchInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            applyReferenceSearch();
+        }
+    });
+
+    const referenceSearchBtn = document.getElementById('referenceSearchBtn');
+    referenceSearchBtn?.addEventListener('click', applyReferenceSearch);
+
+    referenceSearchClearBtn?.addEventListener('click', () => {
+        if (referenceSearchInput) referenceSearchInput.value = '';
+        applyReferenceSearch();
+        referenceSearchInput?.focus();
+    });
+
+    async function refreshReferences() {
+        try {
+            const res = await fetch('/api/reference-list');
+            const data = await res.json();
+            renderRows(data.items || []);
+        } catch (error) {
+            referenceBody.innerHTML = '<tr><td colspan="4" class="text-center text-danger p-4">تعذر تحميل البيانات.</td></tr>';
+        }
+    }
+
+    async function addReference() {
+        const payload = {
+            code: refCode.value.trim().toUpperCase(),
+            name: refName.value.trim(),
+            size: refSize.value.trim(),
+        };
+        if (!payload.code || !payload.name || !payload.size) {
+            showInlineMessage('املأ الكود والاسم والمقاس قبل الإضافة.', 'warning');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/reference/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                throw new Error(data.message || 'تعذر إضافة الصنف.');
+            }
+            refCode.value = '';
+            refName.value = '';
+            refSize.value = '';
+            refCode.focus();
+            showInlineMessage('تمت إضافة الصنف في المرجع.', 'success');
+            refreshReferences();
+        } catch (error) {
+            showInlineMessage(error.message, 'danger');
+        }
+    }
+
+    async function saveRow(row) {
+        if (!row) {
+            return;
+        }
+        const payload = {
+            code: row.querySelector('.row-code')?.value.trim().toUpperCase() || '',
+            name: row.querySelector('.row-name')?.value.trim() || '',
+            size: row.querySelector('.row-size')?.value.trim() || '',
+        };
+        if (!payload.code || !payload.name || !payload.size) {
+            showInlineMessage('الكود والاسم والمقاس مطلوبة قبل الحفظ.', 'warning');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/reference/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                throw new Error(data.message || 'تعذر حفظ التعديل.');
+            }
+            setRowEditing(row, false);
+            showInlineMessage(`تم حفظ تعديل الصنف ${payload.code}.`, 'success');
+        } catch (error) {
+            showInlineMessage(error.message, 'danger');
+        }
+    }
+
+    async function deleteRow(row) {
+        if (!row) {
+            return;
+        }
+        const code = row.querySelector('.row-code')?.value.trim().toUpperCase() || '';
+        if (!code) {
+            return;
+        }
+        if (!confirm(`متأكد أنك تريد حذف الصنف ${code}؟`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/reference/delete', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({code}),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                throw new Error(data.message || 'تعذر حذف الصنف.');
+            }
+            row.remove();
+            showInlineMessage(`تم حذف الصنف ${code}.`, 'success');
+            if (!referenceBody.querySelector('tr[data-code]')) {
+                referenceBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted p-4">لا توجد بيانات محفوظة حتى الآن.</td></tr>';
+            }
+        } catch (error) {
+            showInlineMessage(error.message, 'danger');
+        }
+    }
+
+    addReferenceBtn.addEventListener('click', async (event) => {
+        event.preventDefault();
+        await addReference();
+    });
+
+    refCode.addEventListener('input', () => {
+        refCode.value = refCode.value.toUpperCase();
+    });
+
+    referenceBody.addEventListener('click', async (event) => {
+        const editButton = event.target.closest('.ref-row-edit');
+        if (editButton) {
+            const row = editButton.closest('tr[data-code]');
+            setRowEditing(row, true);
+            row?.querySelector('.row-name')?.focus();
+            return;
+        }
+
+        const saveButton = event.target.closest('.ref-row-save');
+        if (saveButton) {
+            await saveRow(saveButton.closest('tr[data-code]'));
+            return;
+        }
+
+        const deleteButton = event.target.closest('.ref-row-delete');
+        if (deleteButton) {
+            await deleteRow(deleteButton.closest('tr[data-code]'));
+        }
+    });
+
+    importReferenceBtn.addEventListener('click', () => referenceExcel.click());
+
+    referenceExcel.addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        if (!file) {
+            return;
+        }
+        const formData = new FormData();
+        formData.append('excel_file', file);
+        showInlineMessage('جاري استيراد الأصناف...', 'info');
+        try {
+            const res = await fetch('/api/reference/import', {
+                method: 'POST',
+                body: formData,
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                throw new Error(data.message || 'تعذر استيراد ملف Excel.');
+            }
+            showInlineMessage(`تمت إضافة ${data.inserted} صنف.`, 'success');
+            refreshReferences();
+        } catch (error) {
+            showInlineMessage(error.message, 'danger');
+        } finally {
+            event.target.value = '';
+        }
+    });
+
+    refreshReferences();
+    clearInlineMessage();
+</script>
+{% endblock %}

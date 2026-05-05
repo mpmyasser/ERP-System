@@ -119,13 +119,14 @@
 {% for dept_data in report_data %}
 <div class="department-block"
     style="page-break-after: auto; border-bottom: 2px solid #000; margin-bottom: 1cm; padding-bottom: 1cm;">
-    <h3 class="text-center mb-4 d-none d-print-block">كشف رواتب قسم: {{ dept_data.department.name }} - {{ month }}/{{
-        year }}</h3>
+    <h3 class="text-center mb-4 d-none d-print-block">
+        كشف رواتب قسم: {{ dept_data.department.name }} - {{ month }}/{{ year }}
+    </h3>
 
     {% for row in dept_data.employees %}
     <div class="salary-slip">
-        <table class="table table-bordered table-sm text-center align-middle" style="font-size: 11px;">
-            <!-- Top Header Row -->
+        <table class="table table-bordered table-sm text-center align-middle w-100" style="font-size: 11px;">
+            <!-- Top Header Row (repeated for each employee) -->
             <tr class="table-header">
                 <th rowspan="2" style="width: 3%">#</th>
                 <th rowspan="2" style="width: 12%">الموظف</th>
@@ -156,7 +157,7 @@
                 <th>إجمالي</th>
             </tr>
 
-            <!-- Data Row -->
+            <!-- Data Row for this employee -->
             <tr>
                 <td>{{ loop.index }}</td>
                 <td class="text-end pe-2">
@@ -171,8 +172,9 @@
                 <td>{{ "%.0f"|format(row.get('Bonuses', 0)) }}</td>
                 <td>{{ "%.0f"|format(row.get('OT Value', 0)) }}</td>
                 <td>{{ "%.0f"|format(row.get('Transport Allowance', 0)) }}</td>
-                <td class="fw-bold bg-light">{{ "%.0f"|format(row.get('Gross Salary', 0) + row.get('Total Additions',
-                    0)) }}</td>
+                <td class="fw-bold bg-light">
+                    {{ "%.0f"|format(row.get('Gross Salary', 0) + row.get('Total Additions', 0)) }}
+                </td>
 
                 <!-- Deductions Data -->
                 <td>{{ "%.0f"|format(row.get('Insurance', 0)) }}</td>
@@ -180,26 +182,26 @@
                 <td>{{ "%.0f"|format(row.get('Early Deduction', 0)) }}</td>
                 <td>{{ "%.0f"|format(row.get('Permissions Deduction', 0)) }}</td>
                 <td>{{ "%.0f"|format(row.get('Admin Penalties', 0)) }}</td>
-                <td>{{ "%.0f"|format(row.get('Absence Deduction', 0) + row.get('Absence Penalty Deduction', 0)) }}</td>
+                <td>{{ "%.0f"|format(row.get('Absence Deduction', 0) + row.get('Absence Penalty Deduction', 0)) }}
+                </td>
                 <td>{{ "%.0f"|format(row.get('Loan Deduction', 0)) }}</td>
                 <td class="fw-bold bg-light">{{ "%.0f"|format(row.get('Total Deductions', 0)) }}</td>
 
                 <!-- Net & What Was Paid -->
                 <td class="fw-bold fs-6">{{ "%.0f"|format(row.get('Net Salary', 0)) }}</td>
-                <td class="fw-bold text-center table-active">{{ "%.0f"|format(row.get('Bonuses Paid During Month', 0))
-                    }}</td>
+                <td class="fw-bold text-center table-active">
+                    {{ "%.0f"|format(row.get('Bonuses Paid During Month', 0)) }}
+                </td>
             </tr>
         </table>
     </div>
     {% endfor %}
 
     <!-- Department Summary -->
-    {% if loop.last %}
     <div class="card mt-4 p-3 bg-light border d-print-none">
         <h5 class="fw-bold">ملخص القسم: {{ dept_data.department.name }}</h5>
         <p>إجمالي الرواتب: {{ "%.2f"|format(dept_data.total_wages) }}</p>
     </div>
-    {% endif %}
 </div>
 {% endfor %}
 {% else %}

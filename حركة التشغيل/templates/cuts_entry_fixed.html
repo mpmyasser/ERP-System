@@ -1,0 +1,911 @@
+{% extends "base.html" %}
+
+{% block title %}إدخال القصات{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-2">
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body py-3 text-center">
+                <div class="text-muted small mb-1">عدد الرسائل</div>
+                <div class="h4 mb-0">{{ dashboard_totals.total_cuts or 0 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body py-3 text-center">
+                <div class="text-muted small mb-1">إجمالي الكميات</div>
+                <div class="h4 mb-0">{{ '%.2f'|format(dashboard_totals.total_quantity or 0) }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="text-muted small">إضافة قصات</div>
+                    <h5 class="mb-0">إدخال يدوي أو من إكسيل</h5>
+                </div>
+                <div class="d-flex gap-2">
+                    <input type="file" id="excelFile" accept=".xlsx,.xls" hidden>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="importButton">
+                        <i class="fas fa-file-excel me-1"></i> استيراد من Excel
+                    </button>
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="addRowButton">
+                        <i class="fas fa-plus me-1"></i> إضافة سطر
+                    </button>
+                </div>
+            </div>
+
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('save_cuts') }}" id="cutsForm">
+                    <input type="hidden" name="source" id="sourceField" value="manual">
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6 col-lg-4">
+                            <label class="form-label fw-bold">تاريخ القص</label>
+                            <input type="text" name="cut_date" class="form-control form-control-sm" placeholder="dd/mm/yyyy">
+                        </div>
+                        <div class="col-md-6 col-lg-4">
+                            <label class="form-label fw-bold">رقم الرسالة</label>
+                            <input type="text" name="message_no" class="form-control form-control-sm" placeholder="مثال: RS-102">
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered align-middle mb-2 resizable-table" id="cutsTable" data-resize-key="cuts-entry">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th style="width:60px">#</th>
+                                    <th style="width:160px">الموديل</th>
+                                    <th>الاسم</th>
+                                    <th style="width:140px">المقاس</th>
+                                    <th style="width:140px">الكمية</th>
+                                    <th style="width:220px">الوصف</th>
+                                    <th style="width:140px">كود المصنع</th>
+                                    <th style="width:180px">اسم المصنع الموجه له</th>
+                                    <th style="width:160px">تاريخ التسليم</th>
+                                    <th style="width:110px">الحالة</th>
+                                    <th style="width:60px"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="cutsTableBody"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="alert d-flex align-items-center small" id="inlineMessage" role="alert"></div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <div class="text-muted small">آخر تحديث للسجل: {{ current_time.strftime('%d/%m/%Y %H:%M') }}</div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> حفظ سجل القصات
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                {% if recent_batches %}
+                <div class="list-group small">
+                    {% for batch in recent_batches %}
+                    <div class="list-group-item d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="fw-bold">{{ batch.batch_code }}</div>
+                            <div class="text-muted">التاريخ: {{ batch.cut_date or '—' }} | الرسالة: {{ batch.message_no or '—' }}</div>
+                            <div class="text-muted">الأصناف: {{ batch.total_items }} | الكمية: {{ '%.2f'|format(batch.total_quantity) }}</div>
+                            <div class="text-muted">المصنع: {{ batch.factory_name or 'غير محدد' }} ({{ batch.factory_code or '—' }})</div>
+                            <div class="text-muted">الاستلام: {{ batch.received_date or '—' }} | المصدر: {{ 'Excel' if batch.source == 'excel' else 'يدوي' }}</div>
+                        </div>
+                        <span class="badge text-bg-success">{{ batch.status }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="alert alert-secondary mb-0 small">لا توجد دفعات قص مسجلة مؤخراً. قم بإدخال بيانات جديدة أعلاه.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 mt-3">
+    <div class="card-header bg-white">
+        <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center">
+            <div>
+                <div class="text-muted small">العمليات الأخيرة المدخلة</div>
+                <h6 class="mb-0">سجل المدخلات التي لم ترحل</h6>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="togglePrintColumnsButton">
+                    <i class="fas fa-columns me-1"></i> تخصيص أعمدة الطباعة
+                </button>
+                <button type="button" class="btn btn-outline-primary btn-sm" id="printRecentTableButton">
+                    <i class="fas fa-print me-1"></i> طباعة السجل
+                </button>
+            </div>
+        </div>
+        <div id="unifiedPrintSettings"></div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive" style="max-height: 340px; overflow:auto;">
+            <table class="table table-sm table-striped mb-0 resizable-table" id="recentCutsTable" data-resize-key="cuts-history">
+                <thead class="table-light" style="position: sticky; top: 0; z-index: 2;">
+                    <tr>
+                        <th>رقم الرسالة</th>
+                        <th>الموديل</th>
+                        <th>الاسم</th>
+                        <th>المقاس</th>
+                        <th>الكمية</th>
+                        <th>الوصف</th>
+                        <th>كود المصنع</th>
+                        <th>اسم المصنع</th>
+                        <th>تاريخ التسليم</th>
+                        <th>الحالة</th>
+                        <th data-print="no">الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody id="recentCutsTableBody">
+                    {% if recent_cut_items %}
+                    {% for item in recent_cut_items %}
+                    <tr data-item-id="{{ item.id }}">
+                        <td>
+                            <input type="text" class="form-control form-control-sm recent-message-no" value="{{ item.message_no or '' }}" placeholder="رقم الرسالة" readonly>
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm recent-code" value="{{ item.code or '' }}" placeholder="الموديل" readonly>
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm recent-name" value="{{ item.name or '' }}" placeholder="الاسم" readonly>
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm recent-size" value="{{ item.size or '' }}" placeholder="المقاس" readonly>
+                        </td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm recent-quantity" value="{{ item.quantity or 0 }}" placeholder="الكمية" min="0" step="0.01" readonly>
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm recent-description" value="{{ item.description or '' }}" placeholder="الوصف" readonly>
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm recent-factory-code" value="{{ item.factory_code or '' }}" placeholder="كود المصنع" readonly>
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm recent-factory-name" value="{{ item.factory_name or '' }}" placeholder="اسم المصنع" list="factoryNamesList" readonly>
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm recent-dispatch-date" value="{{ item.dispatch_date or '' }}" placeholder="dd/mm/yyyy" readonly>
+                        </td>
+                        <td>
+                            <span class="badge recent-status {{ 'text-bg-success' if item.status != 'بانتظار التسليم' else 'text-bg-info' }}">{{ item.status }}</span>
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <button type="button" class="btn btn-sm btn-outline-primary edit-recent-item" data-item-id="{{ item.id }}" title="تعديل">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-success save-recent-item" data-item-id="{{ item.id }}" title="حفظ">
+                                    <i class="fas fa-save"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger delete-recent-item" data-item-id="{{ item.id }}" title="حذف">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="11" class="text-center text-muted p-4">لا توجد بيانات مسجلة مؤخراً بانتظار التسليم للمصانع في الوقت الحالي.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<template id="rowTemplate">
+    <tr>
+        <td class="row-number text-center">1</td>
+        <td>
+            <input type="text" name="code[]" class="form-control form-control-sm code-input input-code" placeholder="مثال: 2501A">
+        </td>
+        <td>
+            <input type="text" name="name[]" class="form-control form-control-sm input-name" placeholder="اسم الصنف">
+        </td>
+        <td>
+            <input type="text" name="size[]" class="form-control form-control-sm input-size" placeholder="المقاس">
+        </td>
+        <td>
+            <input type="number" name="quantity[]" class="form-control form-control-sm quantity-input" placeholder="0" min="0" step="0.01">
+        </td>
+        <td>
+            <input type="text" name="description[]" class="form-control form-control-sm" placeholder="الوصف">
+        </td>
+        <td>
+            <input type="text" name="factory_code[]" class="form-control form-control-sm" placeholder="كود المصنع">
+        </td>
+        <td>
+            <input type="text" name="factory_name[]" class="form-control form-control-sm" placeholder="اسم المصنع المسلم إليه حالياً" list="factoryNamesList">
+        </td>
+        <td>
+            <input type="text" name="dispatch_date[]" class="form-control form-control-sm" placeholder="dd/mm/yyyy">
+        </td>
+        <td class="text-center">
+            <span class="badge text-bg-info">بانتظار الحفظ</span>
+        </td>
+        <td class="text-center">
+            <button type="button" class="btn btn-link text-danger p-0 delete-row" title="حذف السطر">
+                <i class="fas fa-times"></i>
+            </button>
+        </td>
+    </tr>
+</template>
+
+<datalist id="factoryNamesList">
+    {% for factory in factories %}
+    <option value="{{ factory.name }}" data-code="{{ factory.code }}">{{ factory.code }}</option>
+    {% endfor %}
+</datalist>
+
+<script>
+    const tableBody = document.getElementById('cutsTableBody');
+    const rowTemplate = document.getElementById('rowTemplate');
+    const rowCountElement = document.getElementById('rowCount');
+    const quantityTotalElement = document.getElementById('quantityTotal');
+    const inlineMessage = document.getElementById('inlineMessage');
+    const sourceField = document.getElementById('sourceField');
+    const factoryNamesList = document.getElementById('factoryNamesList');
+
+    function normalizeDateValue(text) {
+        const value = (text || '').trim();
+        if (!value) {
+            return '';
+        }
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+            return value;
+        }
+        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            const [year, month, day] = value.split('-');
+            return `${day}/${month}/${year}`;
+        }
+        if (/^\d{2}-\d{2}-\d{4}$/.test(value)) {
+            const [day, month, year] = value.split('-');
+            return `${day}/${month}/${year}`;
+        }
+        return value;
+    }
+
+    function createRow(data = {}) {
+        const fragment = rowTemplate.content.cloneNode(true);
+        const row = fragment.querySelector('tr');
+        row.querySelector('input[name="code[]"]').value = (data.code || '').toUpperCase();
+        row.querySelector('input[name="name[]"]').value = data.name || '';
+        row.querySelector('input[name="size[]"]').value = data.size || '';
+        row.querySelector('input[name="quantity[]"]').value = data.quantity || '';
+        row.querySelector('input[name="description[]"]').value = data.description || '';
+        row.querySelector('input[name="factory_code[]"]').value = (data.factory_code || '').toUpperCase();
+        row.querySelector('input[name="factory_name[]"]').value = data.factory_name || '';
+        row.querySelector('input[name="dispatch_date[]"]').value = data.dispatch_date || '';
+        return row;
+    }
+
+    function findFactoryCodeByName(factoryName) {
+        const normalizedName = (factoryName || '').trim().toLowerCase();
+        if (!normalizedName || !factoryNamesList) {
+            return '';
+        }
+        const options = Array.from(factoryNamesList.options);
+        const option = options.find((item) => item.value.trim().toLowerCase() === normalizedName);
+        if (!option) {
+            return '';
+        }
+        return (option.dataset.code || option.textContent || '').trim();
+    }
+
+    function syncFactoryCodeFromName(row) {
+        if (!row) {
+            return;
+        }
+        const codeInput = row.querySelector('input[name="factory_code[]"]');
+        const nameInput = row.querySelector('input[name="factory_name[]"]');
+        if (!codeInput || !nameInput) {
+            return;
+        }
+        const lookedUpCode = findFactoryCodeByName(nameInput.value);
+        if (lookedUpCode) {
+            codeInput.value = lookedUpCode.toUpperCase();
+        }
+    }
+
+    function getRows() {
+        return Array.from(tableBody.querySelectorAll('tr'));
+    }
+
+    function rowValues(row) {
+        return {
+            code: row.querySelector('input[name="code[]"]').value.trim(),
+            name: row.querySelector('input[name="name[]"]').value.trim(),
+            size: row.querySelector('input[name="size[]"]').value.trim(),
+            quantity: row.querySelector('input[name="quantity[]"]').value.trim(),
+            description: row.querySelector('input[name="description[]"]').value.trim()
+        };
+    }
+
+    function rowHasAnyValue(row) {
+        return Object.values(rowValues(row)).some(Boolean);
+    }
+
+    function rowIsComplete(row) {
+        const values = rowValues(row);
+        return values.code && values.name && values.size;
+    }
+
+    function renumberRows() {
+        getRows().forEach((row, index) => {
+            row.querySelector('.row-number').textContent = index + 1;
+        });
+    }
+
+    function updateSummary() {
+        const activeRows = getRows().filter(rowHasAnyValue);
+        const quantityTotal = activeRows.reduce((sum, row) => {
+            const quantity = parseFloat(row.querySelector('input[name="quantity[]"]').value) || 0;
+            return sum + quantity;
+        }, 0);
+
+        if (rowCountElement) {
+            rowCountElement.textContent = activeRows.length.toString();
+        }
+        if (quantityTotalElement) {
+            quantityTotalElement.textContent = quantityTotal.toLocaleString('en-US', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2
+            });
+        }
+    }
+
+    function updateRowStatus(row) {
+        const code = row.querySelector('input[name="factory_code[]"]').value.trim();
+        const name = row.querySelector('input[name="factory_name[]"]').value.trim();
+        const date = row.querySelector('input[name="dispatch_date[]"]').value.trim();
+        const badge = row.querySelector('.badge');
+        if (code && name && date) {
+            badge.textContent = 'تم التوجيه';
+            badge.className = 'badge text-bg-success';
+        } else {
+            badge.textContent = 'بانتظار الحفظ';
+            badge.className = 'badge text-bg-info';
+        }
+    }
+
+    function ensureTrailingRow() {
+        const rows = getRows();
+        if (!rows.length) {
+            tableBody.appendChild(createRow());
+        }
+
+        const latestRow = getRows().at(-1);
+        if (!latestRow || rowIsComplete(latestRow)) {
+            tableBody.appendChild(createRow());
+        }
+
+        renumberRows();
+        updateSummary();
+    }
+
+    async function fillFromCode(input) {
+        const code = input.value.trim().toUpperCase();
+        input.value = code;
+        const row = input.closest('tr');
+        const nameInput = row.querySelector('input[name="name[]"]');
+        const sizeInput = row.querySelector('input[name="size[]"]');
+
+        if (!code || (nameInput.value.trim() && sizeInput.value.trim())) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/products/lookup?code=${encodeURIComponent(code)}`);
+            const payload = await response.json();
+            if (!payload.found) {
+                return;
+            }
+
+            nameInput.value = payload.product.name || '';
+            sizeInput.value = payload.product.size || '';
+            showInlineMessage(`تم جلب بيانات الصنف ${code} تلقائياً.`, 'success');
+            ensureTrailingRow();
+        } catch (error) {
+            showInlineMessage('فشل الاتصال بقاعدة البيانات لجلب بيانات الصنف.', 'danger');
+        }
+    }
+
+    function showInlineMessage(message, type) {
+        inlineMessage.className = `alert alert-${type} d-flex align-items-center small`;
+        inlineMessage.textContent = message;
+    }
+
+    function clearInlineMessage() {
+        inlineMessage.className = 'alert d-flex align-items-center small';
+        inlineMessage.textContent = '';
+    }
+
+    function replaceRows(rows) {
+        tableBody.innerHTML = '';
+        rows.forEach((row) => {
+            tableBody.appendChild(createRow(row));
+            updateRowStatus(tableBody.lastElementChild);
+        });
+        tableBody.appendChild(createRow());
+        sourceField.value = 'excel';
+        renumberRows();
+        updateSummary();
+    }
+
+    tableBody.addEventListener('input', (event) => {
+        if (!event.target.matches('input')) {
+            return;
+        }
+        if (event.target.classList.contains('code-input')) {
+            event.target.value = event.target.value.toUpperCase();
+        }
+        if (event.target.name === 'factory_code[]') {
+            event.target.value = event.target.value.toUpperCase();
+        }
+        if (event.target.name === 'factory_name[]') {
+            syncFactoryCodeFromName(event.target.closest('tr'));
+        }
+        if (event.target.name === 'dispatch_date[]') {
+            event.target.value = normalizeDateValue(event.target.value);
+        }
+        clearInlineMessage();
+        updateRowStatus(event.target.closest('tr'));
+        ensureTrailingRow();
+    });
+
+    tableBody.addEventListener('keydown', (event) => {
+        if (!event.target.classList.contains('code-input')) return;
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        const row = event.target.closest('tr');
+        const next = row?.querySelector('input[name="name[]"]');
+        if (next) {
+            next.focus();
+            next.select();
+        }
+    });
+
+    tableBody.addEventListener('focusout', (event) => {
+        if (event.target.classList.contains('code-input')) {
+            fillFromCode(event.target);
+        }
+    });
+
+    tableBody.addEventListener('click', (event) => {
+        if (!event.target.classList.contains('delete-row') && !event.target.closest('.delete-row')) {
+            return;
+        }
+
+        const rows = getRows();
+        if (rows.length === 1) {
+            rows[0].querySelectorAll('input').forEach((input) => {
+                input.value = '';
+            });
+        } else {
+            (event.target.closest('tr') || event.target.closest('button')?.closest('tr'))?.remove();
+        }
+
+        renumberRows();
+        updateSummary();
+        ensureTrailingRow();
+    });
+
+    document.getElementById('addRowButton').addEventListener('click', () => {
+        tableBody.appendChild(createRow());
+        renumberRows();
+        updateSummary();
+    });
+
+    document.getElementById('importButton').addEventListener('click', () => {
+        document.getElementById('excelFile').click();
+    });
+
+    document.getElementById('excelFile').addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        if (!file) {
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('excel_file', file);
+
+        showInlineMessage('جاري تحليل ملف Excel...', 'info');
+
+        try {
+            const response = await fetch('/api/import-excel', {
+                method: 'POST',
+                body: formData
+            });
+            const payload = await response.json();
+
+            if (!response.ok || !payload.ok) {
+                throw new Error(payload.message || 'فشل استيراد الملف.');
+            }
+
+            if (payload.meta) {
+                if (payload.meta.cut_date) {
+                    document.querySelector('input[name="cut_date"]').value = payload.meta.cut_date;
+                }
+                if (payload.meta.message_no) {
+                    document.querySelector('input[name="message_no"]').value = payload.meta.message_no;
+                }
+            }
+
+            replaceRows(payload.rows);
+            showInlineMessage(
+                `تم استيراد ${payload.summary.count} صنف من الملف بنجاح، إجمالي الكمية ${payload.summary.quantity}.`,
+                'success'
+            );
+        } catch (error) {
+            sourceField.value = 'manual';
+            showInlineMessage(error.message, 'danger');
+        } finally {
+            event.target.value = '';
+        }
+    });
+
+    document.getElementById('cutsForm').addEventListener('submit', (event) => {
+        const validRows = getRows().filter((row) => {
+            const values = rowValues(row);
+            return values.code || values.name || values.size || values.quantity;
+        });
+
+        if (!validRows.length) {
+            event.preventDefault();
+            showInlineMessage('يرجى إدخال بيانات صنف واحد على الأقل قبل الحفظ.', 'danger');
+            return;
+        }
+
+        const incompleteRow = validRows.find((row) => {
+            const values = rowValues(row);
+            return !(values.code && values.name && values.size);
+        });
+
+        if (incompleteRow) {
+            event.preventDefault();
+            showInlineMessage('يرجى استكمال بيانات الأصناف (الموديل والاسم والمقاس) قبل الحفظ.', 'warning');
+        }
+    });
+
+    const cutDateInput = document.querySelector('input[name="cut_date"]');
+    if (cutDateInput) {
+        cutDateInput.addEventListener('blur', () => {
+            cutDateInput.value = normalizeDateValue(cutDateInput.value);
+        });
+    }
+
+    tableBody.appendChild(createRow());
+    updateRowStatus(tableBody.lastElementChild);
+    ensureTrailingRow();
+</script>
+
+<script>
+    (function () {
+        const inlineMessageBox = document.getElementById('inlineMessage');
+        const recentTable = document.getElementById('recentCutsTable');
+        const recentTableBody = document.getElementById('recentCutsTableBody');
+        const factoryList = document.getElementById('factoryNamesList');
+        const togglePrintColumnsButton = document.getElementById('togglePrintColumnsButton');
+        const printRecentTableButton = document.getElementById('printRecentTableButton');
+
+        if (!recentTable || !recentTableBody) {
+            return;
+        }
+
+        function showMessage(message, type) {
+            if (!inlineMessageBox) {
+                return;
+            }
+            inlineMessageBox.className = `alert alert-${type} d-flex align-items-center small`;
+            inlineMessageBox.textContent = message;
+        }
+
+        function lookupFactoryCode(factoryName) {
+            const normalizedName = (factoryName || '').trim().toLowerCase();
+            if (!normalizedName || !factoryList) {
+                return '';
+            }
+            const options = Array.from(factoryList.options);
+            const option = options.find((item) => item.value.trim().toLowerCase() === normalizedName);
+            if (!option) {
+                return '';
+            }
+            return (option.dataset.code || option.textContent || '').trim();
+        }
+
+        function updateRecentStatus(row, forcedStatus) {
+            if (!row) {
+                return;
+            }
+            const code = row.querySelector('.recent-factory-code')?.value.trim();
+            const name = row.querySelector('.recent-factory-name')?.value.trim();
+            const date = row.querySelector('.recent-dispatch-date')?.value.trim();
+            const badge = row.querySelector('.recent-status');
+            if (!badge) {
+                return;
+            }
+
+            const status = forcedStatus || (code && name && date ? 'تم التوجيه' : 'بانتظار الحفظ');
+            if (status === 'تم التوجيه') {
+                badge.className = 'badge recent-status text-bg-success';
+                badge.textContent = status;
+            } else {
+                badge.className = 'badge recent-status text-bg-info';
+                badge.textContent = 'بانتظار الحفظ';
+            }
+        }
+
+        function normalizeDateValue(text) {
+            const value = (text || '').trim();
+            if (!value) {
+                return '';
+            }
+            if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+                return value;
+            }
+            if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+                const [year, month, day] = value.split('-');
+                return `${day}/${month}/${year}`;
+            }
+            if (/^\d{2}-\d{2}-\d{4}$/.test(value)) {
+                const [day, month, year] = value.split('-');
+                return `${day}/${month}/${year}`;
+            }
+            return value;
+        }
+
+        function setRecentRowEditable(row, editable) {
+            if (!row) {
+                return;
+            }
+            row.dataset.editing = editable ? '1' : '0';
+            row.querySelectorAll('.recent-message-no, .recent-code, .recent-name, .recent-size, .recent-quantity, .recent-description, .recent-factory-code, .recent-factory-name, .recent-dispatch-date')
+                .forEach((input) => {
+                    input.readOnly = !editable;
+                });
+            row.classList.toggle('table-warning', editable);
+        }
+
+        async function saveRecentRow(button) {
+            const row = button.closest('tr[data-item-id]');
+            const itemId = row?.dataset.itemId;
+            if (!row || !itemId) {
+                return;
+            }
+
+            const payload = {
+                id: itemId,
+                message_no: row.querySelector('.recent-message-no')?.value.trim() || '',
+                code: row.querySelector('.recent-code')?.value.trim().toUpperCase() || '',
+                name: row.querySelector('.recent-name')?.value.trim() || '',
+                size: row.querySelector('.recent-size')?.value.trim() || '',
+                quantity: row.querySelector('.recent-quantity')?.value.trim() || '',
+                description: row.querySelector('.recent-description')?.value.trim() || '',
+                factory_code: row.querySelector('.recent-factory-code')?.value.trim().toUpperCase() || '',
+                factory_name: row.querySelector('.recent-factory-name')?.value.trim() || '',
+                dispatch_date: normalizeDateValue(row.querySelector('.recent-dispatch-date')?.value.trim() || '')
+            };
+
+            button.disabled = true;
+            const initialHtml = button.innerHTML;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+            try {
+                const response = await fetch('/api/cut-items/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (!response.ok || !result.ok) {
+                    throw new Error(result.message || 'فشل حفظ بيانات السطر.');
+                }
+
+                row.querySelector('.recent-message-no').value = result.item.message_no || '';
+                row.querySelector('.recent-code').value = (result.item.code || '').toUpperCase();
+                row.querySelector('.recent-name').value = result.item.name || '';
+                row.querySelector('.recent-size').value = result.item.size || '';
+                row.querySelector('.recent-quantity').value = result.item.quantity ?? '';
+                row.querySelector('.recent-factory-code').value = (result.item.factory_code || '').toUpperCase();
+                row.querySelector('.recent-factory-name').value = result.item.factory_name || '';
+                row.querySelector('.recent-dispatch-date').value = result.item.dispatch_date || '';
+                row.querySelector('.recent-description').value = result.item.description || '';
+                updateRecentStatus(row, result.item.status);
+                setRecentRowEditable(row, false);
+                showMessage(`تم حفظ السطر ${itemId} بنجاح.`, 'success');
+            } catch (error) {
+                showMessage(error.message, 'danger');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = initialHtml;
+            }
+        }
+
+        // Initialize Global Print Settings
+        window.OperationPrint.initPrintSettings({
+            containerId: 'unifiedPrintSettings',
+            tableId: 'recentCutsTable',
+            storageKey: 'operation_print_columns_recent',
+            title: 'سجل القصات'
+        });
+
+        function initResizableTable(table) {
+            if (!table || table.dataset.resizeReady === '1') {
+                return;
+            }
+            const headers = Array.from(table.querySelectorAll('thead th'));
+            if (!headers.length) {
+                return;
+            }
+
+            table.dataset.resizeReady = '1';
+            table.style.tableLayout = 'fixed';
+            const key = `operation_table_widths_${table.dataset.resizeKey || table.id || 'table'}`;
+            const saved = JSON.parse(localStorage.getItem(key) || '{}');
+            const syncTableWidth = () => {
+                const totalWidth = headers.reduce((sum, item) => sum + Math.max(40, Math.round(item.getBoundingClientRect().width)), 0);
+                table.style.width = `${totalWidth}px`;
+                table.style.minWidth = `${totalWidth}px`;
+            };
+            headers.forEach((header, index) => {
+                const width = Number(saved[index]);
+                if (Number.isFinite(width) && width > 40) {
+                    header.style.width = `${width}px`;
+                    header.style.minWidth = `${width}px`;
+                }
+
+                const handle = document.createElement('span');
+                handle.className = 'resize-handle';
+                handle.title = 'سحب لتغيير عرض العمود';
+                header.classList.add('resizable-header');
+                header.appendChild(handle);
+
+                handle.addEventListener('mousedown', (event) => {
+                    event.preventDefault();
+                    const rtl = document.documentElement.dir === 'rtl';
+                    const startX = event.clientX;
+                    const startWidth = header.getBoundingClientRect().width;
+
+                    const onMove = (moveEvent) => {
+                        const delta = moveEvent.clientX - startX;
+                        const width = rtl ? startWidth - delta : startWidth + delta;
+                        const finalWidth = Math.max(40, Math.round(width));
+                        header.style.width = `${finalWidth}px`;
+                        header.style.minWidth = `${finalWidth}px`;
+                        syncTableWidth();
+                    };
+
+                    const onUp = () => {
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onUp);
+                        const payload = {};
+                        headers.forEach((item, idx) => {
+                            payload[idx] = Math.round(item.getBoundingClientRect().width);
+                        });
+                        localStorage.setItem(key, JSON.stringify(payload));
+                        syncTableWidth();
+                    };
+
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                });
+            });
+            syncTableWidth();
+        }
+
+        recentTableBody.addEventListener('input', (event) => {
+            const target = event.target;
+            if (!(target instanceof HTMLInputElement)) {
+                return;
+            }
+            if (target.classList.contains('recent-code')) {
+                target.value = target.value.toUpperCase();
+            }
+            if (target.classList.contains('recent-factory-code')) {
+                target.value = target.value.toUpperCase();
+            }
+            if (target.classList.contains('recent-factory-name')) {
+                const row = target.closest('tr');
+                const codeInput = row?.querySelector('.recent-factory-code');
+                const lookedUpCode = lookupFactoryCode(target.value);
+                if (codeInput && lookedUpCode) {
+                    codeInput.value = lookedUpCode.toUpperCase();
+                }
+            }
+            if (target.classList.contains('recent-dispatch-date')) {
+                target.value = normalizeDateValue(target.value);
+            }
+            updateRecentStatus(target.closest('tr'));
+        });
+
+        recentTableBody.addEventListener('click', async (event) => {
+            const editButton = event.target.closest('.edit-recent-item');
+            if (editButton) {
+                const row = editButton.closest('tr[data-item-id]');
+                setRecentRowEditable(row, true);
+                row?.querySelector('.recent-message-no')?.focus();
+                return;
+            }
+
+            const saveButton = event.target.closest('.save-recent-item');
+            if (saveButton) {
+                await saveRecentRow(saveButton);
+                return;
+            }
+
+            const deleteButton = event.target.closest('.delete-recent-item');
+            if (!deleteButton) {
+                return;
+            }
+
+            const row = deleteButton.closest('tr[data-item-id]');
+            const itemId = row?.dataset.itemId;
+            if (!row || !itemId) {
+                return;
+            }
+            if (!confirm('متأكد أنك تريد حذف هذا السطر نهائياً؟')) {
+                return;
+            }
+
+            deleteButton.disabled = true;
+            try {
+                const response = await fetch('/api/cut-items/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: itemId })
+                });
+                const result = await response.json();
+                if (!response.ok || !result.ok) {
+                    throw new Error(result.message || 'فشل حذف السطر.');
+                }
+
+                row.remove();
+                showMessage(`تم حذف السطر ${itemId} بنجاح.`, 'success');
+
+                if (!recentTableBody.querySelector('tr[data-item-id]')) {
+                    recentTableBody.innerHTML = '<tr><td colspan="11" class="text-center text-muted p-4">لا توجد بيانات مسجلة مؤخراً بانتظار التسليم للمصانع في الوقت الحالي.</td></tr>';
+                }
+            } catch (error) {
+                showMessage(error.message, 'danger');
+            } finally {
+                deleteButton.disabled = false;
+            }
+        });
+
+        printRecentTableButton?.addEventListener('click', () => {
+            window.OperationPrint.printTable({
+                tableId: 'recentCutsTable',
+                optionsId: 'printColumnsOptions',
+                title: 'سجل القصات',
+                enforcePrivacy: true,
+                priceColumnMapping: [9, 10]
+            });
+        });
+
+        Array.from(recentTableBody.querySelectorAll('tr[data-item-id]')).forEach((row) => {
+            setRecentRowEditable(row, false);
+            updateRecentStatus(row);
+        });
+        document.querySelectorAll('.resizable-table').forEach((table) => initResizableTable(table));
+    })();
+</script>
+{% endblock %}

@@ -33,7 +33,9 @@ def list():
         dept_ids = request.args.getlist('department_ids', type=int)
         dept_filter_mode = request.args.get('dept_filter_mode', 'include')
         
-        query = session.query(PenaltyBonus).join(Employee).options(joinedload(PenaltyBonus.employee))
+        query = session.query(PenaltyBonus).join(Employee).options(
+            joinedload(PenaltyBonus.employee).joinedload(Employee.department)
+        )
         
         # Always exclude inactive employees from reports/lists
         query = query.filter(Employee.is_active == True)
@@ -55,7 +57,7 @@ def list():
             else:
                 query = query.filter(Employee.department_id.in_(dept_ids))
                 
-        penalties = query.order_by(PenaltyBonus.date.desc()).all()
+        penalties = query.order_by(Employee.code.asc(), PenaltyBonus.date.asc()).all()
         departments = session.query(Department).all()
         
         # Calculate Statistics
@@ -319,7 +321,7 @@ def bulk_edit_load():
         if code:
              query = query.filter(Employee.code.ilike(f"%{code}%"))
         
-        penalties = query.order_by(PenaltyBonus.date.desc()).all()
+        penalties = query.order_by(Employee.code.asc(), PenaltyBonus.date.asc()).all()
         
         penalties_data = []
         for penalty in penalties:

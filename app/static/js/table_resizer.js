@@ -7,11 +7,39 @@
 */
 
 document.addEventListener('DOMContentLoaded', function () {
-    const tables = document.querySelectorAll('table');
+    const DEFAULT_MIN_COLUMN_WIDTH = 30;
+    const TABLE_SELECTOR = '.table-responsive table, table.table, table.datatable, table.dataTable';
+    const DATATABLE_REFRESH_DELAY = 180;
 
-    tables.forEach(function (table) {
-        createResizableTable(table);
+    initializeTables();
+
+    if (window.jQuery) {
+        $(document).on('init.dt.hrResizer draw.dt.hrResizer column-reorder.dt.hrResizer column-visibility.dt.hrResizer responsive-resize.dt.hrResizer', function (event, settings) {
+            const table = resolveTableFromEvent(event, settings);
+            if (table) {
+                queueDataTableRefresh(table);
+            }
+        });
+    }
+
+    window.addEventListener('load', function () {
+        document.querySelectorAll('table.datatable, table.dataTable').forEach(function (table) {
+            queueDataTableRefresh(table, DATATABLE_REFRESH_DELAY);
+        });
     });
+
+    function initializeTables() {
+        const tables = document.querySelectorAll(TABLE_SELECTOR);
+
+        tables.forEach(function (table) {
+            if (isDataTableManaged(table)) {
+                queueDataTableRefresh(table, DATATABLE_REFRESH_DELAY);
+                return;
+            }
+
+            createResizableTable(table);
+        });
+    }
 
     function getStoredMap(key) {
         if (!window.HRSettingsUtil) return {};
@@ -23,38 +51,146 @@ document.addEventListener('DOMContentLoaded', function () {
         window.HRSettingsUtil.setObject(key, value);
     }
 
+    function resolveTableFromEvent(event, settings) {
+        if (settings && settings.nTable) {
+            return settings.nTable;
+        }
+
+        if (event && event.target && event.target.tagName === 'TABLE') {
+            return event.target;
+        }
+
+        return null;
+    }
+
+    function isDataTableManaged(table) {
+        if (!table) return false;
+
+        if (table.classList.contains('datatable') || table.classList.contains('dataTable') || table.closest('.dataTables_wrapper')) {
+            return true;
+        }
+
+        return !!(window.jQuery && $.fn && $.fn.DataTable && $.fn.DataTable.isDataTable(table));
+    }
+
+    function queueDataTableRefresh(table, delay) {
+        if (!table) return;
+
+        const wait = typeof delay === 'number' ? delay : DATATABLE_REFRESH_DELAY;
+        clearTimeout(table._hrResizerRefreshTimer);
+        table._hrResizerRefreshTimer = setTimeout(function () {
+            if (!table.isConnected) return;
+
+            if (!table.dataset.resizerInitialized) {
+                createResizableTable(table);
+                return;
+            }
+
+            restoreSavedWidths(table);
+            syncTableWidth(table);
+            syncResizerHeights(table);
+        }, wait);
+    }
+
+    function getTableIdentity(table) {
+        if (table.id) {
+            return table.id;
+        }
+
+        if (!table.dataset.hrTableKey) {
+            table.dataset.hrTableKey = 'table-' + Math.random().toString(36).slice(2, 11);
+        }
+
+        return table.dataset.hrTableKey;
+    }
+
+    function getStorageKey(table) {
+        const tableId = getTableIdentity(table);
+        const isLoansTable = tableId === 'loans-table' || tableId.startsWith('loans-table-');
+        return isLoansTable ? 'table_widths_loans_global' : ('table_widths_' + tableId);
+    }
+
+    function restoreSavedWidths(table, cols, storageKey) {
+        const targetCols = cols || table.querySelectorAll('thead th');
+        if (!targetCols.length) return;
+
+        const savedWidths = getStoredMap(storageKey || getStorageKey(table));
+
+        [].forEach.call(targetCols, function (col) {
+            const headerText = col.innerText.trim();
+
+            if (savedWidths[headerText]) {
+                col.style.width = savedWidths[headerText];
+                col.style.minWidth = savedWidths[headerText];
+            } else if (col.getAttribute('width')) {
+                const attrWidth = col.getAttribute('width') + 'px';
+                col.style.width = attrWidth;
+                col.style.minWidth = attrWidth;
+            }
+        });
+    }
+
+    function syncTableWidth(table, cols) {
+        const targetCols = cols || table.querySelectorAll('thead th');
+        if (!targetCols.length) return;
+
+        let totalWidth = 0;
+        [].forEach.call(targetCols, function (col) {
+            const width = parseInt(col.style.width, 10) || col.offsetWidth || 100;
+            totalWidth += width;
+        });
+
+        table.style.width = totalWidth + 'px';
+        table.style.minWidth = totalWidth + 'px';
+    }
+
+    function syncResizerHeights(table) {
+        const height = table.offsetHeight + 'px';
+        table.querySelectorAll('thead th .resizer').forEach(function (resizer) {
+            resizer.style.height = height;
+        });
+    }
+
+    function getMinimumColumnWidth(col) {
+        const explicitMin = parseInt(col.dataset.minWidth || col.getAttribute('data-min-width'), 10);
+        if (!Number.isNaN(explicitMin) && explicitMin > 0) {
+            return explicitMin;
+        }
+        return DEFAULT_MIN_COLUMN_WIDTH;
+    }
+
     function createResizableTable(table) {
         // Skip specific types
         if (table.classList.contains('no-auto-resize') || table.classList.contains('table-borderless')) {
             return;
         }
-        table.style.tableLayout = 'fixed';
+        if (table.dataset.resizerInitialized === '1') {
+            restoreSavedWidths(table);
+            syncTableWidth(table);
+            syncResizerHeights(table);
+            return;
+        }
 
-        const tableId = table.id || 'table-' + Math.random().toString(36).substr(2, 9);
         const cols = table.querySelectorAll('thead th');
+        if (!cols.length) {
+            return;
+        }
+
+        table.style.tableLayout = 'fixed';
+        table.dataset.resizerInitialized = '1';
 
         // Use a generic key for loans related tables to share widths if possible
-        const isLoansTable = tableId === 'loans-table' || tableId.startsWith('loans-table-');
-        const storageKey = isLoansTable ? 'table_widths_loans_global' : ('table_widths_' + tableId);
+        const storageKey = getStorageKey(table);
 
-        // Load saved widths (keyed by header text for cross-table compatibility)
-        const savedWidths = getStoredMap(storageKey);
+        restoreSavedWidths(table, cols, storageKey);
 
         [].forEach.call(cols, function (col) {
-            const headerText = col.innerText.trim();
-
-            // Restore saved width if exists for this header text
-            if (savedWidths[headerText]) {
-                col.style.width = savedWidths[headerText];
-                col.style.minWidth = savedWidths[headerText];
-            } else if (col.getAttribute('width')) {
-                // Use the width attribute if specified
-                const attrWidth = col.getAttribute('width') + 'px';
-                col.style.width = attrWidth;
-                col.style.minWidth = attrWidth;
+            // Add a resizer element to the column
+            if (col.querySelector('.resizer')) {
+                return;
             }
 
-            // Add a resizer element to the column
+            const headerText = col.innerText.trim();
             const resizer = document.createElement('div');
             resizer.classList.add('resizer');
             resizer.style.height = `${table.offsetHeight}px`;
@@ -63,14 +199,7 @@ document.addEventListener('DOMContentLoaded', function () {
             createResizableColumn(col, resizer, storageKey, headerText, table);
         });
 
-        // Calculate and set initial table width from columns
-        let totalWidth = 0;
-        cols.forEach(col => {
-            const w = parseInt(col.style.width, 10) || col.offsetWidth || 100;
-            totalWidth += w;
-        });
-        table.style.width = totalWidth + 'px';
-        table.style.minWidth = totalWidth + 'px';
+        syncTableWidth(table, cols);
     }
 
     function createResizableColumn(col, resizer, storageKey, headerText, table) {
@@ -103,8 +232,8 @@ document.addEventListener('DOMContentLoaded', function () {
             // Calculate new width with minimum constraint
             let newWidth = isRTL ? (w - dx) : (w + dx);
 
-            // Set minimum width to prevent column from becoming too small
-            const minWidth = 80;
+            // Respect the real per-column minimum instead of a hard lock at 80px
+            const minWidth = getMinimumColumnWidth(col);
             if (newWidth < minWidth) {
                 newWidth = minWidth;
             }
@@ -168,6 +297,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         th.style.minWidth = savedWidths[text];
                     }
                 });
+                syncTableWidth(table);
+                syncResizerHeights(table);
             }
         });
     }
@@ -216,10 +347,7 @@ document.addEventListener('DOMContentLoaded', function () {
             table.style.minWidth = `${currentTableWidth + deltaWidth}px`;
 
             // Save to centralized storage
-            const tableId = table.id || 'table-' + Math.random().toString(36).substr(2, 9);
-            const isLoansTable = tableId === 'loans-table' || tableId.startsWith('loans-table-');
-            const storageKey = isLoansTable ? 'table_widths_loans_global' : ('table_widths_' + tableId);
-
+            const storageKey = getStorageKey(table);
             const savedWidths = getStoredMap(storageKey);
             savedWidths[headerText] = header.style.width;
             setStoredMap(storageKey, savedWidths);

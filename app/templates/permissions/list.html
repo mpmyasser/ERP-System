@@ -4,13 +4,13 @@
 
 {% block content %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2"><i class="fas fa-calendar-check me-2"></i> إدارة التصاريح</h1>
+    <h1 class="h2"><i class="fas fa-calendar-check me-2" aria-hidden="true"></i> إدارة التصاريح</h1>
     <div class="btn-toolbar mb-2 mb-md-0">
         <a href="{{ url_for('permissions.bulk') }}" class="btn btn-info me-2">
-            <i class="fas fa-layer-group me-1"></i> إدخال جماعي
+            <i class="fas fa-layer-group me-1" aria-hidden="true"></i> إدخال جماعي
         </a>
         <a href="{{ url_for('permissions.bulk_edit') }}" class="btn btn-warning me-2">
-            <i class="fas fa-edit me-1"></i> تعديل جماعي
+            <i class="fas fa-edit me-1" aria-hidden="true"></i> تعديل جماعي
         </a>
     </div>
 </div>
@@ -23,30 +23,30 @@
 <!-- Stats Bar -->
 <div class="d-flex gap-3 mb-3 flex-wrap">
     <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
-        <i class="fas fa-check-circle text-success me-2"></i>
+        <i class="fas fa-check-circle text-success me-2" aria-hidden="true"></i>
         <div class="ms-2">
-            <small class="text-muted d-block" style="font-size: 0.75rem;">تصاريح مدفوعة</small>
+            <small class="text-muted d-block font-size-075">تصاريح مدفوعة</small>
             <span class="fw-bold">{{ total_paid }}</span>
         </div>
     </div>
     <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
-        <i class="fas fa-times-circle text-warning me-2"></i>
+        <i class="fas fa-times-circle text-warning me-2" aria-hidden="true"></i>
         <div class="ms-2">
-            <small class="text-muted d-block" style="font-size: 0.75rem;">تصاريح غير مدفوعة</small>
+            <small class="text-muted d-block font-size-075">تصاريح غير مدفوعة</small>
             <span class="fw-bold">{{ total_unpaid }}</span>
         </div>
     </div>
     <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
-        <i class="fas fa-money-bill-wave text-success me-2"></i>
+        <i class="fas fa-money-bill-wave text-success me-2" aria-hidden="true"></i>
         <div class="ms-2">
-            <small class="text-muted d-block" style="font-size: 0.75rem;">إجمالي القيمة المادية</small>
+            <small class="text-muted d-block font-size-075">إجمالي القيمة المادية</small>
             <span class="fw-bold">{{ "%.2f"|format(total_material_value) }} جنيه</span>
         </div>
     </div>
     <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
-        <i class="fas fa-list text-primary me-2"></i>
+        <i class="fas fa-list text-primary me-2" aria-hidden="true"></i>
         <div class="ms-2">
-            <small class="text-muted d-block" style="font-size: 0.75rem;">إجمالي التصاريح</small>
+            <small class="text-muted d-block font-size-075">إجمالي التصاريح</small>
             <span class="fw-bold">{{ permissions|length }}</span>
         </div>
     </div>
@@ -54,7 +54,7 @@
 
 <div class="card shadow-sm">
     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="fas fa-calendar-check me-2"></i>قائمة التصاريح</h5>
+        <h5 class="mb-0"><i class="fas fa-calendar-check me-2" aria-hidden="true"></i>قائمة التصاريح</h5>
     </div>
     <div class="card-body">
         {% if permissions %}
@@ -71,6 +71,7 @@
                         <th>القيمة المادية</th>
                         <th>السبب</th>
                         <th>النوع</th>
+                        <th>القسم</th>
                         <th class="no-sort">إجراءات</th>
                     </tr>
                 </thead>
@@ -105,14 +106,15 @@
                             <span class="badge bg-warning text-dark">غير مدفوع</span>
                             {% endif %}
                         </td>
+                        <td>{{ perm.employee.department.name if perm.employee and perm.employee.department else '-' }}</td>
                         <td>
                             <a href="{{ url_for('permissions.edit', id=perm.id) }}" class="btn btn-sm btn-warning"
-                                title="تعديل">
-                                <i class="fas fa-edit"></i>
+                                title="تعديل" aria-label="تعديل التصريح">
+                                <i class="fas fa-edit" aria-hidden="true"></i>
                             </a>
                             <button class="btn btn-sm btn-danger delete-record-btn" data-module="permissions"
-                                data-id="{{ perm.id }}" data-confirm="هل أنت متأكد من حذف هذا التصريح؟" title="حذف">
-                                <i class="fas fa-trash"></i>
+                                data-id="{{ perm.id }}" data-confirm="هل أنت متأكد من حذف هذا التصريح؟" title="حذف" aria-label="حذف التصريح">
+                                <i class="fas fa-trash" aria-hidden="true"></i>
                             </button>
                         </td>
                     </tr>
@@ -122,7 +124,7 @@
         </div>
         {% else %}
         <div class="alert alert-info text-center">
-            <i class="fas fa-info-circle fa-2x mb-2 d-block"></i> لا توجد تصاريح مسجلة تطابق البحث
+            <i class="fas fa-info-circle fa-2x mb-2 d-block" aria-hidden="true"></i> لا توجد تصاريح مسجلة تطابق البحث
         </div>
         {% endif %}
     </div>

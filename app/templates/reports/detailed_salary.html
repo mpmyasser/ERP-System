@@ -10,7 +10,11 @@
                     <h6 class="card-title">اختر الشهر والسنة</h6>
                     <form method="get"
                         action="{{ url_for('reports.detailed_salary', emp_id=report.employee_id if report.employee_id else 0) }}"
+                        id="periodForm"
                         class="d-flex gap-2">
+                        {% for dept_id in selected_department_ids %}
+                        <input type="hidden" name="department_ids" value="{{ dept_id }}">
+                        {% endfor %}
                         <select name="year" class="form-select" style="max-width: 120px;">
                             {% for y in range(2020, 2030) %}
                             <option value="{{ y }}" {% if y==report.year %}selected{% endif %}>{{ y }}</option>
@@ -34,6 +38,31 @@
                             <i class="fas fa-search"></i> عرض
                         </button>
                     </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">التنقل بين الموظفين</h6>
+                    <label for="dept-filter" class="form-label">الأقسام</label>
+                    <select name="department_ids" id="dept-filter" class="form-select" multiple size="1" title="اختر الأقسام">
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}" {% if selected_department_ids and dept.id in selected_department_ids %}selected{% endif %}>
+                            {{ dept.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+
+                    <label for="employeeNavSelect" class="form-label">الموظف</label>
+                    <select id="employeeNavSelect" class="form-select mt-2">
+                        {% for emp_item in payroll_employees %}
+                        <option value="{{ emp_item.id }}" {% if emp_item.id==report.employee_id %}selected{% endif %}>
+                            {{ emp_item.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
                 </div>
             </div>
         </div>
@@ -463,4 +492,97 @@
         text-align: right;
     }
 </style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const departmentSelect = document.getElementById('dept-filter');
+        const select = document.getElementById('employeeNavSelect');
+        if (!select || !departmentSelect) return;
+
+        if (window.jQuery && $.fn.select2) {
+            $('#dept-filter').select2({
+                placeholder: "اختر الأقسام...",
+                allowClear: true,
+                width: '100%',
+                dir: 'rtl'
+            });
+        }
+
+        function getSelectedDepartmentIds() {
+            if (window.jQuery) {
+                return ($('#dept-filter').val() || []).filter(Boolean);
+            }
+            return Array.from(departmentSelect.selectedOptions).map(opt => opt.value).filter(Boolean);
+        }
+
+        function rebuildEmployeeOptions(employees, selectedEmployeeId) {
+            select.innerHTML = '';
+            employees.forEach(emp => {
+                const option = document.createElement('option');
+                option.value = String(emp.id);
+                option.textContent = emp.name;
+                if (selectedEmployeeId && String(emp.id) === String(selectedEmployeeId)) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+        }
+
+        function syncDepartmentHiddenInputs() {
+            const periodForm = document.getElementById('periodForm');
+            if (!periodForm) return;
+
+            periodForm.querySelectorAll('input[name="department_ids"]').forEach(input => input.remove());
+            getSelectedDepartmentIds().forEach(id => {
+                const hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = 'department_ids';
+                hidden.value = id;
+                periodForm.appendChild(hidden);
+            });
+        }
+
+        function loadEmployeesByDepartments() {
+            const departmentIds = getSelectedDepartmentIds();
+            syncDepartmentHiddenInputs();
+            const params = new URLSearchParams();
+            departmentIds.forEach(id => params.append('departments_ids[]', id));
+
+            const url = '{{ url_for("reports.get_employees_by_departments") }}'
+                + (params.toString() ? ('?' + params.toString()) : '');
+
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    const currentSelectedEmployeeId = select.value;
+                    rebuildEmployeeOptions(Array.isArray(data) ? data : [], currentSelectedEmployeeId);
+                })
+                .catch(err => {
+                    console.error('Failed loading employees by departments', err);
+                });
+        }
+
+        select.addEventListener('change', function () {
+            const selectedEmployeeId = this.value;
+            if (!selectedEmployeeId) return;
+
+            const departmentIds = getSelectedDepartmentIds();
+            const params = new URLSearchParams();
+            params.append('month', '{{ report.month }}');
+            params.append('year', '{{ report.year }}');
+            departmentIds.forEach(id => params.append('department_ids', id));
+
+            const baseUrl = '{{ url_for("reports.detailed_salary", emp_id=0) }}';
+            const targetUrl = baseUrl.replace(/0$/, selectedEmployeeId)
+                + '?' + params.toString();
+            window.location.href = targetUrl;
+        });
+
+        if (window.jQuery) {
+            $('#dept-filter').on('change', loadEmployeesByDepartments);
+        } else {
+            departmentSelect.addEventListener('change', loadEmployeesByDepartments);
+        }
+    });
+</script>
 {% endblock %}

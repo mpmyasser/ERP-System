@@ -4,7 +4,7 @@ Reports Routes
 Various HR reports
 """
 
-from flask import Blueprint, render_template, request, flash, redirect, url_for, current_app
+from flask import Blueprint, render_template, request, flash, redirect, url_for, current_app, jsonify
 import sys
 import os
 from datetime import datetime, date, timedelta
@@ -39,10 +39,18 @@ def insurance_costs():
     session = db.get_session()
     
     try:
-        # Get all departments
-        departments = session.query(Department).all()
-        # Get all active insured employees
-        employees = session.query(Employee).filter_by(is_active=True, is_insured=True).all()
+        from sqlalchemy.orm import load_only
+        # Get all departments with only necessary fields
+        departments = session.query(Department).options(load_only(Department.id, Department.name)).all()
+        # Get all active insured employees with only fields needed for insurance calculation
+        employees = session.query(Employee).options(
+            load_only(
+                Employee.id, Employee.name, Employee.department_id, 
+                Employee.is_active, Employee.is_insured, Employee.insurance_salary,
+                Employee.insurance_employee_share, Employee.insurance_company_share,
+                Employee.insurance_policy, Employee.basic_salary
+            )
+        ).filter_by(is_active=True, is_insured=True).all()
         
         # Structure data by department
         report_data = []
@@ -327,6 +335,7 @@ def attendance():
 def payroll_sheet():
     """Department Payroll Sheet (Comprehensive)"""
     db = current_app.db
+    session = db.get_session()
     # Get all departments for filter
     all_departments = db.get_departments()
     
@@ -355,48 +364,57 @@ def payroll_sheet():
 
     calculator = PayrollCalculator(db)
     
-    for dept in departments_to_process:
-        dept_record = {
-            'department': dept,
-            'employees': [],
-            'total_wages': 0.0,
-            'count': 0
-        }
-        
-        # Get active employees in this department
-        # Note: eager loading in get_departments() might be sufficient, otherwise access relationship
-        active_employees = [e for e in dept.employees if e.is_active]
-        
-        for emp in active_employees:
-            try:
-                # Calculate payroll
-                salary_info = calculator.calculate_monthly_payroll(emp.id, month, year)
-                # Create employee record
-                employee_data = {
-                    'code': emp.code,
-                    'name': emp.name,
-                    'job_title': emp.job_title,
-                    'is_active': emp.is_active
-                }
-                
-                # Update with calculated financial data
-                # salary_info contains: Basic Salary, Net Salary, Total Additions, Total Deductions, etc.
-                employee_data.update(salary_info)
-                
-                # Add specific computed fields for the report if not present
-                if 'Bonuses' not in employee_data:
-                     # Fallback if calculator varies
-                     employee_data['Bonuses'] = salary_info.get('Incentive', 0) + salary_info.get('Bonuses', 0)
-                     
-                dept_record['employees'].append(employee_data)
-                
-                dept_record['total_wages'] += salary_info.get('Net Salary', 0.0)
-                dept_record['count'] += 1
-            except Exception as e:
-                print(f"Error calculating payroll for {emp.name}: {e}")
-                
-        if dept_record['employees']:
-            report_data.append(dept_record)
+    try:
+        for dept in departments_to_process:
+            dept_record = {
+                'department': dept,
+                'employees': [],
+                'total_wages': 0.0,
+                'count': 0
+            }
+            
+            # Get active employees in this department with only needed fields
+            # Faster than accessing dept.employees relationship which loads full objects
+            from sqlalchemy.orm import load_only
+            active_employees = session.query(Employee).options(
+                load_only(
+                    Employee.id, Employee.code, Employee.name, Employee.job_title, 
+                    Employee.is_active, Employee.department_id, Employee.basic_salary
+                )
+            ).filter_by(department_id=dept.id, is_active=True).order_by(Employee.code.asc()).all()
+            
+            for emp in active_employees:
+                try:
+                    # Calculate payroll
+                    salary_info = calculator.calculate_monthly_payroll(emp.id, month, year)
+                    # Create employee record
+                    employee_data = {
+                        'code': emp.code,
+                        'name': emp.name,
+                        'job_title': emp.job_title,
+                        'is_active': emp.is_active
+                    }
+                    
+                    # Update with calculated financial data
+                    # salary_info contains: Basic Salary, Net Salary, Total Additions, Total Deductions, etc.
+                    employee_data.update(salary_info)
+                    
+                    # Add specific computed fields for the report if not present
+                    if 'Bonuses' not in employee_data:
+                         # Fallback if calculator varies
+                         employee_data['Bonuses'] = salary_info.get('Incentive', 0) + salary_info.get('Bonuses', 0)
+                         
+                    dept_record['employees'].append(employee_data)
+                    
+                    dept_record['total_wages'] += salary_info.get('Net Salary', 0.0)
+                    dept_record['count'] += 1
+                except Exception as e:
+                    print(f"Error calculating payroll for {emp.name}: {e}")
+                    
+            if dept_record['employees']:
+                report_data.append(dept_record)
+    finally:
+        session.close()
             
     return render_template('reports/payroll_sheet.html',
                          all_departments=all_departments,
@@ -406,15 +424,12 @@ def payroll_sheet():
                          year=year)
 
 
-
-
-
 @reports_bp.route('/payroll_signature')
 def payroll_signature():
     """Payroll Signature Sheet (Simple)"""
     db = current_app.db
     all_departments = db.get_departments()
-    
+
     dept_ids = request.args.getlist('department_ids', type=int)
     month = request.args.get('month', type=int, default=datetime.now().month)
     year = request.args.get('year', type=int, default=datetime.now().year)
@@ -438,7 +453,10 @@ def payroll_signature():
             'count': 0
         }
         
-        active_employees = [e for e in dept.employees if e.is_active]
+        active_employees = sorted(
+            [e for e in dept.employees if e.is_active],
+            key=lambda e: (e.code or '')
+        )
         
         for emp in active_employees:
             try:
@@ -530,57 +548,130 @@ def detailed_salary_index():
 @reports_bp.route('/detailed_salary/<int:emp_id>')
 def detailed_salary(emp_id):
     """Generate detailed salary report for employee"""
+    session = None
     try:
         db = current_app.db
         month = request.args.get('month', type=int, default=datetime.now().month)
         year = request.args.get('year', type=int, default=datetime.now().year)
-        
-        # --- Automatic Reprocess Logic ---
-        # Ensure fresh data by reprocessing logs for report month
-        from database_models import AttendanceLog
-        from services.attendance_service import AttendanceService
-        
+
         session = db.get_session()
         emp = session.query(Employee).filter_by(id=emp_id).first()
-        
-        if emp:
-            # Re-use calc helper to get range
-            calc_temp = PayrollCalculator(db)
-            start_date, end_date = calc_temp.get_salary_month_date_range(month, year)
-            
-            # Fetch logs
-            logs = session.query(AttendanceLog).filter(
-                AttendanceLog.employee_code == emp.code,
-                AttendanceLog.timestamp >= datetime.combine(start_date, datetime.min.time()),
-                AttendanceLog.timestamp <= datetime.combine(end_date, datetime.max.time())
-            ).all()
-            
-            # Group by date
-            from collections import defaultdict
-            logs_by_date = defaultdict(list)
-            for log in logs:
-                logs_by_date[log.timestamp.date()].append(log.timestamp.time())
-            
-            service = AttendanceService(session)
-            # Process each date with logs
-            for date_key, times in logs_by_date.items():
-                times.sort()
-                cin = times[0]
-                cout = times[-1] if len(times) > 1 else None
-                service.process_attendance_record(emp.id, date_key, cin, cout)
-            
-            if logs:
-                session.commit()
-        # ---------------------------------
+        if not emp:
+            flash('الموظف غير موجود', 'danger')
+            return redirect(url_for('reports.detailed_salary_index'))
         
         calculator = PayrollCalculator(db)
         report_data = calculator.get_detailed_payroll_report(emp_id, month, year)
-        
-        return render_template('reports/detailed_salary.html', report=report_data)
+
+        selected_department_ids = request.args.getlist('department_ids', type=int)
+        departments = db.get_departments()
+
+        # Navigation list: active employees only (id + name), without payroll recalculation.
+        employees_query = session.query(Employee.id, Employee.name).filter(
+            Employee.is_active == True
+        )
+        if selected_department_ids:
+            employees_query = employees_query.filter(Employee.department_id.in_(selected_department_ids))
+        payroll_employees = employees_query.order_by(Employee.code.asc()).all()
+        payroll_employees = [
+            {'id': emp_id, 'name': emp_name}
+            for emp_id, emp_name in payroll_employees
+        ]
+
+        return render_template(
+            'reports/detailed_salary.html',
+            report=report_data,
+            payroll_employees=payroll_employees,
+            departments=departments,
+            selected_department_ids=selected_department_ids
+        )
         
     except Exception as e:
         flash(f"حدث خطأ أثناء إنشاء التقرير: {str(e)}", "danger")
         return redirect(request.referrer or url_for('reports.index'))
+    finally:
+        if session is not None:
+            session.close()
+
+
+@reports_bp.route('/interactive_detailed')
+@login_required
+@permission_required('view_interactive_detailed_salary')
+def interactive_detailed_index():
+    """Index for selecting an employee for interactive report"""
+    db = current_app.db
+    all_employees = db.get_all_employees()
+    employees = [e for e in all_employees if e.is_active]
+    return render_template('reports/select_employee_interactive.html', employees=employees)
+
+
+@reports_bp.route('/interactive_detailed/<int:emp_id>')
+@login_required
+@permission_required('view_interactive_detailed_salary')
+def interactive_detailed_salary(emp_id):
+    """Interactive Detailed Salary Report for direct management"""
+    session = None
+    try:
+        db = current_app.db
+        month = request.args.get('month', type=int, default=datetime.now().month)
+        year = request.args.get('year', type=int, default=datetime.now().year)
+
+        session = db.get_session()
+        emp = session.query(Employee).filter_by(id=emp_id).first()
+        if not emp:
+            flash('الموظف غير موجود', 'danger')
+            return redirect(url_for('reports.detailed_salary_index'))
+        
+        calculator = PayrollCalculator(db)
+        report_data = calculator.get_detailed_payroll_report(emp_id, month, year)
+
+        selected_department_ids = request.args.getlist('department_ids', type=int)
+        departments = db.get_departments()
+
+        # Navigation list
+        employees_query = session.query(Employee.id, Employee.name).filter(Employee.is_active == True)
+        if selected_department_ids:
+            employees_query = employees_query.filter(Employee.department_id.in_(selected_department_ids))
+        payroll_employees = [{'id': eid, 'name': ename} for eid, ename in employees_query.order_by(Employee.code.asc()).all()]
+
+        return render_template(
+            'reports/interactive_detailed_salary.html',
+            report=report_data,
+            payroll_employees=payroll_employees,
+            departments=departments,
+            selected_department_ids=selected_department_ids
+        )
+    except Exception as e:
+        flash(f"حدث خطأ: {str(e)}", "danger")
+        return redirect(url_for('reports.index'))
+    finally:
+        if session is not None:
+            session.close()
+
+
+@reports_bp.route('/get_employees_by_departments', methods=['GET'])
+def get_employees_by_departments():
+    """Return active employees (id + name) filtered by selected departments."""
+    db = current_app.db
+    session = db.get_session()
+    try:
+        department_ids = request.args.getlist('departments_ids[]', type=int)
+        if not department_ids:
+            department_ids = request.args.getlist('departments_ids', type=int)
+        if not department_ids:
+            department_ids = request.args.getlist('department_ids', type=int)
+
+        query = session.query(Employee.id, Employee.name).filter(Employee.is_active == True)
+        if department_ids:
+            query = query.filter(Employee.department_id.in_(department_ids))
+
+        employees = query.order_by(Employee.code.asc()).all()
+        return jsonify([{'id': emp_id, 'name': emp_name} for emp_id, emp_name in employees])
+    except Exception:
+        current_app.logger.exception('Failed to load employees by departments')
+        return jsonify([]), 500
+    finally:
+        session.close()
 
 @reports_bp.route('/employee_history/<employee_code>')
 def employee_history(employee_code):

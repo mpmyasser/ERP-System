@@ -33,7 +33,9 @@ def list():
         dept_ids = request.args.getlist('department_ids', type=int)
         dept_filter_mode = request.args.get('dept_filter_mode', 'include')
         
-        query = session.query(Permission).join(Employee).options(joinedload(Permission.employee))
+        query = session.query(Permission).join(Employee).options(
+            joinedload(Permission.employee).joinedload(Employee.department)
+        )
         
         # Date filtering
         if date_from_str:
@@ -52,7 +54,7 @@ def list():
             else:
                 query = query.filter(Employee.department_id.in_(dept_ids))
                 
-        permissions = query.order_by(Permission.date.desc()).all()
+        permissions = query.order_by(Employee.code.asc(), Permission.date.asc(), Permission.id.asc()).all()
         departments = session.query(Department).all()
         
         # Calculate Statistics
@@ -262,7 +264,7 @@ def bulk_edit_load():
         if department_id:
             query = query.filter(Employee.department_id == department_id)
         
-        permissions = query.order_by(Permission.date.desc()).all()
+        permissions = query.order_by(Employee.code.asc(), Permission.date.asc(), Permission.id.asc()).all()
         
         permissions_data = []
         for perm in permissions:

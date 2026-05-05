@@ -1,0 +1,915 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    @media print {
+        .no-print, .navbar, #sidebar, .btn, form, .print-controls, .card-header { display: none !important; }
+        main { width: 100% !important; margin: 0 !important; padding: 0 !important; flex: 0 0 100%; max-width: 100%; }
+        .container { max-width: 100% !important; width: 100% !important; }
+        .badge { border: 1px solid #000; color: #000 !important; }
+        .bg-success, .bg-danger { background-color: white !important; }
+        .table { width: 100% !important; border-collapse: collapse !important; }
+        th, td { padding: 4px !important; }
+        body { background-color: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    }
+    .rtl { direction: rtl; text-align: right; }
+    .cursor-pointer { cursor: pointer; }
+    .action-icon { font-size: 0.9rem; margin-right: 5px; opacity: 0.6; transition: opacity 0.2s; color: #007bff; }
+    .action-icon:hover { opacity: 1; }
+    .interactive-cell:hover { background-color: #f8f9fa; }
+    #loadingOverlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(255,255,255,0.7); display: none; z-index: 9999;
+        justify-content: center; align-items: center;
+    }
+</style>
+
+<div id="loadingOverlay">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+
+<div class="container mt-4 rtl">
+    <!-- منتقي الشهر والسنة -->
+    <div class="row mb-3 no-print">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">اختر الشهر والسنة</h6>
+                    <form method="get"
+                        action="{{ url_for('reports.interactive_detailed_salary', emp_id=report.employee_id if report.employee_id else 0) }}"
+                        id="periodForm"
+                        class="d-flex gap-2">
+                        {% for dept_id in selected_department_ids %}
+                        <input type="hidden" name="department_ids" value="{{ dept_id }}">
+                        {% endfor %}
+                        <select name="year" class="form-select" style="max-width: 120px;">
+                            {% for y in range(2020, 2030) %}
+                            <option value="{{ y }}" {% if y==report.year %}selected{% endif %}>{{ y }}</option>
+                            {% endfor %}
+                        </select>
+                        <select name="month" class="form-select" style="max-width: 150px;">
+                            <option value="1" {% if report.month==1 %}selected{% endif %}>يناير</option>
+                            <option value="2" {% if report.month==2 %}selected{% endif %}>فبراير</option>
+                            <option value="3" {% if report.month==3 %}selected{% endif %}>مارس</option>
+                            <option value="4" {% if report.month==4 %}selected{% endif %}>أبريل</option>
+                            <option value="5" {% if report.month==5 %}selected{% endif %}>مايو</option>
+                            <option value="6" {% if report.month==6 %}selected{% endif %}>يونيو</option>
+                            <option value="7" {% if report.month==7 %}selected{% endif %}>يوليو</option>
+                            <option value="8" {% if report.month==8 %}selected{% endif %}>أغسطس</option>
+                            <option value="9" {% if report.month==9 %}selected{% endif %}>سبتمبر</option>
+                            <option value="10" {% if report.month==10 %}selected{% endif %}>أكتوبر</option>
+                            <option value="11" {% if report.month==11 %}selected{% endif %}>نوفمبر</option>
+                            <option value="12" {% if report.month==12 %}selected{% endif %}>ديسمبر</option>
+                        </select>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i> عرض
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">التنقل بين الموظفين</h6>
+                    <label for="dept-filter" class="form-label">الأقسام</label>
+                    <select name="department_ids" id="dept-filter" class="form-select" multiple size="1" title="اختر الأقسام">
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}" {% if selected_department_ids and dept.id in selected_department_ids %}selected{% endif %}>
+                            {{ dept.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+
+                    <label for="employeeNavSelect" class="form-label">الموظف</label>
+                    <select id="employeeNavSelect" class="form-select mt-2">
+                        {% for emp_item in payroll_employees %}
+                        <option value="{{ emp_item.id }}" {% if emp_item.id==report.employee_id %}selected{% endif %}>
+                            {{ emp_item.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm print-card">
+        <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center d-print-none">
+            <h4 class="mb-0 fw-bold"><i class="fas fa-hand-pointer me-2"></i> تقرير راتب تفصيلي (تفاعلي)</h4>
+            <div class="print-controls">
+                <button class="btn btn-primary btn-sm fw-bold me-2" data-id="{{ report.employee_id }}" data-name="{{ report.employee_name }}" onclick="openBonusModal(this)">
+                    <i class="fas fa-gift me-1"></i> إضافة مكافأة
+                </button>
+                <button class="btn btn-success btn-sm fw-bold me-2" data-id="{{ report.employee_id }}" data-name="{{ report.employee_name }}" onclick="openPermissionModal(this)">
+                    <i class="fas fa-plus me-1"></i> إضافة تصريح
+                </button>
+                <button onclick="window.print()" class="btn btn-dark btn-sm fw-bold">
+                    <i class="fas fa-print me-1"></i> طباعة
+                </button>
+            </div>
+        </div>
+
+        <div class="print-only">
+            <div class="print-header">
+                <h1>بيان مفردات مرتب تفصيلي</h1>
+                <p>عن شهر: {{ report.month }}/{{ report.year }}</p>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- Employee Info -->
+            <div class="row mb-4 border-bottom pb-3">
+                <div class="col-md-6">
+                    <table class="table table-borderless table-sm">
+                        <tr>
+                            <th style="width: 150px;">اسم الموظف:</th>
+                            <td>{{ report.employee_name }}</td>
+                        </tr>
+                        <tr>
+                            <th>كود الموظف:</th>
+                            <td>{{ report.employee_code }}</td>
+                        </tr>
+                        <tr>
+                            <th>المسمى الوظيفي:</th>
+                            <td>{{ report.job_title or '-' }}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <table class="table table-borderless table-sm">
+                        <tr>
+                            <th style="width: 150px;">الشهر / السنة:</th>
+                            <td>{{ report.month }} / {{ report.year }}</td>
+                        </tr>
+                        <tr>
+                            <th>الراتب الأساسي:</th>
+                            <td>{{ "%.2f"|format(report.basic_salary) }} ج.م</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 1. Daily Attendance Details -->
+            <h5 class="text-secondary mb-3"><i class="fas fa-calendar-check"></i> تفاصيل الحضور اليومي</h5>
+            <div class="table-responsive mb-4">
+                <table class="table table-bordered table-striped table-hover text-center table-sm"
+                    style="font-size: 0.9rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th>التاريخ</th>
+                            <th>الحالة</th>
+                            <th>دخول</th>
+                            <th>خروج</th>
+                            <th class="text-danger">تأخير (د)</th>
+                            <th class="text-danger">خصم تأخير</th>
+                            <th class="text-warning">مبكر (د)</th>
+                            <th class="text-warning">خصم مبكر</th>
+                            <th class="text-primary">إضافي (س)</th>
+                            <th class="text-primary">قيمة إضافي</th>
+                            <th>تصريح (س)</th>
+                            <th>خصم تصريح</th>
+                            <th class="no-print">إجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for day in report.daily_details %}
+                        <tr class="interactive-cell">
+                            <td>{{ day.date.strftime('%d/%m/%Y') if day.date else '-' }}</td>
+                            <td>
+                                {% if day.is_holiday %}
+                                {% if day.holiday_name == 'إجازة أسبوعية' %}
+                                <span class="badge" style="background-color: #8CE4FF; color: #000;">{{ day.holiday_name }}</span>
+                                {% else %}
+                                <span class="badge" style="background-color: #FFC400; color: #000;">{{ day.holiday_name }}</span>
+                                {% endif %}
+                                {% elif day.is_leave %}
+                                <span class="badge bg-secondary">{{ day.leave_type }}</span>
+                                {% elif 'غائب' in day.status %}
+                                <span class="badge bg-danger">غائب</span>
+                                {% elif 'عطلة' in day.status or 'إجازة' in day.status %}
+                                <span class="badge bg-secondary">{{ day.status }}</span>
+                                {% else %}
+                                <span class="badge bg-success">حاضر</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ day.check_in or '-' }}</td>
+                            <td>{{ day.check_out or '-' }}</td>
+
+                            <!-- Late -->
+                            <td class="{{ 'text-danger fw-bold' if day.late_minutes > 0 }}">{{ day.late_minutes }}</td>
+                            <td>{{ "%.2f"|format(day.late_deduction) }}</td>
+
+                            <!-- Early -->
+                            <td class="{{ 'text-warning fw-bold' if day.early_minutes > 0 }}">{{ day.early_minutes }}
+                            </td>
+                            <td>{{ "%.2f"|format(day.early_deduction) }}</td>
+
+                            <!-- OT -->
+                            <td class="{{ 'text-primary fw-bold' if day.overtime_hours > 0 }}">{{
+                                "%.2f"|format(day.overtime_hours) }}
+                            </td>
+                            <td>{{ "%.2f"|format(day.overtime_value) }}</td>
+
+                            <!-- Permissions -->
+                            <td>{{ "%.2f"|format(day.permission_hours) }}</td>
+                            <td>{{ "%.2f"|format(day.permission_deduction) }}</td>
+                            
+                            <td class="no-print">
+                                <i class="fas fa-edit action-icon cursor-pointer" 
+                                   data-id="{{ report.employee_id }}" 
+                                   data-name="{{ report.employee_name }}"
+                                   data-date="{{ day.date.isoformat() if day.date else '' }}"
+                                   data-in="{{ day.check_in or '' }}"
+                                   data-out="{{ day.check_out or '' }}"
+                                   data-status="{{ 'Present' if day.status == 'حاضر' else 'Absent' }}"
+                                   onclick="openAttendanceModal(this)"></i>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light fw-bold">
+                        <tr>
+                            <td colspan="4">الإجمالي</td>
+                            <td>{{ report.daily_details|sum(attribute='late_minutes') }}</td>
+                            <td>{{ "%.2f"|format(report.summary.late_deduction) }}</td>
+                            <td>{{ report.daily_details|sum(attribute='early_minutes') }}</td>
+                            <td>{{ "%.2f"|format(report.summary.early_deduction) }}</td>
+                            <td>{{ "%.2f"|format(report.daily_details|sum(attribute='overtime_hours')) }}</td>
+                            <td>{{ "%.2f"|format(report.summary.overtime_value) }}</td>
+                            <td>{{ "%.2f"|format(report.daily_details|sum(attribute='permission_hours')) }}</td>
+                            <td>{{ "%.2f"|format(report.summary.permissions_deduction) }}</td>
+                            <td class="no-print"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="text-secondary mb-0"><i class="fas fa-hand-holding-usd"></i> السلف والمديونيات</h5>
+                        <button class="btn btn-sm btn-outline-info no-print" data-id="{{ report.employee_id }}" data-name="{{ report.employee_name }}" onclick="openLoanModal(this)">
+                            <i class="fas fa-plus"></i> إضافة سلفة
+                        </button>
+                    </div>
+                    <table class="table table-bordered table-sm text-center">
+                        <thead class="table-light">
+                            <tr>
+                                <th>النوع</th>
+                                <th>تاريخ الصرف</th>
+                                <th>القيمة</th>
+                                <th>قسط الشهر</th>
+                                <th>تاريخ الانتهاء</th>
+                                <th>المتبقي</th>
+                                <th class="no-print">إجراء</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for loan in report.loans_details %}
+                            <tr>
+                                <td>
+                                    {% if loan.type == 'monthly' or loan.type == 'permanent' %}
+                                    مستديمة
+                                    {% elif loan.type == 'emergency' or loan.type == 'temporary' %}
+                                    مؤقتة
+                                    {% else %}
+                                    {{ loan.type }}
+                                    {% endif %}
+                                </td>
+                                <td>{{ loan.date.strftime('%d/%m/%Y') if loan.date and loan.date != 'غير مسجل' else 'غير
+                                    مسجل' }}</td>
+                                <td>{{ "%.2f"|format(loan.amount) }}</td>
+                                <td class="text-danger fw-bold">{{ "%.2f"|format(loan.installment) }}</td>
+                                <td>{{ loan.end_date.strftime('%d/%m/%Y') if loan.end_date else '-' }}</td>
+                                <td>{{ "%.2f"|format(loan.remaining) }}</td>
+                                <td class="no-print">
+                                    <i class="fas fa-trash-alt action-icon cursor-pointer text-danger" onclick="deleteLoan('{{ loan.id }}')"></i>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="7" class="text-muted">لا يوجد سلف نشطة</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="text-secondary mb-0"><i class="fas fa-exclamation-triangle"></i> الجزاءات الإدارية
+                        </h5>
+                        <button class="btn btn-sm btn-outline-danger no-print" data-id="{{ report.employee_id }}" data-name="{{ report.employee_name }}" onclick="openPenaltyModal(this)">
+                            <i class="fas fa-plus"></i> إضافة جزاء
+                        </button>
+                    </div>
+                    <table class="table table-bordered table-sm text-center">
+                        <thead class="table-light">
+                            <tr>
+                                <th>التاريخ</th>
+                                <th>السبب</th>
+                                <th>القيمة</th>
+                                <th class="no-print">إجراء</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for penalty in report.penalties_details %}
+                            <tr>
+                                <td>{{ penalty.date.strftime('%d/%m/%Y') if penalty.date else '-' }}</td>
+                                <td>{{ penalty.reason or '-' }}</td>
+                                <td class="text-danger fw-bold">{{ "%.2f"|format(penalty.amount) }}</td>
+                                <td class="no-print">
+                                    <i class="fas fa-trash-alt action-icon cursor-pointer text-danger" onclick="deletePenalty('{{ penalty.id }}')"></i>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-muted">لا يوجد جزاءات هذا الشهر</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 4. Final Summary (Explanatory) -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card border-primary shadow-sm">
+                        <div class="card-header bg-primary text-white text-center">
+                            <h5 class="mb-0 py-1">تفاصيل مستحقات الراتب النهائية</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <!-- Earnings Column -->
+                                <div class="col-md-6 border-end">
+                                    <h6 class="text-success border-bottom pb-2 mb-3">
+                                        <i class="fas fa-plus-circle"></i> الاستحقاقات (الإضافات)
+                                    </h6>
+                                    <table class="table table-sm table-borderless">
+                                        <tr class="bg-light">
+                                            <td>الراتب الأساسي (تعاقد):</td>
+                                            <td class="text-end">{{ "%.2f"|format(report.basic_salary) }} ج.م</td>
+                                        </tr>
+                                        <tr class="small text-muted border-bottom">
+                                            <td colspan="2">قيمة اليومية (على 26 يوم): {{
+                                                "%.2f"|format(report.summary.daily_salary) }} ج.م</td>
+                                        </tr>
+                                        <tr class="fw-bold">
+                                            <td>قيمة أيام الحضور ({{ report.summary.attendance_days }} يوم):</td>
+                                            <td class="text-end">{{ "%.2f"|format(report.summary.gross_salary) }} ج.م
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>حافز الأداء:</td>
+                                            <td class="text-end text-success">+ {{
+                                                "%.2f"|format(report.summary.incentive) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>حافز الانتظام:</td>
+                                            <td class="text-end text-success">+ {{
+                                                "%.2f"|format(report.summary.regularity_incentive) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>قيمة الساعات الإضافية:</td>
+                                            <td class="text-end text-success">+ {{
+                                                "%.2f"|format(report.summary.overtime_value) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>بدل الانتقال:</td>
+                                            <td class="text-end text-success">+ {{
+                                                "%.2f"|format(report.summary.transport) }}</td>
+                                        </tr>
+                                        {% if report.summary.bonuses > 0 %}
+                                        <tr>
+                                            <td>مكافآت إضافية:</td>
+                                            <td class="text-end text-success">+ {{
+                                                "%.2f"|format(report.summary.bonuses) }}</td>
+                                        </tr>
+                                        {% endif %}
+                                        <tr class="border-top fw-bold h5">
+                                            <td>إجمالي الاستحقاقات:</td>
+                                            <td class="text-end text-success">{{
+                                                "%.2f"|format(report.summary.total_additions +
+                                                report.summary.gross_salary) }} ج.م</td>
+                                        </tr>
+                                    </table>
+                                </div>
+
+                                <!-- Deductions Column -->
+                                <div class="col-md-6">
+                                    <h6 class="text-danger border-bottom pb-2 mb-3">
+                                        <i class="fas fa-minus-circle"></i> الاستقطاعات (الخصومات)
+                                    </h6>
+                                    <table class="table table-sm table-borderless">
+                                        <!-- تم فصل خصم الغياب عن جزاء الغياب للوضوح -->
+                                        {% if report.summary.absence_deduction > 0 %}
+                                        <tr>
+                                            <td>خصم أيام الغياب ({{ report.summary.absence_days }} يوم):</td>
+                                            <td class="text-end text-danger">- {{
+                                                "%.2f"|format(report.summary.absence_deduction) }}</td>
+                                        </tr>
+                                        {% endif %}
+                                        <tr>
+                                            <td>خصم تأخير الصباح:</td>
+                                            <td class="text-end text-danger">- {{
+                                                "%.2f"|format(report.summary.late_deduction) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>خصم الانصراف المبكر:</td>
+                                            <td class="text-end text-danger">- {{
+                                                "%.2f"|format(report.summary.early_deduction) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>جزاءات الغياب (إدارية):</td>
+                                            <td class="text-end text-danger">- {{
+                                                "%.2f"|format(report.summary.absence_penalty) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>خصم ساعات التصاريح:</td>
+                                            <td class="text-end text-danger">- {{
+                                                "%.2f"|format(report.summary.permissions_deduction) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>أقساط السلف:</td>
+                                            <td class="text-end text-danger">- {{
+                                                "%.2f"|format(report.summary.loans_deduction) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>جزاءات إدارية:</td>
+                                            <td class="text-end text-danger">- {{
+                                                "%.2f"|format(report.summary.admin_penalties) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>تأمينات اجتماعية:</td>
+                                            <td class="text-end text-danger">- {{
+                                                "%.2f"|format(report.summary.insurance) }}</td>
+                                        </tr>
+                                        <tr class="border-top fw-bold h5">
+                                            <td>إجمالي الاستقطاعات:</td>
+                                            <td class="text-end text-danger">{{
+                                                "%.2f"|format(report.summary.total_deductions) }} ج.م</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Net Salary Footer -->
+                            <div class="row mt-3 border-top pt-3 align-items-center">
+                                <div class="col-md-8 text-muted">
+                                    <small>* تم حساب هذا التقرير بناءً على القواعد التنظيمية للموارد البشرية واللوائح
+                                        الداخلية.</small>
+                                </div>
+                                <div class="col-md-4 text-center">
+                                    <div class="p-3 bg-primary text-white rounded">
+                                        <div class="h6 mb-1">صافي الراتب المستحق</div>
+                                        <div class="h2 mb-0 fw-bold">{{ "%.0f"|format(report.summary.net_salary) }}
+                                            <small class="fs-6">ج.م</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Signatures -->
+            <div class="row mt-5 pt-5">
+                <div class="col-4 text-center">
+                    <p class="fw-bold">توقيع الموظف</p>
+                    <p>..................</p>
+                </div>
+                <div class="col-4 text-center">
+                    <p class="fw-bold">الموارد البشرية</p>
+                    <p>..................</p>
+                </div>
+                <div class="col-4 text-center">
+                    <p class="fw-bold">المدير المالي</p>
+                    <p>..................</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODALS -->
+
+<!-- Bonus Modal -->
+<div class="modal fade" id="bonusModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">إضافة مكافأة: <span id="bonus_emp_name"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="bonusForm">
+                    <input type="hidden" name="employee_id" id="bonus_emp_id">
+                    <div class="mb-3">
+                        <label class="form-label">المبلغ</label>
+                        <input type="number" name="amount" class="form-control" required min="1">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">التاريخ</label>
+                        <input type="date" name="date" class="form-control" value="{{ date.today().isoformat() }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">السبب</label>
+                        <textarea name="reason" class="form-control" rows="2" placeholder="مثال: مكافأة أداء متميز"></textarea>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="paid_with_salary" id="paid_with_salary" checked>
+                        <label class="form-check-label" for="paid_with_salary">تصرف مع الراتب الشهري</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-primary" onclick="submitBonus()">حفظ المكافأة</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Attendance Modal -->
+<div class="modal fade" id="attendanceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">تعديل سجل حضور: <span id="att_emp_name"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="attendanceForm">
+                    <input type="hidden" name="employee_id" id="att_emp_id">
+                    <div class="mb-3">
+                        <label class="form-label">التاريخ</label>
+                        <input type="date" name="date" id="att_date" class="form-control" readonly>
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <label class="form-label">وقت الحضور</label>
+                            <input type="time" name="check_in" id="att_in" class="form-control">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">وقت الانصراف</label>
+                            <input type="time" name="check_out" id="att_out" class="form-control">
+                        </div>
+                    </div>
+                    <div class="mb-3 mt-3">
+                        <label class="form-label">الحالة</label>
+                        <select name="status" id="att_status" class="form-select">
+                            <option value="Present">حاضر</option>
+                            <option value="Absent">غائب</option>
+                            <option value="Vacation">إجازة</option>
+                            <option value="Permission">تصريح</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-primary" onclick="submitAttendance()">حفظ التعديل</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loan Modal -->
+<div class="modal fade" id="loanModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">إضافة سلفة: <span id="loan_emp_name"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="loanForm">
+                    <input type="hidden" name="employee_id" id="loan_emp_id">
+                    <div class="mb-3">
+                        <label class="form-label">المبلغ</label>
+                        <input type="number" name="amount" class="form-control" required min="1">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">عدد الأقساط</label>
+                        <input type="number" name="installments" class="form-control" value="1" min="1">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">تاريخ الصرف</label>
+                        <input type="date" name="date" class="form-control" value="{{ date.today().isoformat() }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">النوع</label>
+                        <select name="loan_type" class="form-select">
+                            <option value="Daily">يومية (من الراتب)</option>
+                            <option value="Monthly">شهرية</option>
+                            <option value="Extended">مستديمة</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-info" onclick="submitLoan()">حفظ السلفة</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Penalty Modal -->
+<div class="modal fade" id="penaltyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">إضافة جزاء: <span id="pen_emp_name"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="penaltyForm">
+                    <input type="hidden" name="employee_id" id="pen_emp_id">
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label">أيام الخصم</label>
+                            <input type="number" name="days" class="form-control" step="0.25" value="0">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">أو مبلغ مالي</label>
+                            <input type="number" name="amount" class="form-control" value="0">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">التاريخ</label>
+                        <input type="date" name="date" class="form-control" value="{{ date.today().isoformat() }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">السبب</label>
+                        <textarea name="reason" class="form-control" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-danger" onclick="submitPenalty()">حفظ الجزاء</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Permission Modal -->
+<div class="modal fade" id="permissionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">إضافة تصريح: <span id="perm_emp_name"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="permissionForm">
+                    <input type="hidden" name="employee_id" id="perm_emp_id">
+                    <div class="mb-3">
+                        <label class="form-label">التاريخ</label>
+                        <input type="date" name="date" class="form-control" value="{{ date.today().isoformat() }}">
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <label class="form-label">من ساعة</label>
+                            <input type="time" name="from_time" class="form-control" value="08:00">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">إلى ساعة</label>
+                            <input type="time" name="to_time" class="form-control" value="10:00">
+                        </div>
+                    </div>
+                    <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox" name="is_paid" id="is_paid">
+                        <label class="form-check-label" for="is_paid">مدفوع الأجر</label>
+                    </div>
+                    <div class="mb-3 mt-2">
+                        <label class="form-label">السبب</label>
+                        <input type="text" name="reason" class="form-control">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-success" onclick="submitPermission()">حفظ التصريح</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showLoading() { document.getElementById('loadingOverlay').style.display = 'flex'; }
+    function hideLoading() { document.getElementById('loadingOverlay').style.display = 'none'; }
+
+    // Modal Openers
+    function openAttendanceModal(el) {
+        const d = $(el).data();
+        $('#att_emp_id').val(d.id);
+        $('#att_emp_name').text(d.name);
+        $('#att_date').val(d.date);
+        $('#att_in').val(d.in);
+        $('#att_out').val(d.out);
+        $('#att_status').val(d.status);
+        $('#attendanceModal').modal('show');
+    }
+
+    function openLoanModal(el) {
+        const d = $(el).data();
+        $('#loan_emp_id').val(d.id);
+        $('#loan_emp_name').text(d.name);
+        $('#loanModal').modal('show');
+    }
+
+    function openPenaltyModal(el) {
+        const d = $(el).data();
+        $('#pen_emp_id').val(d.id);
+        $('#pen_emp_name').text(d.name);
+        $('#penaltyModal').modal('show');
+    }
+
+    function openBonusModal(el) {
+        const d = $(el).data();
+        $('#bonus_emp_id').val(d.id);
+        $('#bonus_emp_name').text(d.name);
+        $('#bonusModal').modal('show');
+    }
+
+    function openPermissionModal(el) {
+        const d = $(el).data();
+        $('#perm_emp_id').val(d.id);
+        $('#perm_emp_name').text(d.name);
+        $('#permissionModal').modal('show');
+    }
+
+    // Submit Handlers
+    async function submitForm(url, formData, modalId) {
+        showLoading();
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify(formData)
+            });
+            const result = await response.json();
+            if (result.success) {
+                $(`#${modalId}`).modal('hide');
+                Swal.fire({
+                    icon: 'success',
+                    title: 'تم بنجاح',
+                    text: result.message,
+                    timer: 1500,
+                    showConfirmButton: false
+                }).then(() => {
+                    location.reload(); 
+                });
+            } else {
+                Swal.fire('خطأ', result.message, 'error');
+            }
+        } catch (e) {
+            Swal.fire('خطأ', 'حدث خطأ في الاتصال بالسيرفر', 'error');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    function submitAttendance() {
+        const data = Object.fromEntries(new FormData(document.getElementById('attendanceForm')));
+        submitForm('/api/interactive/update_attendance', data, 'attendanceModal');
+    }
+
+    function submitLoan() {
+        const data = Object.fromEntries(new FormData(document.getElementById('loanForm')));
+        submitForm('/api/interactive/add_loan', data, 'loanModal');
+    }
+
+    function submitPenalty() {
+        const data = Object.fromEntries(new FormData(document.getElementById('penaltyForm')));
+        submitForm('/api/interactive/add_penalty', data, 'penaltyModal');
+    }
+
+    function submitBonus() {
+        const form = document.getElementById('bonusForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData);
+        data.paid_with_salary = form.querySelector('[name="paid_with_salary"]').checked;
+        submitForm('/api/interactive/add_bonus', data, 'bonusModal');
+    }
+
+    function submitPermission() {
+        const form = document.getElementById('permissionForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData);
+        data.is_paid = form.querySelector('[name="is_paid"]').checked;
+        submitForm('/api/interactive/add_permission', data, 'permissionModal');
+    }
+
+    // Delete Handlers
+    function deleteLoan(loanId) {
+        Swal.fire({
+            title: 'هل أنت متأكد؟',
+            text: "سيتم حذف السلفة بشكل نهائي!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'نعم، احذفها',
+            cancelButtonText: 'إلغاء'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                submitForm('/api/interactive/delete_loan', { id: loanId }, null);
+            }
+        });
+    }
+
+    function deletePenalty(penaltyId) {
+        Swal.fire({
+            title: 'هل أنت متأكد؟',
+            text: "سيتم حذف الجزاء بشكل نهائي!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'نعم، احذفها',
+            cancelButtonText: 'إلغاء'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                submitForm('/api/interactive/delete_penalty', { id: penaltyId }, null);
+            }
+        });
+    }
+
+    // Navigation logic (Sync from Detailed Salary)
+    document.addEventListener('DOMContentLoaded', function () {
+        const departmentSelect = document.getElementById('dept-filter');
+        const select = document.getElementById('employeeNavSelect');
+        if (!select || !departmentSelect) return;
+
+        if (window.jQuery && $.fn.select2) {
+            $('#dept-filter').select2({
+                placeholder: "اختر الأقسام...",
+                allowClear: true,
+                width: '100%',
+                dir: 'rtl'
+            });
+        }
+
+        function getSelectedDepartmentIds() {
+            if (window.jQuery) { return ($('#dept-filter').val() || []).filter(Boolean); }
+            return Array.from(departmentSelect.selectedOptions).map(opt => opt.value).filter(Boolean);
+        }
+
+        function syncDepartmentHiddenInputs() {
+            const periodForm = document.getElementById('periodForm');
+            if (!periodForm) return;
+            periodForm.querySelectorAll('input[name="department_ids"]').forEach(input => input.remove());
+            getSelectedDepartmentIds().forEach(id => {
+                const hidden = document.createElement('input');
+                hidden.type = 'hidden'; hidden.name = 'department_ids'; hidden.value = id;
+                periodForm.appendChild(hidden);
+            });
+        }
+
+        function loadEmployeesByDepartments() {
+            const departmentIds = getSelectedDepartmentIds();
+            syncDepartmentHiddenInputs();
+            const params = new URLSearchParams();
+            departmentIds.forEach(id => params.append('departments_ids[]', id));
+            fetch('{{ url_for("reports.get_employees_by_departments") }}?' + params.toString())
+                .then(res => res.json())
+                .then(data => {
+                    const currentSelectedEmployeeId = select.value;
+                    select.innerHTML = '';
+                    data.forEach(emp => {
+                        const option = document.createElement('option');
+                        option.value = String(emp.id); option.textContent = emp.name;
+                        if (currentSelectedEmployeeId && String(emp.id) === String(currentSelectedEmployeeId)) option.selected = true;
+                        select.appendChild(option);
+                    });
+                });
+        }
+
+        select.addEventListener('change', function () {
+            const selectedEmployeeId = this.value;
+            if (!selectedEmployeeId) return;
+            const departmentIds = getSelectedDepartmentIds();
+            const params = new URLSearchParams();
+            params.append('month', '{{ report.month }}');
+            params.append('year', '{{ report.year }}');
+            departmentIds.forEach(id => params.append('department_ids', id));
+            const baseUrl = '{{ url_for("reports.interactive_detailed_salary", emp_id=0) }}';
+            window.location.href = baseUrl.replace(/0$/, selectedEmployeeId) + '?' + params.toString();
+        });
+
+        if (window.jQuery) { $('#dept-filter').on('change', loadEmployeesByDepartments); } 
+        else { departmentSelect.addEventListener('change', loadEmployeesByDepartments); }
+    });
+</script>
+{% endblock %}

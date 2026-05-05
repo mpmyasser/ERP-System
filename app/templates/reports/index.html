@@ -63,14 +63,25 @@
     <div class="col-md-6 col-lg-4">
         <div class="card h-100 shadow-sm border-0 border-start border-4 border-success">
             <div class="card-body">
-                <h5 class="card-title text-success fw-bold"><i class="fas fa-file-invoice-dollar me-2"></i> تقرير الراتب
-                    التفصيلي</h5>
+                <h5 class="card-title text-success fw-bold"><i class="fas fa-file-invoice-dollar me-2"></i> تقرير الراتب التفصيلي</h5>
                 <p class="card-text text-muted">تفصيل كامل لمفردات الراتب والاستقطاعات والبدلات لكل موظف.</p>
-                <a href="{{ url_for('reports.detailed_salary_index') }}"
-                    class="btn btn-success rounded-pill text-white">عرض التقرير</a>
+                <a href="{{ url_for('reports.detailed_salary_index') }}" class="btn btn-success rounded-pill text-white">عرض التقرير</a>
             </div>
         </div>
     </div>
+
+    {% if has_perm('view_interactive_detailed_salary') %}
+    <!-- 5b. Interactive Detailed Salary Report -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 shadow-sm border-0 border-start border-4 border-warning">
+            <div class="card-body">
+                <h5 class="card-title text-warning fw-bold"><i class="fas fa-hand-pointer me-2"></i> تقرير تفصيلي (تفاعلي)</h5>
+                <p class="card-text text-muted">إدارة الحضور والسلف والجزاءات مباشرة من صفحة الموظف التفصيلية.</p>
+                <a href="{{ url_for('reports.interactive_detailed_index') }}" class="btn btn-warning rounded-pill">عرض الإدارة</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- 6. Department Payroll Sheet (Detailed / Slips) -->
     <div class="col-md-6 col-lg-4">

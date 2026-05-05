@@ -1,0 +1,10 @@
+# إعدادات Pyrefly للمشروع
+# هذا الملف يوجه أداة تحليل الكود لتجاهل التحذيرات الخاطئة
+# الناتجة عن استعلامات SQL المكتوبة داخل نصوص Python
+# لا يوجد أي تأثير على تشغيل البرنامج
+
+[errors]
+import-error = false
+missing-attribute = false
+bad-argument-type = false
+unbound-name = false

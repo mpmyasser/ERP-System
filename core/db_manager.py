@@ -1,4 +1,4 @@
-﻿from sqlalchemy import create_engine, inspect, text, func
+from sqlalchemy import create_engine, inspect, text, func
 from sqlalchemy.orm import sessionmaker, joinedload
 from core.database_models import Base, Department, Employee, AttendanceLog, DailyRecord, Loan, PenaltyBonus, EmployeeDocument, AuditLog, Bonus, DocumentType, Permission, Leave, SalaryHistory
 from core.treasury_models import CashAccount, BankAccount, CheckRecord
@@ -131,6 +131,13 @@ class DBManager:
                         connection.commit()
                         print("INFO: طھظ…طھ ط¥ط¶ط§ظپط© ط¹ظ…ظˆط¯ 'salary_updated_at' ط¨ظ†ط¬ط§ط­.")
 
+                # Ensure manual override flag exists for DailyRecord
+                if inspector.has_table('daily_records'):
+                    columns_dr = inspector.get_columns('daily_records')
+                    col_names_dr = [c['name'] for c in columns_dr]
+                    if 'is_manual_override' not in col_names_dr:
+                        connection.execute(text("ALTER TABLE daily_records ADD COLUMN is_manual_override BOOLEAN DEFAULT 0"))
+                        connection.commit()
                 # Ensure 'effective_date' exists for SalaryHistory
                 if inspector.has_table('salary_history'):
                     columns_hist = inspector.get_columns('salary_history')
@@ -398,7 +405,78 @@ class DBManager:
             )
             if only_active:
                 query = query.filter(Employee.is_active == True)
-            return query.all()
+            return query.order_by(Employee.code.asc()).all()
+        finally:
+            session.close()
+
+    def get_employees_optimized(self, only_active=False, department_ids=None, job_title=None, search=None, 
+                                load_full=False, load_salary_history=False):
+        """
+        جلب الموظفين بطريقة محسنة مع دعم الفلترة في SQL
+        
+        Args:
+            only_active (bool): جلب النشطين فقط
+            department_ids (list): قائمة بمعرفات الأقسام
+            job_title (str): المسمى الوظيفي
+            search (str): نص البحث (اسم أو كود)
+            load_full (bool): إذا كان False، يحمل الحقول الأساسية فقط (Selective Fetching)
+            load_salary_history (bool): تحميل تاريخ الرواتب
+        """
+        session = self.get_session()
+        try:
+            query = session.query(Employee)
+            
+            # Selective Fetching logic
+            if not load_full:
+                from sqlalchemy.orm import load_only
+                # Load only the fields needed by the employees list view/template
+                # so that accessing them after the session is closed does not trigger
+                # deferred loads (which would cause DetachedInstanceError).
+                query = query.options(
+                    load_only(
+                        Employee.id,
+                        Employee.code,
+                        Employee.name,
+                        Employee.job_title,
+                        Employee.department_id,
+                        Employee.basic_salary,
+                        Employee.is_active,
+                        Employee.hire_date,
+                        Employee.is_insured,
+                        Employee.regularity_incentive,
+                        Employee.overtime_allowed,
+                        Employee.salary_updated_at,
+                        Employee.daily_work_hours,
+                    )
+                )
+            
+            # Eager Loading
+            options = [joinedload(Employee.department)]
+            if load_salary_history:
+                options.append(joinedload(Employee.salary_history))
+            query = query.options(*options)
+            
+            # SQL Filtering
+            if only_active:
+                query = query.filter(Employee.is_active == True)
+            
+            if department_ids:
+                # Ensure ids are integers
+                ids = [int(i) for i in department_ids if str(i).isdigit()]
+                if ids:
+                    query = query.filter(Employee.department_id.in_(ids))
+            
+            if job_title:
+                query = query.filter(Employee.job_title == job_title)
+            
+            if search:
+                search_filter = f"%{search}%"
+                query = query.filter(
+                    (Employee.name.like(search_filter)) | 
+                    (Employee.code.like(search_filter))
+                )
+            
+            return query.order_by(Employee.code.asc()).all()
         finally:
             session.close()
 
@@ -635,7 +713,7 @@ class DBManager:
             # Search by name or code
             return session.query(Employee).options(joinedload(Employee.department)).filter(
                 (Employee.name.like(f"%{query}%")) | (Employee.code.like(f"%{query}%"))
-            ).all()
+            ).order_by(Employee.code.asc()).all()
         finally:
             session.close()
 
@@ -859,12 +937,16 @@ class DBManager:
                     query = query.filter(Employee.department_id.in_(department_ids))
             
             if code:
-                query = query.filter(Employee.code == code)
+                from sqlalchemy import or_
+                query = query.filter(or_(
+                    Employee.code == code,
+                    Employee.name.ilike(f"%{code}%")
+                ))
                 
             # Always exclude inactive employees from loan reports as per user request
             query = query.filter(Employee.is_active == True)
                 
-            return query.order_by(Loan.date.desc(), Loan.id.desc()).all()
+            return query.order_by(Employee.code.asc(), Loan.date.asc(), Loan.id.asc()).all()
         finally:
             session.close()
 
@@ -905,7 +987,9 @@ class DBManager:
     def get_all_loans(self):
         session = self.get_session()
         try:
-            return session.query(Loan).options(joinedload(Loan.employee).joinedload(Employee.department)).all()
+            return session.query(Loan).join(Employee).options(
+                joinedload(Loan.employee).joinedload(Employee.department)
+            ).order_by(Employee.code.asc(), Loan.date.asc(), Loan.id.asc()).all()
         finally:
             session.close()
 
@@ -919,7 +1003,9 @@ class DBManager:
     def get_all_penalties(self):
         session = self.get_session()
         try:
-            return session.query(PenaltyBonus).options(joinedload(PenaltyBonus.employee).joinedload(Employee.department)).all()
+            return session.query(PenaltyBonus).join(Employee).options(
+                joinedload(PenaltyBonus.employee).joinedload(Employee.department)
+            ).order_by(Employee.code.asc(), PenaltyBonus.date.asc(), PenaltyBonus.id.asc()).all()
         finally:
             session.close()
 
@@ -973,7 +1059,9 @@ class DBManager:
         """Get all loans with employee data"""
         session = self.get_session()
         try:
-            return session.query(Loan).options(joinedload(Loan.employee).joinedload(Employee.department)).all()
+            return session.query(Loan).join(Employee).options(
+                joinedload(Loan.employee).joinedload(Employee.department)
+            ).order_by(Employee.code.asc(), Loan.date.asc(), Loan.id.asc()).all()
         finally:
             session.close()
 
@@ -989,7 +1077,9 @@ class DBManager:
         """Get all penalties with employee data"""
         session = self.get_session()
         try:
-            return session.query(PenaltyBonus).options(joinedload(PenaltyBonus.employee).joinedload(Employee.department)).all()
+            return session.query(PenaltyBonus).join(Employee).options(
+                joinedload(PenaltyBonus.employee).joinedload(Employee.department)
+            ).order_by(Employee.code.asc(), PenaltyBonus.date.asc(), PenaltyBonus.id.asc()).all()
         finally:
             session.close()
 
@@ -1026,7 +1116,11 @@ class DBManager:
         session = self.get_session()
         try:
             from database_models import Permission
-            return session.query(Permission).order_by(Permission.date.desc()).all()
+            return session.query(Permission).join(Employee).order_by(
+                Employee.code.asc(),
+                Permission.date.asc(),
+                Permission.id.asc()
+            ).all()
         finally:
             session.close()
     
@@ -1175,95 +1269,70 @@ class DBManager:
                 if end_date:
                     query = query.filter(DailyRecord.date <= end_date)
                     
-            return query.order_by(DailyRecord.date.desc()).all()
+            return query.order_by(DailyRecord.date.asc()).all()
         finally:
             session.close()
 
-    def process_attendance_for_date(self, target_date):
+    def process_attendance_for_date(self, target_date, source='system'):
         """Process raw logs into DailyRecords for a specific date"""
         session = self.get_session()
         try:
-            from sqlalchemy import func, cast, Date
-            from datetime import datetime, time
-            from database_models import DailyStatus
-            
+            from core.services.attendance_service import AttendanceService
+
+            service = AttendanceService(session)
+
             # Create date range for the entire day
             start_of_day = datetime.combine(target_date, time.min)
             end_of_day = datetime.combine(target_date, time.max)
-            
+
             # Get all logs for this date using range (works for all DBs)
             logs = session.query(AttendanceLog).filter(
                 AttendanceLog.timestamp >= start_of_day,
                 AttendanceLog.timestamp <= end_of_day
             ).all()
-            
+
             # Group by employee
             emp_logs = {}
             for log in logs:
                 if log.employee_code not in emp_logs:
                     emp_logs[log.employee_code] = []
                 emp_logs[log.employee_code].append(log)
-            
+
             processed_count = 0
-            
+
             for emp_code, logs in emp_logs.items():
-                # Find employee
                 employee = session.query(Employee).filter_by(code=emp_code).first()
                 if not employee:
                     continue
-                
-                # Calculate check-in/out
+
                 check_in = None
                 check_out = None
-                
-                # Sort logs by time
+
                 logs.sort(key=lambda x: x.timestamp)
-                
-                # Simple logic: First IN is check-in, Last OUT is check-out
-                # If no types, take first and last timestamps
-                
                 ins = [l.timestamp for l in logs if l.type == 'IN']
                 outs = [l.timestamp for l in logs if l.type == 'OUT']
-                
+
                 if ins:
                     check_in = min(ins).time()
                 elif logs:
-                    # Fallback: first log is check-in
                     check_in = logs[0].timestamp.time()
-                    
+
                 if outs:
                     check_out = max(outs).time()
                 elif logs and len(logs) > 1:
-                    # Fallback: last log is check-out
                     check_out = logs[-1].timestamp.time()
-                
-                # Create or update DailyRecord
-                daily_record = session.query(DailyRecord).filter_by(
+
+                _, updated = service.upsert_daily_record(
                     employee_id=employee.id,
-                    date=target_date
-                ).first()
-                
-                if not daily_record:
-                    daily_record = DailyRecord(
-                        employee_id=employee.id,
-                        date=target_date
-                    )
-                    session.add(daily_record)
-                
-                daily_record.check_in = check_in
-                daily_record.check_out = check_out
-                
-                # Calculate status and hours
-                if check_in and check_out:
-                    daily_record.status = DailyStatus.PRESENT.value
-                    # Calculate hours (simplified)
-                    # In a real app, use datetime to handle day crossing
-                    pass 
-                elif check_in:
-                    daily_record.status = DailyStatus.PRESENT.value # Or partial
-                
-                processed_count += 1
-            
+                    attendance_date=target_date,
+                    check_in=check_in,
+                    check_out=check_out,
+                    source=source,
+                    commit=False
+                )
+                if updated:
+                    processed_count += 1
+
             session.commit()
             return processed_count
         except Exception as e:
@@ -1282,6 +1351,7 @@ class DBManager:
             query = session.query(DailyRecord).options(
                 joinedload(DailyRecord.employee).joinedload(Employee.department)
             )
+            query = query.join(Employee)
             
             if date_from:
                 parsed_date_from = parse_date_compact(date_from)
@@ -1292,7 +1362,7 @@ class DBManager:
                 if parsed_date_to:
                     query = query.filter(DailyRecord.date <= parsed_date_to)
                 
-            results = query.order_by(DailyRecord.date.desc()).all()
+            results = query.order_by(Employee.code.asc(), DailyRecord.date.asc()).all()
             
             # Filter inactive employees if needed (User requested for reports)
             # Since DailyRecord is linked to Employee, we check employee status
@@ -1418,24 +1488,19 @@ class DBManager:
         """Update an existing DailyRecord manually"""
         session = self.get_session()
         try:
+            from core.services.attendance_service import AttendanceService
+
             record = session.query(DailyRecord).get(record_id)
             if record:
-                record.check_in = check_in_time
-                record.check_out = check_out_time
-                # Recalculate late/overtime/status could be done here or in service.
-                # For simplicity, let's trust the input or re-run service logic if possible.
-                # But here we just save raw times.
-                
-                # Update status
-                from policy.hr_policy import AttendanceStatus
-                if not record.check_in and not record.check_out:
-                    record.status = AttendanceStatus.ABSENT
-                elif record.check_in and record.check_out:
-                    record.status = AttendanceStatus.PRESENT
-                elif record.check_in:
-                    # Logic for LATE vs PRESENT depends on time
-                    pass 
-                
+                service = AttendanceService(session)
+                service.process_attendance_record(
+                    employee_id=record.employee_id,
+                    attendance_date=record.date,
+                    check_in=check_in_time,
+                    check_out=check_out_time,
+                    source='manual',
+                    commit=False
+                )
                 session.commit()
                 return True
             return False
@@ -1701,7 +1766,7 @@ class DBManager:
         """
         session = self.get_session()
         try:
-            return session.query(Bonus).filter_by(employee_id=employee_id).order_by(Bonus.date_awarded.desc()).all()
+            return session.query(Bonus).filter_by(employee_id=employee_id).order_by(Bonus.date_awarded.asc()).all()
         finally:
             session.close()
 
@@ -1961,4 +2026,6 @@ class DBManager:
             return results
         finally:
             session.close()
+
+
 

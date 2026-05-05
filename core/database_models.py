@@ -250,6 +250,7 @@ class DailyRecord(Base):
     
     calculated_penalty_amount = Column(Float, default=0.0)
     manual_adjustment = Column(Float, default=0.0)
+    is_manual_override = Column(Boolean, default=False)
     
     employee = relationship("Employee", back_populates="daily_records")
     
@@ -548,8 +549,8 @@ class Permission(Base):
                 return 0.0
 
             # 2. حساب معدل أجر الساعة
-            # الراتب اليومي = الراتب الأساسي / 30
-            daily_salary = self.employee.basic_salary / 30.0
+            from core.policy.hr_policy import HRPolicy
+            daily_salary = self.employee.basic_salary / float(HRPolicy.WORKING_DAYS_PER_MONTH)
             
             # ساعات العمل اليومية (الافتراضي 8)
             work_hours = self.employee.daily_work_hours if self.employee.daily_work_hours else 8.0
@@ -674,6 +675,7 @@ class PublicHoliday(Base):
     name = Column(String, nullable=False)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
+    is_unpaid_for_uninsured = Column(Boolean, default=False) # هل تُخصم من غير المؤمن عليهم؟
     created_at = Column(DateTime, default=datetime.now)
 
     def __repr__(self):

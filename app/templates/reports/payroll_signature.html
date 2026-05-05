@@ -7,8 +7,11 @@
     class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom d-print-none">
     <h1 class="h2"><i class="fas fa-file-signature me-2"></i> كشف توقيع الرواتب</h1>
     <div class="btn-toolbar mb-2 mb-md-0">
-        <button onclick="window.print()" class="btn btn-dark">
-            <i class="fas fa-print me-2"></i> طباعة
+        <button class="btn btn-primary" onclick="window.printReport('landscape')">
+            <i class="fas fa-print me-2"></i> طباعة (عرضي)
+        </button>
+        <button class="btn btn-outline-secondary ms-2" onclick="window.printReport('portrait')">
+            <i class="fas fa-print me-2"></i> طباعة (طولي)
         </button>
     </div>
 </div>
@@ -70,7 +73,7 @@
         </div>
     </div>
 
-    <table class="table table-bordered table-striped align-middle" style="border-color: #000;">
+    <table class="table table-bordered table-striped align-middle payroll-signature-table" style="border-color: #000;">
         <thead class="table-dark text-center">
             <tr>
                 <th width="5%">#</th>
@@ -145,7 +148,25 @@
             background-color: #000 !important;
             color: #fff !important;
             -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
     }
 </style>
+
+{% block extra_js %}
+<script>
+    $(document).ready(function () {
+        $('.payroll-signature-table').DataTable({
+            colReorder: true,
+            paging: false,
+            searching: false,
+            info: false,
+            ordering: false,
+            // Simple configuration suitable for printed reports
+            lengthChange: false
+        });
+    });
+</script>
+{% endblock %}
+
 {% endblock %}

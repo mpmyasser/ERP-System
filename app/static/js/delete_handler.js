@@ -19,30 +19,32 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // بناء رابط الحذف بناءً على الموديول
-        let deleteUrl = '';
-        switch (module) {
-            case 'employees':
-                deleteUrl = `/employees/${recordId}/delete`;
-                break;
-            case 'bonuses':
-                deleteUrl = `/bonuses/${recordId}/delete`;
-                break;
-            case 'penalties':
-                deleteUrl = `/penalties/${recordId}/delete`;
-                break;
-            case 'permissions':
-                deleteUrl = `/permissions/${recordId}/delete`;
-                break;
-            case 'leaves':
-                deleteUrl = `/leaves/${recordId}/delete`;
-                break;
-            case 'loans':
-                deleteUrl = `/loans/${recordId}/delete`;
-                break;
-            default:
-                console.error('Unknown module:', module);
-                return;
+        // بناء رابط الحذف بناءً على الموديول أو data-delete-url إن وجد
+        let deleteUrl = deleteBtn.dataset.deleteUrl || '';
+        if (!deleteUrl) {
+            switch (module) {
+                case 'employees':
+                    deleteUrl = `/employees/${recordId}/delete`;
+                    break;
+                case 'bonuses':
+                    deleteUrl = `/bonuses/${recordId}/delete`;
+                    break;
+                case 'penalties':
+                    deleteUrl = `/penalties/${recordId}/delete`;
+                    break;
+                case 'permissions':
+                    deleteUrl = `/permissions/${recordId}/delete`;
+                    break;
+                case 'leaves':
+                    deleteUrl = `/leaves/${recordId}/delete`;
+                    break;
+                case 'loans':
+                    deleteUrl = `/loans/${recordId}/delete`;
+                    break;
+                default:
+                    console.error('Unknown module:', module);
+                    return;
+            }
         }
 
         // الحصول على CSRF token
@@ -54,15 +56,25 @@ document.addEventListener('DOMContentLoaded', function () {
             method: 'POST',
             headers: {
                 'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
                 'Content-Type': 'application/json'
             }
         })
-            .then(response => {
+            .then(async response => {
                 if (response.ok) {
                     // إعادة تحميل الصفحة للحفاظ على الفلاتر والترتيب بشكل تلقائي
                     window.location.reload();
                 } else {
-                    alert('حدث خطأ في حذف السجل');
+                    let errorMessage = 'حدث خطأ في حذف السجل';
+                    try {
+                        const payload = await response.json();
+                        if (payload && payload.message) {
+                            errorMessage = payload.message;
+                        }
+                    } catch (_) {
+                        // keep default message
+                    }
+                    alert(errorMessage);
                 }
             })
             .catch(error => {

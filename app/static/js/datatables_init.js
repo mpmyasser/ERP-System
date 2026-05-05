@@ -144,6 +144,7 @@ function getDataTableStateKey(settings) {
 const defaultDataTableConfig = {
     language: arabicLanguage,
     responsive: true,
+    autoWidth: false,
     orderMulti: true,
     colReorder: true,
     pageLength: 25,
@@ -251,11 +252,16 @@ const defaultDataTableConfig = {
                     const $printBody = $(win.document.body);
                     const marginTop = settings.marginTop !== undefined ? settings.marginTop : 1;
                     const marginBottom = settings.marginBottom !== undefined ? settings.marginBottom : 1;
-
+                    const orientation = settings.orientation || 'portrait';
+                    
                     $printBody.css({ 'direction': 'rtl', 'padding': '15px', 'background-color': '#fff' });
-                    if (settings.marginTop || settings.marginBottom) {
-                        $(win.document.head).append(`<style>@page { margin-top: ${settings.marginTop || 1}cm; margin-bottom: ${settings.marginBottom || 1}cm; }</style>`);
-                    }
+                    
+                    const pageStyle = `@page { 
+                        size: ${orientation}; 
+                        margin-top: ${marginTop}cm; 
+                        margin-bottom: ${marginBottom}cm; 
+                    }`;
+                    $(win.document.head).append(`<style>${pageStyle} .print-footer-wrapper { position: fixed; bottom: 0; }</style>`);
 
                     const $originalTable = $printBody.find('table').first();
                     if ($originalTable.length === 0) return;
@@ -264,18 +270,81 @@ const defaultDataTableConfig = {
                     const $bodyRows = $originalTable.find('tbody tr');
                     if ($bodyRows.length === 0 || ($bodyRows.length === 1 && $bodyRows.find('td').first().hasClass('dataTables_empty'))) return;
 
-                    // Smart detection logic
+                    const buildPrintWidthPlan = function(widths, availableWidth) {
+                        const minPrintWidth = 30;
+                        const numericWidths = widths.map(width => parseInt(width, 10) || 0);
+                        const totalWidth = numericWidths.reduce((sum, width) => sum + width, 0);
+                        const safeAvailableWidth = Math.max(320, Math.floor(availableWidth || 0));
+
+                        if (!totalWidth || totalWidth <= safeAvailableWidth) {
+                            return { widths: numericWidths, scaled: false };
+                        }
+
+                        const scaledWidths = numericWidths.map(width =>
+                            Math.max(minPrintWidth, Math.round((width / totalWidth) * safeAvailableWidth))
+                        );
+
+                        let diff = safeAvailableWidth - scaledWidths.reduce((sum, width) => sum + width, 0);
+                        while (diff !== 0) {
+                            const direction = diff > 0 ? 1 : -1;
+                            let adjusted = false;
+
+                            for (let index = 0; index < scaledWidths.length && diff !== 0; index++) {
+                                const targetIndex = direction > 0 ? index : (scaledWidths.length - 1 - index);
+                                if (direction < 0 && scaledWidths[targetIndex] <= minPrintWidth) continue;
+                                scaledWidths[targetIndex] += direction;
+                                diff -= direction;
+                                adjusted = true;
+                            }
+
+                            if (!adjusted) break;
+                        }
+
+                        return { widths: scaledWidths, scaled: true };
+                    };
+
+                    const applyPrintWidthsToCells = function($cells, widths, extraStyles) {
+                        $cells.each(function(index) {
+                            const width = widths[index];
+                            if (!width) return;
+                            $(this).css(Object.assign({
+                                'width': width + 'px',
+                                'min-width': width + 'px',
+                                'max-width': width + 'px'
+                            }, extraStyles || {}));
+                        });
+                    };
+
+                    const availablePrintWidth = Math.max(800, ($printBody.get(0)?.clientWidth || win.innerWidth || 1100) - 40);
+                    const printWidthPlan = buildPrintWidthPlan(_capturedWidths, availablePrintWidth);
+                    const printColumnWidths = printWidthPlan.widths;
+                    const useScaledPrintWidths = printWidthPlan.scaled;
+
+                    // Smart detection logic - Two-pass priority search
                     let groupIdx = -1;
-                    const groupKeywords = ['القسم', 'قسم', 'إدارة', 'النوع', 'الفئة', 'تصنيف', 'دوار', 'وردية', 'الحالة'];
-                    const sumKeywords = ['الراتب', 'المبلغ', 'القيمة', 'حافز', 'إضافي', 'الخصم', 'الصافي', 'إجمالي', 'مكافأة', 'سلفة', 'جزاء', 'بدل', 'ساعة', 'يوم', 'ساعات', 'ايام', 'العدد', 'الكمية'];
+                    // Pass 1: High-priority (department-level) keywords
+                    const groupKeywordsHigh = ['القسم', 'قسم', 'إدارة', 'الفرع', 'الموقع'];
+                    // Pass 2: Low-priority (category-level) fallback
+                    const groupKeywordsLow = ['النوع', 'الفئة', 'تصنيف'];
+                    const sumKeywords = ['الراتب', 'المبلغ', 'القيمة', 'حافز', 'إضافي', 'الخصم', 'الصافي', 'إجمالي', 'مكافأة', 'سلفة', 'جزاء', 'بدل', 'العدد', 'الكمية', 'صافي'];
                     
                     const colInfo = [];
                     $headerCells.each(function(i) {
                         const txt = $(this).text().trim();
                         const isSum = sumKeywords.some(k => txt.includes(k)) && !['تاريخ', 'ميلاد', 'تعيين'].some(k => txt.includes(k));
                         colInfo.push({ index: i, text: txt, isSum: isSum });
-                        if (groupIdx === -1 && groupKeywords.some(k => txt.includes(k))) groupIdx = i;
                     });
+
+                    // Pass 1: find high-priority group column
+                    for (let i = 0; i < colInfo.length; i++) {
+                        if (groupKeywordsHigh.some(k => colInfo[i].text.includes(k))) { groupIdx = i; break; }
+                    }
+                    // Pass 2: fallback to low-priority if nothing found
+                    if (groupIdx === -1) {
+                        for (let i = 0; i < colInfo.length; i++) {
+                            if (groupKeywordsLow.some(k => colInfo[i].text.includes(k))) { groupIdx = i; break; }
+                        }
+                    }
 
                     let actionsIdx = -1;
                     $headerCells.each(function(i) { 
@@ -308,18 +377,28 @@ const defaultDataTableConfig = {
                     let globalCount = 0;
 
                     $bodyRows.each(function() {
-                        const gVal = groupIdx !== -1 ? $(this).find('td').eq(groupIdx).text().trim() : 'تقرير عام';
+                        const $row = $(this);
+                        if ($row.find('td').length < 2) return; // Skip empty/loading rows
+                        const gVal = (groupIdx !== -1) ? ($row.find('td').eq(groupIdx).text().trim() || 'غير مصنف') : 'تقرير عام';
                         if (!groups[gVal]) groups[gVal] = [];
-                        groups[gVal].push($(this));
+                        groups[gVal].push($row);
                     });
 
+                    let groupCount = 0;
                     Object.keys(groups).sort().forEach(function(gName) {
                         const rows = groups[gName];
                         globalCount += rows.length;
+                        groupCount++;
 
-                        $wrapper.append('<div style="background:#f4f4f4; border-right:10px solid #1a2a3a; padding:10px; margin:25px 0 10px 0; font-size:1.1em; font-weight:bold; border-bottom:1px solid #ccc;">' + (groupIdx !== -1 ? colInfo[groupIdx].text + ': ' : '') + gName + '</div>');
+                        // Paper-saving wrapping with break protection
+                        const groupTitle = groupIdx !== -1 && colInfo[groupIdx] ? colInfo[groupIdx].text + ': ' : '';
+                        const $groupWrapper = $('<div style="page-break-inside: auto; margin-bottom: 20px;"></div>');
+                        $groupWrapper.append('<div style="background:#f4f4f4; border-right:10px solid #1a2a3a; padding:10px; margin:10px 0 5px 0; font-size:1.1em; font-weight:bold; border-bottom:1px solid #ccc; page-break-after: avoid;">' + groupTitle + gName + '</div>');
                         
-                        const $table = $('<table class="table table-bordered w-100" style="font-size:10px; border-collapse:collapse; border:1px solid #000; table-layout:auto;"></table>');
+                        const tableStyle = useScaledPrintWidths
+                            ? 'font-size:10px; border-collapse:collapse; border:1px solid #000; table-layout:fixed; width:100%;'
+                            : 'font-size:10px; border-collapse:collapse; border:1px solid #000; table-layout:auto;';
+                        const $table = $('<table class="table table-bordered w-100" style="' + tableStyle + '"></table>');
                         const $hCloned = $originalTable.find('thead').clone();
                         $hCloned.find('th').each(function(i) {
                             const baseStyle = {
@@ -328,7 +407,11 @@ const defaultDataTableConfig = {
                                 'text-align': 'center',
                                 'padding': '5px'
                             };
-                            if (_capturedWidths[i]) baseStyle['width'] = _capturedWidths[i] + 'px';
+                            if (printColumnWidths[i]) {
+                                baseStyle['width'] = printColumnWidths[i] + 'px';
+                                baseStyle['min-width'] = printColumnWidths[i] + 'px';
+                                baseStyle['max-width'] = printColumnWidths[i] + 'px';
+                            }
                             $(this).css(baseStyle);
                         });
                         if (actionsIdx !== -1) $hCloned.find('th').eq(actionsIdx).text('توقيع العامل');
@@ -338,7 +421,11 @@ const defaultDataTableConfig = {
                         rows.forEach($r => {
                             const $rCloned = $r.clone();
                             if (actionsIdx !== -1) $rCloned.find('td').eq(actionsIdx).html('<div style="border-bottom:1px dotted #000; height:15px; width:100%;"></div>');
-                            $rCloned.find('td').css({ 'border': '1px solid #000', 'text-align': 'center', 'padding': '4px' });
+                            applyPrintWidthsToCells($rCloned.find('td'), printColumnWidths, {
+                                'border': '1px solid #000',
+                                'text-align': 'center',
+                                'padding': '4px'
+                            });
                             $tbody.append($rCloned);
                         });
                         $table.append($tbody);
@@ -346,9 +433,20 @@ const defaultDataTableConfig = {
                         // Group Totals
                         const $tfoot = $('<tfoot></tfoot>');
                         const $trFoot = $('<tr style="background:#fafafa; font-weight:bold; border:1px solid #000;">');
-                        colInfo.forEach(col => {
-                            if (col.index === 0) { $trFoot.append('<td style="border:1px solid #000; text-align:center;">العدد: ' + rows.length + '</td>'); return; }
-                            if (col.index === actionsIdx) { $trFoot.append('<td style="border:1px solid #000;"></td>'); return; }
+                        colInfo.forEach((col, idx) => {
+                            const w = printColumnWidths[idx] ? printColumnWidths[idx] + 'px' : 'auto';
+                            const tdBaseStyle = {
+                                'border': '1px solid #000',
+                                'text-align': 'center',
+                                'padding': '5px',
+                                'width': w,
+                                'min-width': w,
+                                'max-width': w
+                            };
+                            const tdStyleString = Object.entries(tdBaseStyle).map(([k, v]) => `${k}:${v};`).join(' ');
+                            
+                            if (col.index === 0) { $trFoot.append('<td style="' + tdStyleString + '">العدد: ' + rows.length + '</td>'); return; }
+                            if (col.index === actionsIdx) { $trFoot.append('<td style="' + tdStyleString + '"></td>'); return; }
                             if (col.isSum) {
                                 let s = 0;
                                 rows.forEach($r => {
@@ -357,18 +455,22 @@ const defaultDataTableConfig = {
                                     s += val;
                                 });
                                 globalSums[col.index] = (globalSums[col.index] || 0) + s;
-                                $trFoot.append('<td style="border:1px solid #000; text-align:center;">' + (s ? s.toLocaleString(undefined, {minimumFractionDigits:0, maximumFractionDigits:2}) : '-') + '</td>');
+                                $trFoot.append('<td style="' + tdStyleString + '">' + (s ? s.toLocaleString(undefined, {minimumFractionDigits:0, maximumFractionDigits:2}) : '-') + '</td>');
                             } else {
-                                $trFoot.append('<td style="border:1px solid #000;"></td>');
+                                $trFoot.append('<td style="' + tdStyleString + '"></td>');
                             }
                         });
                         $table.append($tfoot.append($trFoot));
-                        $wrapper.append($table);
+                        $groupWrapper.append($table);
+                        $wrapper.append($groupWrapper);
                     });
 
-                    // 3. Grand Total Section (1cm spacing = margin:38px)
+                    // 3. Grand Total Section
                     $wrapper.append('<div style="background:#1a2a3a; color:#fff; padding:10px; margin:38px 0 10px 0; font-size:1.2em; font-weight:bold; text-align:center; border-radius:5px;">إجمالي عام للشركة</div>');
-                    const $grandTable = $('<table class="table table-bordered w-100" style="font-size:11px; border-collapse:collapse; border:2px solid #000; background:#f9f9f9;"></table>');
+                    const grandTableStyle = useScaledPrintWidths
+                        ? 'font-size:11px; border-collapse:collapse; border:2px solid #000; background:#f9f9f9; table-layout:fixed; width:100%;'
+                        : 'font-size:11px; border-collapse:collapse; border:2px solid #000; background:#f9f9f9;';
+                    const $grandTable = $('<table class="table table-bordered w-100" style="' + grandTableStyle + '"></table>');
                     const $gh = $originalTable.find('thead').clone();
                     $gh.find('th').each(function(i) {
                         const baseStyle = {
@@ -377,7 +479,11 @@ const defaultDataTableConfig = {
                             'border': '1px solid #000',
                             'text-align': 'center'
                         };
-                        if (_capturedWidths[i]) baseStyle['width'] = _capturedWidths[i] + 'px';
+                        if (printColumnWidths[i]) {
+                            baseStyle['width'] = printColumnWidths[i] + 'px';
+                            baseStyle['min-width'] = printColumnWidths[i] + 'px';
+                            baseStyle['max-width'] = printColumnWidths[i] + 'px';
+                        }
                         $(this).css(baseStyle);
                     });
                     if (actionsIdx !== -1) $gh.find('th').eq(actionsIdx).text('');
@@ -385,14 +491,26 @@ const defaultDataTableConfig = {
 
                     const $gf = $('<tfoot></tfoot>');
                     const $gfr = $('<tr style="font-weight:bold; border:2px solid #000;">');
-                    colInfo.forEach(col => {
-                        if (col.index === 0) { $gfr.append('<td style="border:1px solid #000; text-align:center; background:#eee;">العدد الكلي: ' + globalCount + '</td>'); return; }
-                        if (col.index === actionsIdx) { $gfr.append('<td style="border:1px solid #000;"></td>'); return; }
+                    colInfo.forEach((col, idx) => {
+                        const w = printColumnWidths[idx] ? printColumnWidths[idx] + 'px' : 'auto';
+                        const tdBaseStyle = {
+                            'border': '1px solid #000',
+                            'text-align': 'center',
+                            'padding': '5px',
+                            'background': '#eee',
+                            'width': w,
+                            'min-width': w,
+                            'max-width': w
+                        };
+                        const tdStyleString = Object.entries(tdBaseStyle).map(([k, v]) => `${k}:${v};`).join(' ');
+                        
+                        if (col.index === 0) { $gfr.append('<td style="' + tdStyleString + '">العدد الكلي: ' + globalCount + '</td>'); return; }
+                        if (col.index === actionsIdx) { $gfr.append('<td style="' + tdStyleString + '"></td>'); return; }
                         const s = globalSums[col.index];
                         if (col.isSum && s !== undefined) {
-                            $gfr.append('<td style="border:1px solid #000; text-align:center; background:#eee;">' + s.toLocaleString(undefined, {minimumFractionDigits:0, maximumFractionDigits:2}) + '</td>');
+                            $gfr.append('<td style="' + tdStyleString + '">' + s.toLocaleString(undefined, {minimumFractionDigits:0, maximumFractionDigits:2}) + '</td>');
                         } else {
-                            $gfr.append('<td style="border:1px solid #000;"></td>');
+                            $gfr.append('<td style="' + tdStyleString + '"></td>');
                         }
                     });
                     $grandTable.append($gf.append($gfr));
@@ -476,15 +594,20 @@ function togglePrintSettings(dt) {
                             <label class="form-check-label small">ترقيم الصفحات</label>
                         </div>
                     </div>
-                    <label class="form-label fw-bold small text-muted mb-1"><i class="fas fa-arrows-alt-v text-secondary me-1"></i>الهوامش (سم)</label>
-                    <div class="d-flex gap-2 align-items-center">
+                    <div class="d-flex gap-3 align-items-end">
                         <div>
-                            <label class="form-label small mb-0">العلوي</label>
-                            <input type="number" class="form-control form-control-sm margin-top-input" min="0" max="10" step="0.5" style="width:70px;" value="${saved.marginTop !== undefined ? saved.marginTop : 1}">
+                            <label class="form-label fw-bold small text-muted mb-1"><i class="fas fa-arrows-alt-v text-secondary me-1"></i>الهوامش (سم)</label>
+                            <div class="d-flex gap-2">
+                                <input type="number" class="form-control form-control-sm margin-top-input" title="علوي" min="0" max="10" step="0.5" style="width:60px;" value="${saved.marginTop !== undefined ? saved.marginTop : 1}">
+                                <input type="number" class="form-control form-control-sm margin-bottom-input" title="سفلي" min="0" max="10" step="0.5" style="width:60px;" value="${saved.marginBottom !== undefined ? saved.marginBottom : 1}">
+                            </div>
                         </div>
                         <div>
-                            <label class="form-label small mb-0">السفلي</label>
-                            <input type="number" class="form-control form-control-sm margin-bottom-input" min="0" max="10" step="0.5" style="width:70px;" value="${saved.marginBottom !== undefined ? saved.marginBottom : 1}">
+                            <label class="form-label fw-bold small text-muted mb-1"><i class="fas fa-file-alt text-secondary me-1"></i>الوضعية</label>
+                            <select class="form-select form-select-sm orientation-select" style="width:90px;">
+                                <option value="portrait" ${saved.orientation === 'portrait' ? 'selected' : ''}>طولي</option>
+                                <option value="landscape" ${saved.orientation === 'landscape' ? 'selected' : ''}>عرضي</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -509,7 +632,8 @@ function togglePrintSettings(dt) {
             showFooter: $container.find('.show-footer').is(':checked'),
             footerText: $container.find('.footer-text').val(),
             marginTop: parseFloat($container.find('.margin-top-input').val()) || 1,
-            marginBottom: parseFloat($container.find('.margin-bottom-input').val()) || 1
+            marginBottom: parseFloat($container.find('.margin-bottom-input').val()) || 1,
+            orientation: $container.find('.orientation-select').val() || 'portrait'
         };
         localStorage.setItem('hr_print_settings', JSON.stringify(settings));
     });

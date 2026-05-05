@@ -231,11 +231,12 @@ main {
     position: relative;
 }
 
-/* Sticky Header */
+/* Sticky Header - z-index MUST be lower than buttons toolbar */
 .table thead th {
     position: sticky !important;
     top: 0;
-    z-index: 20;
+    z-index: 10 !important;
+    /* Lower than buttons (10000) to prevent covering them */
     background-color: #f8f9fa !important;
     box-shadow: inset 0 -2px 0 #dee2e6;
     color: #000 !important;
@@ -307,7 +308,7 @@ html[dir="rtl"] .sidebar {
 /* Table Head for Resizing */
 th {
     position: relative;
-    min-width: 80px;
+    min-width: 30px;
 }
 
 .resizer {
@@ -318,6 +319,7 @@ th {
     width: 5px;
     height: 100%;
     cursor: col-resize;
+    -webkit-user-select: none;
     user-select: none;
 }
 
@@ -575,50 +577,464 @@ tfoot {
     border-bottom-left-radius: 0.25rem !important;
 }
 
-/* ===== Ensure DataTables toolbar (buttons) stays visible on small screens ===== */
-/* Primary: make toolbar float above table (works in Chrome/Edge/Firefox)
-   Secondary: use sticky positioning so toolbar won't be clipped by table rows */
+/* ===== CRITICAL FIX: Ensure DataTables toolbar (buttons) stays visible on ALL screens ===== */
+/* This is especially important for wide tables like loans-table on small/low-res screens */
+
+/* Main toolbar container - make it ALWAYS visible and sticky */
 .dataTables_wrapper .dt-buttons {
     position: sticky !important;
-    top: 0 !important;               /* keep it pinned to top of wrapper */
-    z-index: 1200 !important;        /* float above table */
+    top: 0 !important;
+    left: 0 !important;
+    z-index: 10000 !important;
+    /* CRITICAL: Must be higher than thead (10) */
+    min-height: 50px !important;
+    /* Prevent collapse */
     display: flex !important;
     flex-wrap: wrap !important;
-    gap: 0.35rem !important;
+    gap: 0.5rem !important;
     align-items: center !important;
     justify-content: flex-start !important;
-    white-space: normal !important;
+    padding: 10px 15px !important;
+    margin: 0 0 1rem 0 !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    opacity: 1 !important;
+    /* Fully opaque */
+    -webkit-backdrop-filter: blur(8px) !important;
+    /* Extra protection */
+    backdrop-filter: blur(8px) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4) !important;
+    width: 100% !important;
+    /* full width to prevent horizontal hiding */
+    max-width: 100% !important;
     overflow: visible !important;
-    margin-bottom: .5rem !important; /* keep space between toolbar and table */
-    background: rgba(255,255,255,0.92) !important; /* prevents visual bleed on some browsers */
-    backdrop-filter: blur(2px) !important;
-    -webkit-backdrop-filter: blur(2px) !important;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.06) !important;
+    white-space: normal !important;
 }
 
+/* Button styling - ensure they're always visible and clickable */
 .dataTables_wrapper .dt-buttons .btn {
-    padding: .35rem .55rem !important;
-    font-size: .85rem !important;
+    padding: 0.4rem 0.7rem !important;
+    font-size: 0.85rem !important;
     white-space: nowrap !important;
+    margin: 0.2rem !important;
+    background: #fff !important;
+    color: #667eea !important;
+    border: none !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+    font-weight: 600 !important;
 }
 
-/* Small extra spacing so sticky toolbar does not overlap the table content */
-.dataTables_wrapper .table-responsive { padding-top: 0.6rem !important; }
-
-
-/* Ensure table container stays below toolbar */
-.dataTables_wrapper .table-responsive {
-    position: relative !important;
-    z-index: 1 !important;
+.dataTables_wrapper .dt-buttons .btn:hover {
+    background: #f0f0f0 !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
 }
 
-/* Prevent the toolbar row from being clipped */
+/* Ensure table container doesn't overlap with sticky toolbar */
+.dataTables_wrapper .table-responsive,
+.dataTables_wrapper table {
+    margin-top: 1rem !important;
+    /* Extra space to prevent overlap */
+    padding-top: 0.5rem !important;
+    clear: both !important;
+}
+
+/* Wrapper row for buttons - prevent it from being clipped */
 .dataTables_wrapper .row.d-print-none {
     overflow: visible !important;
+    position: relative !important;
+    z-index: 9999 !important;
+    /* Just below buttons */
+    min-height: 45px !important;
+    /* Ensure it has space */
 }
 
-/* Fallback: force colvis button visible */
+/* Force colvis button to be visible (failsafe) */
 .dt-button.buttons-colvis {
     display: inline-flex !important;
     visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Prevent entire wrapper from hiding buttons on small screens */
+.dataTables_wrapper {
+    overflow: visible !important;
+    position: relative !important;
+}
+
+/* Small screen specific fixes */
+@media screen and (max-width: 1366px) {
+    .dataTables_wrapper .dt-buttons {
+        font-size: 0.8rem !important;
+    }
+
+    .dataTables_wrapper .dt-buttons .btn {
+        padding: 0.3rem 0.5rem !important;
+        font-size: 0.75rem !important;
+    }
+}
+
+@media screen and (max-width: 768px) {
+    .dataTables_wrapper .dt-buttons {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+
+    .dataTables_wrapper .dt-buttons .btn {
+        width: 100% !important;
+        margin: 0.2rem 0 !important;
+    }
+}
+
+/* Bulk salaries table styles moved from inline attributes */
+.bulk-salaries-table th.bulk-salaries-code-th {
+    min-width: 80px;
+}
+
+.bulk-salaries-table th.bulk-salaries-name-th {
+    min-width: 200px;
+}
+
+.bulk-salaries-table th.bulk-salaries-dept-th {
+    min-width: 150px;
+}
+
+.bulk-salaries-table th.bulk-salaries-current-salary-th,
+.bulk-salaries-table th.bulk-salaries-adjustment-th,
+.bulk-salaries-table th.bulk-salaries-new-salary-th {
+    min-width: 120px;
+}
+
+.bulk-salaries-table th.bulk-salaries-increase-th {
+    min-width: 120px;
+    display: none;
+}
+
+.bulk-salaries-table th.bulk-salaries-status-th {
+    min-width: 90px;
+}
+
+.bulk-salaries-table th.bulk-salaries-activation-th {
+    min-width: 120px;
+}
+
+.bulk-salaries-table th.bulk-salaries-edit-date-th {
+    min-width: 140px;
+}
+
+.bulk-salaries-table td.bulk-salaries-increase-column {
+    display: none;
+}
+
+.bulk-salaries-table .bulk-salaries-increase-value {
+    font-size: 0.95rem;
+}
+
+/* ===============================================
+   Accessibility & Utility Classes
+   =============================================== */
+
+/* Dashboard gradient background */
+.dashboard-gradient-bg {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* Form inline display */
+.form-inline-display {
+    display: inline;
+}
+
+/* Icon position absolute */
+.icon-position-absolute {
+    position: absolute;
+}
+
+/* Width constraints */
+.w-max-120 {
+    max-width: 120px;
+}
+
+.w-max-150 {
+    max-width: 150px;
+}
+
+.w-width-70 {
+    width: 70px;
+}
+
+.w-width-100 {
+    width: 100px;
+}
+
+.w-width-200 {
+    width: 200px;
+}
+
+/* Min width constraints */
+.w-min-120 {
+    min-width: 120px;
+}
+
+.w-min-280 {
+    min-width: 280px;
+}
+
+/* Table responsive max height */
+.table-max-height-70 {
+    max-height: 70vh;
+}
+
+/* Table min width for bulk operations */
+.table-min-width-2500 {
+    min-width: 2500px;
+}
+
+/* Sticky column */
+.sticky-column-right {
+    position: sticky;
+    right: 0;
+}
+
+/* Font size utilities */
+.font-size-065 {
+    font-size: 0.65rem;
+}
+
+.font-size-075 {
+    font-size: 0.75rem;
+}
+
+.font-size-09 {
+    font-size: 0.9rem;
+}
+
+.font-size-11 {
+    font-size: 11px;
+}
+
+.font-size-12pt {
+    font-size: 12pt;
+}
+
+.font-size-25 {
+    font-size: 2.5rem;
+}
+
+/* Border right accent colors */
+.border-right-success {
+    border-right: 4px solid #28a745 !important;
+}
+
+.border-right-warning {
+    border-right: 4px solid #ffc107 !important;
+}
+
+.border-right-danger {
+    border-right: 4px solid #dc3545 !important;
+}
+
+.border-right-primary {
+    border-right: 4px solid #007bff !important;
+}
+
+/* Progress bar height */
+.progress-height-25 {
+    height: 25px;
+}
+
+/* Badge inline display */
+.badge-inline {
+    display: inline-block;
+    margin: 3px;
+}
+
+/* Cursor help */
+.cursor-help {
+    cursor: help;
+}
+
+/* Card image height */
+.card-img-height-200 {
+    height: 200px;
+}
+
+/* Sticky top with offset */
+.sticky-top-offset {
+    position: sticky;
+    top: 20px;
+}
+
+/* Print page break */
+.page-break-before {
+    page-break-before: always;
+    page-break-inside: avoid;
+}
+
+/* Print table border */
+.print-table-border {
+    border-color: #000;
+}
+
+/* Print background white */
+.print-bg-white {
+    background-color: #ffffff !important;
+    border: 2px solid #2c3e50 !important;
+    color: #1a1a1a !important;
+}
+
+/* Print header row */
+.print-header-row {
+    font-weight: bold;
+    background-color: #34495e !important;
+}
+
+/* Print success cell */
+.print-cell-success {
+    background-color: #2ecc71 !important;
+    color: white !important;
+    font-weight: bold;
+}
+
+/* Print dark cell */
+.print-cell-dark {
+    background-color: #34495e !important;
+}
+
+/* Print border cell */
+.print-border-cell {
+    border: 1px solid #2c3e50;
+}
+
+/* Print padding cell */
+.print-padding-cell {
+    padding: 14px;
+}
+
+/* Print white text */
+.print-text-white {
+    color: white !important;
+}
+
+/* Department block */
+.department-block {
+    page-break-after: auto;
+    border-bottom: 2px solid #000;
+    margin-bottom: 1cm;
+    padding-bottom: 1cm;
+}
+
+/* Background slider images */
+.bg-slider-image {
+    background-size: cover;
+    background-position: center;
+}
+
+/* Form switch custom */
+.form-switch-custom {
+    padding-left: 2.5rem;
+}
+
+/* Form switch input custom */
+.form-switch-input-custom {
+    cursor: pointer;
+    width: 3rem;
+    height: 1.5rem;
+}
+
+/* Form switch label custom */
+.form-switch-label-custom {
+    cursor: pointer;
+    margin-top: 0.3rem;
+}
+
+/* Select2 full width */
+.select2-full-width {
+    width: 100%;
+}
+
+/* Columns chooser dropdown */
+.columns-chooser-dropdown {
+    position: absolute;
+    right: 0;
+    top: 45px;
+    z-index: 1050;
+    max-height: 300px;
+    overflow: auto;
+    min-width: 280px;
+}
+
+/* Badge x-small */
+.badge-x-small {
+    font-size: 0.6rem;
+}
+
+/* Info row min height */
+.info-row-min-height {
+    min-height: 80px;
+}
+
+/* Table header z-index */
+.table-header-zindex {
+    z-index: 1020;
+}
+
+/* Sticky column z-index */
+.sticky-column-zindex {
+    z-index: 1030;
+}
+
+/* Hidden data container */
+.hidden-data-container {
+    display: none;
+}
+
+/* Print report title */
+.print-report-title {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* Print summary section */
+.print-summary-section {
+    margin-top: 2.5cm !important;
+    padding-top: 1cm !important;
+    display: block !important;
+    page-break-inside: avoid;
+}
+
+/* Print summary table */
+.print-summary-table {
+    background-color: #ffffff !important;
+    border: 2px solid #2c3e50 !important;
+    color: #1a1a1a !important;
+    font-size: 12pt;
+    width: 100%;
+}
+
+/* Print summary row */
+.print-summary-row {
+    font-weight: bold;
+    background-color: #34495e !important;
+}
+
+/* Print summary cell */
+.print-summary-cell {
+    padding: 14px;
+    border: 1px solid #2c3e50;
+    color: white !important;
+}
+
+/* Print summary value */
+.print-summary-value {
+    padding: 14px;
+    border: 1px solid #2c3e50;
+    background-color: #2ecc71 !important;
+    color: white !important;
+    font-weight: bold;
+}
+
+/* Print summary dark cell */
+.print-summary-dark-cell {
+    border: 1px solid #2c3e50;
+    background-color: #34495e !important;
 }

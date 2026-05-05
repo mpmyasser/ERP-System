@@ -7,131 +7,185 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root{--brand:#0d6efd;--glass:rgba(255,255,255,0.06);--card-bg:rgba(255,255,255,0.95)}
-        html,body{height:100%;}
+        :root {
+            --bg: #e3e6ee;
+            --card: #e6e9ef;
+            --shadow-dark: rgba(161, 170, 186, 0.8);
+            --shadow-light: rgba(255, 255, 255, 0.9);
+            --text: #4a4f57;
+            --accent: #8b93a6;
+        }
+
+        html, body {
+            height: 100%;
+        }
+
         body {
             font-family: 'Cairo', sans-serif;
-            margin:0;
-            background: radial-gradient( circle at 10% 20%, rgba(13,110,253,0.06), transparent 10% ),
-                        radial-gradient( circle at 90% 80%, rgba(255,193,7,0.04), transparent 10% ),
-                        linear-gradient(135deg,#071426 0%, #0b2540 100%);
-            color: #f8f9fa;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            overflow:hidden;
-        }
-        /* subtle moving glow */
-        .bg-animate{position:absolute;inset:0;pointer-events:none;opacity:0.35;background:linear-gradient(120deg, rgba(255,255,255,0.02), rgba(255,255,255,0));transform:skewY(-6deg);animation:floatBG 8s ease-in-out infinite}
-        @keyframes floatBG{0%{transform:translateY(0) skewY(-6deg)}50%{transform:translateY(-20px) skewY(-6deg)}100%{transform:translateY(0) skewY(-6deg)}}
-
-        .neon-card{
-            width:100%;max-width:430px;padding:2.2rem;border-radius:14px;background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));backdrop-filter: blur(6px);box-shadow:0 10px 30px rgba(2,6,23,0.6);position:relative;border:1px solid rgba(255,255,255,0.06);
-        }
-        .neon-card:before,.neon-card:after{content:'';position:absolute;inset:-2px;border-radius:16px;padding:2px;background:linear-gradient(90deg, rgba(13,110,253,0.6), rgba(255,193,7,0.35));filter:blur(12px);opacity:0;transition:opacity .3s;pointer-events:none}
-        .neon-card:hover:before,.neon-card:hover:after{opacity:1}
-
-        .brand{display:flex;align-items:center;gap:.8rem;justify-content:center;margin-bottom:1rem}
-        .brand .logo{width:56px;height:56px;border-radius:10px;background:linear-gradient(135deg,var(--brand),#6c63ff);box-shadow:0 6px 20px rgba(12,100,255,0.25);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:18px}
-        .brand h2{margin:0;font-size:1.25rem;color:#fff;font-weight:700}
-        .brand p{margin:0;color:rgba(255,255,255,0.75)}
-
-        .form-control{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);color:#fff;padding:.8rem;border-radius:8px}
-        .form-control:focus{box-shadow:0 0 0 4px rgba(13,110,253,0.12);border-color:var(--brand);outline:none}
-        label.form-label{color:rgba(255,255,255,0.8)}
-
-        .btn-login{background:linear-gradient(90deg,var(--brand),#6c63ff);border:0;color:#fff;padding:.75rem;border-radius:10px;width:100%;font-weight:700;box-shadow:0 8px 20px rgba(12,100,255,0.25);transition:transform .15s}
-        .btn-login:active{transform:translateY(1px)}
-
-        .muted{color:rgba(255,255,255,0.6);font-size:.95rem;text-align:center;margin-top:.75rem}
-
-        /* small animated accent lines */
-        .accent-line{position:absolute;height:2px;width:60%;left:20%;top:6%;background:linear-gradient(90deg, rgba(13,110,253,0.9), rgba(108,99,255,0.6));filter:blur(6px);opacity:.7;transform-origin:left;animation:lineMove 3s linear infinite;pointer-events:none}
-        .accent-line.two{top:auto;bottom:6%;animation-duration:4s;animation-direction:reverse}
-        @keyframes lineMove{0%{transform:scaleX(0)}50%{transform:scaleX(1)}100%{transform:scaleX(0)}}
-
-        /* Background slider (fade effect) */
-        .bg-slider{position:absolute;inset:0;border-radius:14px;overflow:hidden;z-index:0;opacity:0.28}
-        .bg-slider .slide{position:absolute;inset:0;background-size:cover;background-position:center center;background-repeat:no-repeat;opacity:0;transform:translateZ(0);animation:fadeSlides 25s linear infinite}
-        .bg-slider .slide.s1{animation-delay:0s}
-        .bg-slider .slide.s2{animation-delay:5s}
-        .bg-slider .slide.s3{animation-delay:10s}
-        .bg-slider .slide.s4{animation-delay:15s}
-        .bg-slider .slide.s5{animation-delay:20s}
-
-        @keyframes fadeSlides{
-            0% { opacity: 0 }
-            4% { opacity: 1 }
-            20% { opacity: 1 }
-            24% { opacity: 0 }
-            100% { opacity: 0 }
+            margin: 0;
+            background: radial-gradient(circle at 20% 15%, #f1f3f7 0%, transparent 45%),
+                        radial-gradient(circle at 80% 85%, #f7f8fb 0%, transparent 45%),
+                        var(--bg);
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        /* ensure foreground content is above slides */
-        .neon-card > *{position:relative;z-index:2}
-        .bg-slider .slide{filter:brightness(0.85) saturate(0.9)}
+        .page {
+            width: 100%;
+            max-width: 520px;
+            text-align: center;
+            padding: 24px;
+        }
 
-        /* small screens */
-        @media(max-width:480px){.neon-card{padding:1.4rem;border-radius:12px}.brand h2{font-size:1rem}.brand .logo{width:48px;height:48px}}
+        .page h1 {
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin: 0 0 16px;
+            color: #5b616c;
+        }
+
+        .neo-card {
+            background: var(--card);
+            border-radius: 22px;
+            padding: 32px 28px;
+            box-shadow: 18px 18px 36px var(--shadow-dark), -18px -18px 36px var(--shadow-light);
+        }
+
+        .neo-title {
+            font-size: 1.15rem;
+            margin: 0 0 18px;
+            color: #5a6070;
+        }
+
+        .neo-input {
+            width: 100%;
+            border: none;
+            border-radius: 20px;
+            padding: 12px 16px;
+            background: var(--card);
+            box-shadow: inset 8px 8px 16px var(--shadow-dark), inset -8px -8px 16px var(--shadow-light);
+            outline: none;
+            color: var(--text);
+        }
+
+        .neo-input:focus {
+            box-shadow: inset 6px 6px 12px var(--shadow-dark), inset -6px -6px 12px var(--shadow-light);
+        }
+
+        .neo-field {
+            margin-bottom: 14px;
+        }
+
+        .password-wrap {
+            position: relative;
+        }
+
+        .neo-input.has-toggle {
+            padding-left: 44px;
+        }
+
+        .toggle-pass {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            border: none;
+            background: transparent;
+            color: var(--accent);
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .neo-btn {
+            border: none;
+            border-radius: 18px;
+            padding: 10px 26px;
+            background: var(--card);
+            color: var(--text);
+            font-weight: 700;
+            box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
+            transition: transform 0.12s ease;
+        }
+
+        .neo-btn:active {
+            transform: translateY(1px);
+            box-shadow: inset 6px 6px 12px var(--shadow-dark), inset -6px -6px 12px var(--shadow-light);
+        }
+
+        .subtle {
+            color: var(--accent);
+            margin: 12px 0 0;
+            font-size: 0.95rem;
+        }
+
+        .alerts {
+            margin-bottom: 12px;
+        }
+
+        .alerts .alert {
+            border-radius: 12px;
+        }
+
+        @media (max-width: 480px) {
+            .neo-card {
+                padding: 24px 20px;
+            }
+        }
     </style>
 </head>
 <body>
 
-<div class="neon-card">
-    <div class="bg-slider" aria-hidden="true">
-        <div class="slide s1" style="background-image: url('{{ url_for('static', filename='images/1.jpg') }}');"></div>
-        <div class="slide s2" style="background-image: url('{{ url_for('static', filename='images/2.jpg') }}');"></div>
-        <div class="slide s3" style="background-image: url('{{ url_for('static', filename='images/3.jpg') }}');"></div>
-        <div class="slide s4" style="background-image: url('{{ url_for('static', filename='images/4.jpg') }}');"></div>
-        <div class="slide s5" style="background-image: url('{{ url_for('static', filename='images/5.jpg') }}');"></div>
-    </div>
+<div class="page">
+    <h1>3D Login Page</h1>
+    <div class="neo-card">
+        <h2 class="neo-title">تسجيل الدخول</h2>
 
-    <div class="accent-line"></div>
-    <div class="accent-line two"></div>
-
-    <div class="brand">
-        <div class="logo">HR</div>
-        <div>
-            <h2>نظام الموارد البشرية <span class="badge bg-warning text-dark ms-2">تصميم تجريبي</span></h2>
-            <p class="muted">تسجيل الدخول الآمن</p>
-        </div>
-    </div>
-
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          {# keep inline alerts for non-success/error types; success/error handled globally by base.html flash -> modal #}
-          {% if category not in ['success','danger','error','center'] %}
-            <div class="alert alert-{{ category }}">{{ message }}</div>
-          {% endif %}
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
-
-    <form method="POST">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="mb-3">
-            <label for="username" class="form-label">اسم المستخدم</label>
-            <input type="text" class="form-control" id="username" name="username" required autofocus>
-        </div>
-        <div class="mb-3">
-            <label for="password" class="form-label">كلمة المرور</label>
-            <input type="password" class="form-control" id="password" name="password" required>
+        <div class="alerts">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  {# keep inline alerts for non-success/error types; success/error handled globally by base.html flash -> modal #}
+                  {% if category not in ['success','danger','error','center'] %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
         </div>
 
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" value="1" id="remember" name="remember">
-                <label class="form-check-label text-white-50" for="remember">تذكرني</label>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="neo-field">
+                <input type="text" class="neo-input" id="username" name="username" required autofocus placeholder="البريد الإلكتروني أو اسم المستخدم">
             </div>
-            <a href="#" class="text-decoration-none text-white-50 small">نسيت كلمة المرور؟</a>
-        </div>
+            <div class="neo-field">
+                <div class="password-wrap">
+                    <input type="password" class="neo-input has-toggle" id="password" name="password" required placeholder="كلمة المرور">
+                    <button type="button" class="toggle-pass" data-target="password">عرض</button>
+                </div>
+            </div>
 
-        <button type="submit" class="btn-login">دخول</button>
-    </form>
-
-    <p class="muted">ليس لديك حساب؟ تواصل مع مسؤول النظام</p>
+            <button type="submit" class="neo-btn">دخول</button>
+            <p class="subtle">تسجيل دخول آمن للنظام</p>
+        </form>
+        <p class="subtle"><a href="{{ url_for('auth.forgot_password') }}" class="text-decoration-none">نسيت كلمة المرور؟</a></p>
+    </div>
 </div>
+
+<script>
+    document.querySelectorAll('.toggle-pass').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const targetId = btn.getAttribute('data-target');
+            const input = document.getElementById(targetId);
+            if (!input) return;
+            const isPassword = input.getAttribute('type') === 'password';
+            input.setAttribute('type', isPassword ? 'text' : 'password');
+            btn.textContent = isPassword ? 'إخفاء' : 'عرض';
+        });
+    });
+</script>
 
 </body>
 </html>

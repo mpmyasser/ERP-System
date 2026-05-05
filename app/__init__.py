@@ -61,6 +61,7 @@ def create_app():
     from app.routes.admin import admin_bp
     from app.routes.accounting import accounting_bp
     from app.routes.treasury import treasury_bp
+    from app.routes.interactive_api import interactive_api_bp
     # from app.routes.commercial import commercial_bp
 
 
@@ -84,6 +85,7 @@ def create_app():
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(accounting_bp, url_prefix='/accounting')
     app.register_blueprint(treasury_bp, url_prefix='/treasury')
+    app.register_blueprint(interactive_api_bp, url_prefix='/api/interactive')
     # app.register_blueprint(commercial_bp, url_prefix='/commercial')
 
 

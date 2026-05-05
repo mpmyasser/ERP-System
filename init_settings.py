@@ -37,6 +37,9 @@ def init_system_settings():
         # الإضافي والحوافز
         ('OVERTIME_MIN_MINUTES', '60', 'الحد الأدنى لاستحقاق الإضافي بالأدقائق (عتبة الاستحقاق)', 'Overtime', 'int'),
         ('OVERTIME_RATE', '1.5', 'معدل حساب ساعة الإضافي (مثلا 1.5 يعني الساعة بساعة ونصف)', 'Overtime', 'float'),
+        ('OVERTIME_FIRST_HOUR_FIXED', 'True', 'تثبيت أول ساعة إضافي كساعة كاملة بمجرد تجاوز الحد الأدنى (True/False)', 'Overtime', 'boolean'),
+        ('OVERTIME_ROUNDING_MODE', 'HALF_HOUR', 'طريقة تقريب الإضافي بعد الساعة الأولى (HALF_HOUR / FULL_HOUR / NONE)', 'Overtime', 'select'),
+        ('OVERTIME_ROUND_THRESHOLD_MINUTES', '30', 'عدد الدقائق اللازمة للتقريب لأعلى (مثلاً 30 دقيقة تساوي نصف ساعة)', 'Overtime', 'int'),
         ('INCENTIVE_FULL_THRESHOLD', '24', 'عدد أيام الحضور المطلوبة لاستحقاق حافز الانتظام الكامل', 'Incentives', 'int'),
         ('INCENTIVE_HALF_THRESHOLD', '15', 'عدد أيام الحضور المطلوبة لاستحقاق نصف حافز الانتظام', 'Incentives', 'int'),
         

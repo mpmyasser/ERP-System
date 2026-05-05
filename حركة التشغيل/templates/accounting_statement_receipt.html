@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>كشف حساب/تسوية - {{ accounting_id }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='print.css') }}">
+    <style>
+        body { font-family: Cairo, Arial, sans-serif; padding: 0; margin: 0; direction: rtl; color: #000; }
+        .bg-light { background-color: #fff !important; }
+        
+        .table { width: 100%; border-collapse: collapse; }
+        th { background-color: #16324F !important; color: #fff !important; font-weight: bold; border: 1px solid #000 !important; }
+        td { border: 1px solid #000 !important; color: #000; }
+        
+        @media print {
+            .no-print { display: none !important; }
+            body { margin: 0; padding: 0; color: #000 !important; background: #fff !important; }
+            @page { margin: 8mm; size: A4; }
+            
+            /* High Contrast Overrides */
+            * { color: #000 !important; border-color: #000 !important; }
+            .text-muted, .small { color: #000 !important; font-weight: bold; }
+            .bg-light, .bg-success, .bg-opacity-10 { background-color: #fff !important; }
+            .border-start { border-right: 3px solid #000 !important; border-left: 0 !important; }
+            .text-warning, .text-danger, .text-success { color: #000 !important; font-weight: bold; }
+            
+            /* Fixed footer for printing */
+            .print-footer {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                display: flex;
+                justify-content: space-between;
+                font-size: 11px;
+                color: #000 !important;
+                padding: 5mm 0 0;
+                border-top: 2px solid #000;
+            }
+            
+            .table-bordered th, .table-bordered td {
+                border: 1px solid #000 !important;
+            }
+            
+            .fw-bold { font-weight: bold !important; }
+
+            /* GUARD: GLOBAL SIGNATURE STANDARD */
+            .signature-box-container { 
+                width: 45%;
+                display: flex; 
+                flex-direction: column; 
+                justify-content: space-between; 
+                height: 100%; 
+                text-align: center;
+                font-weight: bold;
+            }
+            .signature-line { 
+                border-bottom: 2px solid #000 !important; 
+                width: 180px; 
+                margin: 0 auto 5px !important; 
+            }
+            /* END GUARD */
+        }
+    </style>
+</head>
+<body onload="window.print()">
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="text-center mb-2">
+            <h4 class="fw-bold text-dark mb-0">{{ factory_name }} <span class="text-muted fs-6">({{ factory_code }})</span></h4>
+            <div class="text-muted small">تاريخ التقرير: {{ accounted_date }}</div>
+        </div>
+
+        <!-- Financial Summary Cards -->
+        <div class="row g-2 mb-3">
+            <div class="col-4">
+                <div class="d-flex justify-content-between align-items-center px-3 py-1 bg-light rounded-3 border-start border-4 border-warning">
+                    <span class="small text-muted">رصيد السلف السابق</span>
+                    <span class="fw-bold text-warning">{{ "%.2f"|format(previous_balance) }} ج.م</span>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="d-flex justify-content-between align-items-center px-3 py-1 bg-light rounded-3 border-start border-4 border-danger">
+                    <span class="small text-muted">الخصم المطبق</span>
+                    <span class="fw-bold text-danger">{{ "%.2f"|format(deduction) }} ج.م</span>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="d-flex justify-content-between align-items-center px-3 py-1 bg-light rounded-3 border-start border-4 border-dark">
+                    <span class="small text-muted">الرصيد بعد الخصم</span>
+                    {% set balance_after = previous_balance - deduction %}
+                    <span class="fw-bold">{{ "%.2f"|format(balance_after) }} ج.م</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Items Table -->
+        <div class="table-responsive mb-4">
+            <table class="table table-bordered table-sm small mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th>الرسالة</th>
+                        <th>الكود</th>
+                        <th>الصنف</th>
+                        <th>المقاس</th>
+                        <th>الكمية</th>
+                        <th>السعر</th>
+                        <th>الإجمالي</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td class="text-center">{{ item.message_no }}</td>
+                        <td class="text-center">{{ item.code }}</td>
+                        <td>{{ item.name }}</td>
+                        <td class="text-center">{{ item.size }}</td>
+                        <td class="text-center fw-bold">
+                            {% if item.received_good_dozens > 0 %}
+                                {{ item.received_good_dozens|int }} د
+                            {% endif %}
+                            {% if item.received_good_pieces > 0 %}
+                                {% if item.received_good_dozens > 0 %} و {% endif %}
+                                {{ item.received_good_pieces|int }} ق
+                            {% endif %}
+                            {% if (item.received_good_dozens or 0) <= 0 and (item.received_good_pieces or 0) <= 0 %}
+                                {{ item.quantity }}
+                            {% endif %}
+                        </td>
+                        <td class="text-center">{{ "%.2f"|format(item.manufacturing_price or 0) }}</td>
+                        <td class="text-center fw-bold">{{ "%.2f"|format((item.quantity or 0) * (item.manufacturing_price or 0)) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="fw-bold table-light">
+                    <tr>
+                        <td colspan="4" class="text-end">إجمالي الحساب:</td>
+                        <td class="text-center">{{ total_qty }}</td>
+                        <td>-</td>
+                        <td class="text-center">{{ "%.2f"|format(total_amount) }} ج.م</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- Net Box & Signatures -->
+        <div class="border rounded-3 overflow-hidden">
+            <div class="d-flex justify-content-between align-items-center px-4 py-0 bg-success bg-opacity-10 border-bottom border-success border-2" style="min-height: 32px;">
+                <div class="fw-bold fs-5 text-success">الصافي للدفع</div>
+                {% set net_to_pay = total_amount - deduction %}
+                <div class="fw-bold fs-4">{{ "%.2f"|format(net_to_pay) }} ج.م</div>
+            </div>
+            <div class="d-flex justify-content-between px-4 mt-2 mb-2" style="min-height: 110px;">
+                <div class="signature-box-container">
+                    <div class="signature-label">مراجعة المدير المالي</div>
+                    <div class="signature-line"></div>
+                </div>
+                <div class="signature-box-container">
+                    <div class="signature-label">توقيع المستلم</div>
+                    <div class="signature-line"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Printable Footer -->
+        <div class="print-footer d-none d-print-flex">
+            <div>{{ footer_note }}</div>
+            <div class="font-monospace">صفحة 1 من 1</div>
+        </div>
+
+        <div class="text-center mt-5 no-print">
+            <button class="btn btn-primary" onclick="window.print()">طباعة</button>
+            <button class="btn btn-secondary" onclick="window.history.back()">رجوع</button>
+        </div>
+    </div>
+
+    <script>
+        // CLEAN URL FOR PRIVACY (Hide Password)
+        if (window.history.replaceState) {
+            const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+            window.history.replaceState({path: cleanUrl}, '', cleanUrl);
+        }
+    </script>
+</body>
+</html>

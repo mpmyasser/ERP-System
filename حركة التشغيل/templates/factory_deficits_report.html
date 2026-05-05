@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}تقرير عجز المصانع{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0 mb-4" id="cardDeficitsReport" data-foldable="true">
+    <div class="card-header bg-white p-3 table-toolbar">
+        <div class="table-toolbar-title">
+            <div class="text-muted small">التقارير المتقدمة</div>
+            <h5 class="mb-0">تقرير عجز المصانع (القصات المستلمة)</h5>
+        </div>
+        
+        <div class="table-toolbar-actions">
+            <div class="input-group input-group-sm smart-search-group table-toolbar-search">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text" id="reportSearch" class="form-control" placeholder="بحث بالرسالة أو الصنف أو المصنع">
+                <button type="button" class="btn btn-outline-primary" id="searchButton">بحث</button>
+                <button type="button" class="btn btn-outline-secondary" id="clearSearchButton">مسح</button>
+            </div>
+
+            <form method="GET" action="{{ url_for('factory_deficits_report_page') }}" class="table-toolbar-form mb-0">
+                <select name="factory_code" id="factorySelect" class="form-select form-select-sm shadow-sm" onchange="this.form.submit()" style="min-width: 200px;">
+                    <option value="">-- كل المصانع --</option>
+                    {% for f in factories %}
+                    <option value="{{ f.code }}" {% if selected_factory == f.code %}selected{% endif %}>
+                        {{ f.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                {% if selected_factory %}
+                <a href="{{ url_for('factory_deficits_report_page') }}" class="btn btn-sm btn-outline-secondary" title="إلغاء الفلتر">
+                    <i class="fas fa-times"></i>
+                </a>
+                {% endif %}
+            </form>
+
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="togglePrintSettingsBtn">
+                <i class="fas fa-cog me-1"></i> إعدادات الطباعة
+            </button>
+
+            <button type="button" class="btn btn-sm btn-dark px-3" id="mainPrintBtn">
+                <i class="fas fa-print me-1"></i> طباعة التقرير
+            </button>
+        </div>
+    </div>
+
+    <div id="printSettingsContainer"></div>
+    
+    <div class="card-body p-0">
+        {% if not deficits %}
+        <div class="text-center p-5 text-muted">
+            <i class="fas fa-check-circle fs-1 mb-3 text-success opacity-50"></i>
+            <h5>لا يوجد عجز مسجل حالياً في القصات المستلمة.</h5>
+        </div>
+        {% else %}
+        <div class="table-responsive" style="max-height: 85vh; overflow: auto;">
+            <table class="table table-sm table-striped table-hover mb-0" id="deficitsTable">
+                <thead class="table-dark sticky-top">
+                    <tr>
+                        <th data-sort-key="message_no">رقم الرسالة</th>
+                        <th data-sort-key="factory">المصنع</th>
+                        <th data-sort-key="name">الصنف</th>
+                        <th data-sort-key="size" class="text-center">المقاس</th>
+                        <th data-sort-key="original" class="text-center">المرسل</th>
+                        <th class="text-center text-warning" title="درجة + تصاليح + بواقي">التسوية</th>
+                        <th class="text-center text-success">المضاف</th>
+                        <th class="text-center">الصالح</th>
+                        <th data-sort-key="deficit" class="text-center text-danger">العجز</th>
+                        <th data-sort-key="date">تاريخ الاستلام</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in deficits %}
+                    <tr class="report-row">
+                        <td class="align-middle fw-bold">{{ item.message_no }}</td>
+                        <td class="align-middle">{{ item.factory_name }}</td>
+                        <td class="align-middle">
+                            <div class="fw-bold">{{ item.name }}</div>
+                            <div class="small text-muted" style="font-size: 0.7rem;">{{ item.code }}</div>
+                        </td>
+                        <td class="align-middle text-center fw-bold">{{ item.size }}</td>
+                        <td class="align-middle text-center">{{ item.original_qty }} د</td>
+                        <td class="align-middle text-center text-warning">
+                            {{ (item.received_grade or 0) + (item.received_repairs or 0) + (item.received_remainders or 0) }} ق
+                        </td>
+                        <td class="align-middle text-center text-success">
+                            {{ item.received_added or 0 }} ق
+                        </td>
+                        <td class="align-middle text-center">
+                            {% if item.received_good_dozens > 0 %}
+                                {{ item.received_good_dozens|int }} د
+                            {% endif %}
+                            {% if item.received_good_pieces > 0 %}
+                                {% if item.received_good_dozens > 0 %}<br>{% endif %}
+                                {{ item.received_good_pieces|int }} ق
+                            {% endif %}
+                            {% if item.received_good_dozens <= 0 and item.received_good_pieces <= 0 %}
+                                0
+                            {% endif %}
+                        </td>
+                        <td class="align-middle text-center bg-light-danger">
+                            <span class="badge bg-danger fs-6">{{ item.deficit_pieces }}</span>
+                        </td>
+                        <td class="align-middle">{{ item.received_actual_date }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <th colspan="9" class="text-center fw-bold align-middle">إجمالي العجز في هذا التقرير:</th>
+                        <th class="text-center text-danger fs-5 fw-bold" id="totalDeficitSum" style="background-color: rgba(220, 53, 69, 0.05);">
+                            {{ deficits|sum(attribute='deficit_pieces') }} قطعة
+                        </th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('reportSearch');
+    const tableRows = document.querySelectorAll('.report-row');
+    const totalSumEl = document.getElementById('totalDeficitSum');
+
+    // تهيئة إعدادات الطباعة
+    if (window.OperationPrint && window.OperationPrint.initPrintSettings) {
+        window.OperationPrint.initPrintSettings({
+            containerId: 'printSettingsContainer',
+            tableId: 'deficitsTable',
+            storageKey: 'print_settings_factory_deficits',
+            title: 'تقرير عجز المصانع'
+        });
+
+        const toggleBtn = document.getElementById('togglePrintSettingsBtn');
+        const panel = document.getElementById('printColumnsPanel');
+        if (toggleBtn && panel) {
+            toggleBtn.addEventListener('click', () => {
+                panel.classList.toggle('d-none');
+            });
+        }
+
+        const mainPrintBtn = document.getElementById('mainPrintBtn');
+        if (mainPrintBtn) {
+            mainPrintBtn.addEventListener('click', () => {
+                window.OperationPrint.printTable({
+                    tableId: 'deficitsTable',
+                    optionsId: 'printColumnsOptions',
+                    title: 'تقرير عجز المصانع',
+                    showTime: localStorage.getItem('print_show_time') !== 'false',
+                    showPageNumbers: localStorage.getItem('print_show_page_numbers') !== 'false',
+                    landscape: localStorage.getItem('print_landscape') === 'true',
+                    rowPadding: (localStorage.getItem('global_print_row_padding_pt') || '6') + 'pt'
+                });
+            });
+        }
+    }
+
+    if (searchInput) {
+        const searchBtn = document.getElementById('searchButton');
+        const clearBtn = document.getElementById('clearSearchButton');
+
+        const performSearch = () => {
+            const term = searchInput.value.toLowerCase();
+            let currentDeficitSum = 0;
+
+            tableRows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                if (text.includes(term)) {
+                    row.style.display = '';
+                    const deficitVal = parseFloat(row.querySelector('.badge').textContent) || 0;
+                    currentDeficitSum += deficitVal;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            if (totalSumEl) {
+                totalSumEl.textContent = `${currentDeficitSum} قطعة`;
+            }
+        };
+
+        searchInput.addEventListener('input', performSearch);
+        searchBtn?.addEventListener('click', performSearch);
+        
+        clearBtn?.addEventListener('click', () => {
+            searchInput.value = '';
+            performSearch();
+        });
+    }
+});
+</script>
+
+<style>
+    .bg-light-danger { background-color: rgba(220, 53, 69, 0.05); }
+    .sticky-top { top: 0; z-index: 1020; }
+    #deficitsTable th { white-space: nowrap; }
+    #deficitsTable td { white-space: nowrap; }
+    
+    @media print {
+        .badge { color: #000 !important; background: none !important; border: 1px solid #000 !important; }
+        .text-danger, .text-warning, .text-success { color: #000 !important; }
+    }
+</style>
+{% endblock %}

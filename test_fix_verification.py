@@ -1,49 +1,65 @@
-# -*- coding: utf-8 -*-
 """
-اختبار التحقق من الإصلاحات
+اختبار الإصلاح: التحقق من حساب الغياب والجزاء الصحيح
 """
+
+import sys
+import os
 from datetime import date
 
-print("=" * 60)
-print("التحقق من منطق اليوم 26")
-print("=" * 60)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'core'))
 
-today = date.today()
-print(f"التاريخ الحالي: {today}")
-print(f"اليوم من الشهر: {today.day}")
-print(f"هل نحن بعد اليوم 26؟ {today.day >= 26}")
+from db_manager import DBManager
+from database_models import Employee
+from services.payroll_processor import PayrollCalculator
 
-if today.day >= 26:
-    print("\n>> نستخدم: الراتب الاساسي الكامل (نهاية شهر)")
-else:
-    print("\n>> نستخدم: عدد الايام x الراتب اليومي (ايام فعلية)")
+def test_absence_calculation():
+    """اختبار حساب الغياب بعد الإصلاح"""
+    
+    db = DBManager('core/hr.db')
+    calculator = PayrollCalculator(db)
+    
+    print("\n" + "="*80)
+    print("اختبار الإصلاح: حساب الغياب والجزاء")
+    print("="*80)
+    
+    # اختبار الموظف 236
+    employee_id = 130
+    month = 2
+    year = 2026
+    
+    try:
+        payroll = calculator.calculate_monthly_payroll(employee_id, month, year)
+        
+        print(f"\nالموظف: {payroll['Employee']}")
+        print(f"الفترة: {month}/{year}")
+        print(f"\nالنتائج:")
+        print(f"  - أيام الحضور: {payroll['Attendance Days']}")
+        print(f"  - أيام الغياب: {payroll['Absence Days']}")
+        print(f"  - أيام الجزاء: {payroll.get('Absence Penalty Days', 'N/A')}")
+        print(f"  - قيمة الجزاء: {payroll['Absence Penalty Deduction']:.2f} جنيه")
+        print(f"  - الراتب الأساسي: {payroll['Basic Salary']:.2f}")
+        print(f"  - الراتب الإجمالي: {payroll['Gross Salary']:.2f}")
+        print(f"  - الاستقطاعات: {payroll['Total Deductions']:.2f}")
+        print(f"  - الراتب الصافي: {payroll['Net Salary']:.2f}")
+        
+        # التحقق من النتائج
+        print(f"\nالتحقق:")
+        if payroll['Absence Days'] > 0:
+            print(f"  [صحيح] تم احتساب الغياب: {payroll['Absence Days']} أيام")
+        else:
+            print(f"  [خطأ] الغياب = 0 (لم يتم الإصلاح)")
+        
+        if payroll['Absence Penalty Deduction'] > 0:
+            print(f"  [صحيح] تم احتساب الجزاء: {payroll['Absence Penalty Deduction']:.2f} جنيه")
+        else:
+            print(f"  [تحذير] الجزاء = 0 (قد يكون ضمن المسموح)")
+        
+    except Exception as e:
+        print(f"[خطأ] {str(e)}")
+        import traceback
+        traceback.print_exc()
+    
+    print("\n" + "="*80)
 
-print("\n" + "=" * 60)
-print("مثال حسابي:")
-print("=" * 60)
-
-basic_salary = 3000
-attendance_days = 20
-daily_salary = basic_salary / 30
-
-print(f"الراتب الأساسي: {basic_salary} جنيه")
-print(f"أيام الحضور: {attendance_days} يوم")
-print(f"الراتب اليومي: {daily_salary:.2f} جنيه")
-
-if today.day >= 26:
-    gross_salary = basic_salary
-    calc_type = "نهاية شهر"
-else:
-    gross_salary = attendance_days * daily_salary
-    calc_type = "أيام فعلية"
-
-print(f"\nنوع الحساب: {calc_type}")
-print(f"الراتب الإجمالي: {gross_salary:.2f} جنيه")
-
-print("\n" + "=" * 60)
-print("الاصلاحات المطبقة:")
-print("=" * 60)
-print("1. اصلاح منتقي الشهر في payroll/view.html")
-print("2. تطبيق منطق اليوم 26 في get_detailed_payroll_report")
-print("3. اضافة منتقي الشهر في detailed_salary.html")
-print("4. اضافة employee_id في البيانات المرجعة")
+if __name__ == "__main__":
+    test_absence_calculation()

@@ -96,27 +96,25 @@ def list_pending_loans():
             if dep_ids:
                 query = query.filter(Employee.department_id.in_(dep_ids))
             
-        # Sorting Logic
+        # Sorting Logic (hierarchical: employee code is always primary ASC)
         sort_by = request.args.get('sort', 'date')
-        order = request.args.get('order', 'desc')
-        
+        order = request.args.get('order', 'asc')
+
         if sort_by == 'department':
-            # Join with Employee and Department is already implicitly handled by joinedload in model relationships,
-            # but for sorting we ensure valid joins to order by department name
-            query = query.join(Loan.employee).join(Employee.department).order_by(
-                Department.name.desc() if order == 'desc' else Department.name.asc()
-            )
-        elif sort_by == 'code':
-            query = query.join(Loan.employee).order_by(
-                Employee.code.desc() if order == 'desc' else Employee.code.asc()
-            )
+            query = query.join(Employee.department)
+            secondary_order = Department.name.desc() if order == 'desc' else Department.name.asc()
         elif sort_by == 'amount':
-            query = query.order_by(Loan.amount.desc() if order == 'desc' else Loan.amount.asc())
+            secondary_order = Loan.amount.desc() if order == 'desc' else Loan.amount.asc()
         elif sort_by == 'type':
-            query = query.order_by(Loan.type.desc() if order == 'desc' else Loan.type.asc())
+            secondary_order = Loan.type.desc() if order == 'desc' else Loan.type.asc()
+        elif sort_by == 'code':
+            # Primary code ordering is fixed; keep date as secondary when code is selected.
+            secondary_order = Loan.date.asc()
         else:
-            # Default sort by date
-            query = query.order_by(Loan.date.desc() if order == 'desc' else Loan.date.asc())
+            # Default secondary sort by date (ASC)
+            secondary_order = Loan.date.asc()
+
+        query = query.order_by(Employee.code.asc(), secondary_order, Loan.id.asc())
             
         pending_loans = query.all()
         

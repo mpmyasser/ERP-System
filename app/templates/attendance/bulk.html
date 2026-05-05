@@ -295,7 +295,7 @@
             return;
         }
 
-        // 1. Check for duplicates in the current grid
+        /* 1. Check for duplicates in the current grid (Disabled for bulk flexibility)
         const allCodes = Array.from(document.querySelectorAll('.emp-code'))
             .filter(inp => inp !== input)
             .map(inp => inp.value.trim());
@@ -308,6 +308,7 @@
             input.focus();
             return;
         }
+        */
 
         fetch(`/employees/check_code/${code}`)
             .then(res => res.json())
@@ -318,7 +319,8 @@
                     nameInput.classList.add('is-valid');
                     nameInput.classList.remove('is-invalid');
                     
-                    // 2. Check for duplicates in the database
+                    // 2. Check for duplicates in the database (Disabled for bulk flexibility)
+                    /*
                     const checkDate = attDateInput.value;
                     if (checkDate) {
                         fetch(`{{ url_for('attendance.check_duplicate') }}?employee_id=${data.id}&date=${checkDate}`)
@@ -332,6 +334,8 @@
                     } else {
                         attDateInput.focus();
                     }
+                    */
+                    attDateInput.focus();
                 } else {
                     nameInput.value = 'غير موجود أو لا يعمل';
                     idInput.value = '';

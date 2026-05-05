@@ -20,6 +20,52 @@ from core.utils.excel_utils import apply_professional_style
 
 loans_bp = Blueprint('loans', __name__)
 
+def _get_loans_data(date_from=None, date_to=None, department_ids=None, dept_filter_mode='include', search_code=''):
+    """Shared function to get loans data"""
+    db = current_app.db
+    return db.search_loans(
+        date_from=date_from, 
+        date_to=date_to, 
+        department_ids=department_ids, 
+        dept_filter_mode=dept_filter_mode, 
+        code=search_code
+    )
+
+@loans_bp.route('/api/data')
+def api_data():
+    """API endpoint for AJAX DataTable"""
+    date_from = request.args.get('date_from')
+    date_to = request.args.get('date_to')
+    department_ids = request.args.getlist('department_ids', type=int)
+    if not department_ids:
+        department_ids = request.args.getlist('department_ids[]', type=int)
+    if not department_ids and request.args.get('department_id'):
+        department_ids = [request.args.get('department_id', type=int)]
+    dept_filter_mode = request.args.get('dept_filter_mode', 'include')
+    search_code = request.args.get('search_code', '').strip()
+    
+    loans = _get_loans_data(date_from, date_to, department_ids, dept_filter_mode, search_code)
+    
+    data = []
+    for loan in loans:
+        data.append({
+            'id': loan.id,
+            'code': loan.employee.code if loan.employee else '-',
+            'name': loan.employee.name if loan.employee else '-',
+            'department': loan.employee.department.name if loan.employee and loan.employee.department else '-',
+            'date': loan.date.strftime('%d/%m/%Y') if loan.date else '-',
+            'type': loan.type,
+            'amount': loan.amount,
+            'installment_value': loan.installment_value,
+            'installments_count': loan.installments_count,
+            'excluded_months': loan.excluded_months or '-',
+            'end_date': loan.end_date.strftime('%d/%m/%Y') if loan.end_date else '-',
+            'remaining_balance': loan.auto_remaining_balance,
+            'status': loan.status
+        })
+    
+    return {'data': data}
+
 @loans_bp.route('/')
 def list():
     """List all loans with filters"""
@@ -37,18 +83,8 @@ def list():
     dept_filter_mode = request.args.get('dept_filter_mode', 'include')
     search_code = request.args.get('search_code', '').strip()
     
-    # If searching by code, ignore department filter to find the employee regardless of department
-    if search_code:
-        department_ids = []
-    
     # Get loans
-    loans = db.search_loans(
-        date_from=date_from, 
-        date_to=date_to, 
-        department_ids=department_ids, 
-        dept_filter_mode=dept_filter_mode, 
-        code=search_code
-    )
+    loans = _get_loans_data(date_from, date_to, department_ids, dept_filter_mode, search_code)
     
     # Calculate statistics
     total_loans_amount = sum(loan.amount for loan in loans)
@@ -189,7 +225,6 @@ def delete(id):
         flash(f'حدث خطأ: {str(e)}', 'danger')
     
     return redirect(url_for('loans.list'))
-    return redirect(url_for('loans.list'))
 
 @loans_bp.route('/bulk')
 def bulk_entry():
@@ -238,8 +273,6 @@ def bulk_save():
                 
             # Check for duplicate
             if db.check_loan_exists(int(item['employee_id']), date_val):
-                # Skip or add error? User wants to prevent duplicate.
-                # Let's add to errors to notify which ones were skipped
                 errors.append(f"الموظف {item.get('employee_id')} لديه سلفة بالفعل بتاريخ {date_val}")
                 continue
 
@@ -249,7 +282,7 @@ def bulk_save():
                 loan_type=item['loan_type'],
                 number_of_installments=int(item['number_of_installments']),
                 date_issued=date_val,
-                excluded_months=item.get('excluded_months') # Optional if we add it to grid later
+                excluded_months=item.get('excluded_months')
             )
             count += 1
         except Exception as e:
@@ -298,7 +331,7 @@ def bulk_edit_load():
                 'type': loan.type,
                 'installments_count': loan.installments_count,
                 'date': format_date_ar(loan.date) if loan.date else '',
-                'date_iso': loan.date.strftime('%Y-%m-%d') if loan.date else '',  # For HTML date input
+                'date_iso': loan.date.strftime('%Y-%m-%d') if loan.date else '',
                 'excluded_months': loan.excluded_months or ''
             })
         
@@ -332,7 +365,6 @@ def bulk_edit_save():
                 date_val = parse_date_compact(date_str)
                 if not date_val:
                     try:
-                        # Fallback for ISO
                         from datetime import datetime
                         date_val = datetime.strptime(date_str, '%Y-%m-%d').date()
                     except:
@@ -348,7 +380,6 @@ def bulk_edit_save():
                 'excluded_months': item.get('excluded_months') if item.get('excluded_months') else None
             }
             
-            # Use provided remaining balance if it exists and looks valid, otherwise don't reset it
             if 'remaining_balance' in item and item['remaining_balance'] is not None:
                 try:
                     update_data['remaining_balance'] = float(item['remaining_balance'])
@@ -361,9 +392,8 @@ def bulk_edit_save():
             errors.append(f"Error for Loan ID {item.get('id')}: {str(e)}")
     
     if errors:
-        return {'success': False, 'message': '; '.join(errors[:5])}  # Show first 5 errors
+        return {'success': False, 'message': '; '.join(errors[:5])}
     
-    return {'success': True, 'updated': updated}
     return {'success': True, 'updated': updated}
 
 @loans_bp.route('/export_excel')
@@ -372,7 +402,7 @@ def export_excel():
     try:
         db = current_app.db
         
-        # Get Filters (Duplicate logic from list route)
+        # Get Filters
         date_from = request.args.get('date_from')
         date_to = request.args.get('date_to')
         department_ids = request.args.getlist('department_ids', type=int) 
@@ -380,8 +410,6 @@ def export_excel():
              department_ids = [request.args.get('department_id', type=int)]
              
         search_code = request.args.get('search_code', '').strip()
-        if search_code:
-            department_ids = []
         
         # Get data
         loans = db.search_loans(

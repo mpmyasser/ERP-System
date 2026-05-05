@@ -67,6 +67,19 @@ class HRPolicyMeta(type):
         return cls._get_setting_meta('OVERTIME_RATE', 1.5, 'float')
 
     @property
+    def OVERTIME_FIRST_HOUR_FIXED(cls):
+        val = cls._get_setting_meta('OVERTIME_FIRST_HOUR_FIXED', 'True', 'str')
+        return str(val).strip().lower() in ('true', '1', 'yes')
+
+    @property
+    def OVERTIME_ROUNDING_MODE(cls):
+        return cls._get_setting_meta('OVERTIME_ROUNDING_MODE', 'HALF_HOUR', 'str')
+
+    @property
+    def OVERTIME_ROUND_THRESHOLD_MINUTES(cls):
+        return cls._get_setting_meta('OVERTIME_ROUND_THRESHOLD_MINUTES', 30)
+
+    @property
     def INCENTIVE_FULL_THRESHOLD(cls):
         return cls._get_setting_meta('INCENTIVE_FULL_THRESHOLD', 24)
 
@@ -143,10 +156,58 @@ class HRPolicy(metaclass=HRPolicyMeta):
             return 0.0
     
     @staticmethod
-    def calculate_overtime_pay(overtime_hours, hourly_salary):
-        if overtime_hours < (HRPolicy.OVERTIME_MIN_MINUTES / 60.0):
+    def calculate_overtime_hours_rounded(overtime_hours):
+        """
+        تحويل ساعات الإضافي الخام إلى ساعات مقرَّبة وفق الإعدادات.
+
+        المنطق:
+        1. بوابة الاستحقاق: أقل من OVERTIME_MIN_MINUTES → 0
+        2. إذا OVERTIME_FIRST_HOUR_FIXED = True:
+           - أولى 60 دقيقة = 1 ساعة كاملة
+           - يُطبَّق التقريب على المتبقي فقط
+        3. إذا OVERTIME_FIRST_HOUR_FIXED = False:
+           - يُطبَّق التقريب على كل 60 دقيقة
+        """
+        total_minutes = overtime_hours * 60.0
+
+        # Gatekeeper
+        if total_minutes < HRPolicy.OVERTIME_MIN_MINUTES:
             return 0.0
-        return overtime_hours * hourly_salary * HRPolicy.OVERTIME_RATE
+
+        threshold = HRPolicy.OVERTIME_ROUND_THRESHOLD_MINUTES
+        mode = HRPolicy.OVERTIME_ROUNDING_MODE
+
+        def _round_remainder(remaining_minutes):
+            """تقريب الدقائق المتبقية بعد آخر ساعة كاملة."""
+            if mode == 'HALF_HOUR':
+                if remaining_minutes < threshold:
+                    return 0.0
+                elif remaining_minutes == threshold:
+                    return 0.5
+                else:  # > threshold
+                    return 1.0
+            else:
+                # وضع افتراضي: دقيقة بدقيقة
+                return remaining_minutes / 60.0
+
+        if HRPolicy.OVERTIME_FIRST_HOUR_FIXED:
+            # أول 60 دقيقة = 1 ساعة ثابتة
+            remaining = total_minutes - 60.0
+            calculated = 1.0 + _round_remainder(remaining)
+        else:
+            # تقريب على كامل الوقت
+            full_hours = int(total_minutes // 60)
+            remaining = total_minutes % 60
+            calculated = full_hours + _round_remainder(remaining)
+
+        return calculated
+
+    @staticmethod
+    def calculate_overtime_pay(overtime_hours, hourly_salary):
+        calculated = HRPolicy.calculate_overtime_hours_rounded(overtime_hours)
+        if calculated == 0.0:
+            return 0.0
+        return calculated * hourly_salary * HRPolicy.OVERTIME_RATE
 
 class LoanType:
     MONTHLY = "شهرية"

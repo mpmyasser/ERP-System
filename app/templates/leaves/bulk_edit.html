@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+
+{% block title %}تعديل إجازات جماعي{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+        <h4 class="mb-0"><i class="fas fa-edit me-2"></i> تعديل إجازات جماعي (Bulk Edit)</h4>
+        <a href="{{ url_for('leaves.list') }}" class="btn btn-light btn-sm text-dark fw-bold">
+            <i class="fas fa-list me-1"></i> قائمة الإجازات
+        </a>
+    </div>
+    <div class="card-body">
+
+        <!-- Filter Section -->
+        <div class="row mb-4 p-3 bg-light border rounded">
+            <div class="col-md-12 mb-2"><strong><i class="fas fa-filter me-1"></i> تحميل الإجازات للتعديل</strong></div>
+            <div class="col-md-3">
+                <label class="form-label">من تاريخ</label>
+                <input type="text" id="filterDateFrom" class="form-control date-string allow-month-end" placeholder="DD/MM/YYYY">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">إلى تاريخ</label>
+                <input type="text" id="filterDateTo" class="form-control date-string allow-month-end" placeholder="DD/MM/YYYY">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">كود الموظف</label>
+                <input type="text" id="filterCode" class="form-control" placeholder="الكود">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">القسم</label>
+                <select id="filterDepartment" class="form-select">
+                    <option value="">الكل</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept.id }}">{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 align-self-end">
+                <button class="btn btn-primary w-100" onclick="loadLeaves()">
+                    <i class="fas fa-download me-1"></i> تحميل الإجازات
+                </button>
+            </div>
+        </div>
+
+        <!-- Editable Grid -->
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped" id="bulkEditTable">
+                <thead class="table-dark text-center">
+                    <tr>
+                        <th width="4%"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+                        <th width="10%">الكود</th>
+                        <th width="16%">الموظف</th>
+                        <th width="14%">نوع الإجازة</th>
+                        <th width="14%">تاريخ البداية</th>
+                        <th width="14%">تاريخ النهاية</th>
+                        <th width="14%">الحالة</th>
+                        <th width="8%">الأيام</th>
+                        <th width="10%">القسم</th>
+                    </tr>
+                </thead>
+                <tbody id="bulkEditBody">
+                    <tr>
+                        <td colspan="9" class="text-center text-muted">
+                            <i class="fas fa-info-circle me-2"></i>استخدم الفلاتر أعلاه لتحميل الإجازات المراد تعديلها
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between mt-3">
+            <div>
+                <span class="badge bg-secondary" id="selectedCount">0 محدد</span>
+                <span class="badge bg-info ms-2" id="totalCount">0 إجمالي</span>
+            </div>
+            <button class="btn btn-success btn-lg" onclick="saveChanges()" id="saveBtn" disabled>
+                <i class="fas fa-save me-1"></i> حفظ التعديلات
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    #bulkEditTable {
+        color: #000 !important;
+    }
+
+    #bulkEditTable input,
+    #bulkEditTable select {
+        color: #000 !important;
+    }
+
+    #bulkEditTable td,
+    #bulkEditTable th {
+        color: #000 !important;
+    }
+</style>
+
+<script>
+    let leavesData = [];
+    const preselectedLeaveId = {{ preselected_leave_id if preselected_leave_id is not none else 'null' }};
+    const leaveTypeOptions = [{% for lt in leave_types %}'{{ lt.value }}'{% if not loop.last %}, {% endif %}{% endfor %}];
+    const leaveStatusOptions = [{% for st in leave_statuses %}'{{ st.value }}'{% if not loop.last %}, {% endif %}{% endfor %}];
+
+    function escapeHtml(value) {
+        const str = String(value || '');
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function buildSelectOptions(options, selectedValue) {
+        return options.map(opt => {
+            const selected = String(opt) === String(selectedValue || '') ? 'selected' : '';
+            return `<option value="${escapeHtml(opt)}" ${selected}>${escapeHtml(opt)}</option>`;
+        }).join('');
+    }
+
+    function parseDateString(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return null;
+
+        if (raw.includes('/')) {
+            const parts = raw.split('/');
+            if (parts.length !== 3) return null;
+            const d = parseInt(parts[0], 10);
+            const m = parseInt(parts[1], 10) - 1;
+            const y = parseInt(parts[2], 10);
+            const dt = new Date(y, m, d);
+            if (dt.getFullYear() !== y || dt.getMonth() !== m || dt.getDate() !== d) return null;
+            return dt;
+        }
+
+        if (raw.includes('-')) {
+            const parts = raw.split('-');
+            if (parts.length !== 3) return null;
+            const y = parseInt(parts[0], 10);
+            const m = parseInt(parts[1], 10) - 1;
+            const d = parseInt(parts[2], 10);
+            const dt = new Date(y, m, d);
+            if (dt.getFullYear() !== y || dt.getMonth() !== m || dt.getDate() !== d) return null;
+            return dt;
+        }
+
+        return null;
+    }
+
+    function calculateDays(startStr, endStr) {
+        const start = parseDateString(startStr);
+        const end = parseDateString(endStr);
+        if (!start || !end) return '';
+        if (end < start) return '';
+        const diffMs = end.getTime() - start.getTime();
+        return Math.floor(diffMs / (24 * 60 * 60 * 1000)) + 1;
+    }
+
+    function refreshRowDaysById(leaveId) {
+        const row = document.querySelector(`tr[data-leave-id="${leaveId}"]`);
+        if (!row) return;
+        const startInput = row.querySelector('.row-start-date');
+        const endInput = row.querySelector('.row-end-date');
+        const daysCell = row.querySelector('.row-days');
+        const days = calculateDays(startInput?.value || '', endInput?.value || '');
+        daysCell.textContent = days === '' ? '-' : String(days);
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        if (Number.isInteger(preselectedLeaveId)) {
+            loadLeaves();
+        }
+    });
+
+    function loadLeaves() {
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
+        const deptId = document.getElementById('filterDepartment').value;
+        const code = document.getElementById('filterCode').value;
+
+        let url = '/leaves/bulk_edit/load?';
+        const params = [];
+
+        if (dateFrom) params.push(`date_from=${encodeURIComponent(dateFrom)}`);
+        if (dateTo) params.push(`date_to=${encodeURIComponent(dateTo)}`);
+        if (deptId) params.push(`department_id=${encodeURIComponent(deptId)}`);
+        if (code) params.push(`code=${encodeURIComponent(code)}`);
+        if (Number.isInteger(preselectedLeaveId)) params.push(`leave_id=${preselectedLeaveId}`);
+
+        url += params.join('&');
+
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    leavesData = data.leaves || [];
+                    renderLeaves();
+                    document.getElementById('saveBtn').disabled = leavesData.length === 0;
+                } else {
+                    alert('خطأ: ' + (data.message || 'فشل تحميل البيانات'));
+                }
+            })
+            .catch(err => {
+                alert('حدث خطأ في الاتصال');
+                console.error(err);
+            });
+    }
+
+    function renderLeaves() {
+        const tbody = document.getElementById('bulkEditBody');
+        tbody.innerHTML = '';
+
+        if (leavesData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">لا توجد إجازات</td></tr>';
+            document.getElementById('totalCount').textContent = '0 إجمالي';
+            updateSelectedCount();
+            return;
+        }
+
+        leavesData.forEach((leave) => {
+            const row = document.createElement('tr');
+            row.setAttribute('data-leave-id', String(leave.id));
+
+            row.innerHTML = `
+                <td class="text-center align-middle">
+                    <input type="checkbox" class="leave-checkbox" data-id="${leave.id}" onchange="updateSelectedCount()">
+                </td>
+                <td class="align-middle text-center"><strong>${escapeHtml(leave.employee_code || '')}</strong></td>
+                <td class="align-middle">${escapeHtml(leave.employee_name || '')}</td>
+                <td class="align-middle">
+                    <select class="form-select form-select-sm row-leave-type" data-id="${leave.id}">
+                        ${buildSelectOptions(leaveTypeOptions, leave.leave_type)}
+                    </select>
+                </td>
+                <td class="align-middle">
+                    <input type="text" class="form-control form-control-sm date-string allow-month-end row-start-date"
+                        data-id="${leave.id}" value="${escapeHtml(leave.start_date || '')}" placeholder="DD/MM/YYYY">
+                </td>
+                <td class="align-middle">
+                    <input type="text" class="form-control form-control-sm date-string allow-month-end row-end-date"
+                        data-id="${leave.id}" value="${escapeHtml(leave.end_date || '')}" placeholder="DD/MM/YYYY">
+                </td>
+                <td class="align-middle">
+                    <select class="form-select form-select-sm row-status" data-id="${leave.id}">
+                        ${buildSelectOptions(leaveStatusOptions, leave.status)}
+                    </select>
+                </td>
+                <td class="align-middle text-center row-days">${escapeHtml(leave.days_count ?? '-')}</td>
+                <td class="align-middle text-center">${escapeHtml(leave.department || '')}</td>
+            `;
+
+            tbody.appendChild(row);
+        });
+
+        if (Number.isInteger(preselectedLeaveId)) {
+            const preselectedBox = document.querySelector(`.leave-checkbox[data-id="${preselectedLeaveId}"]`);
+            if (preselectedBox) {
+                preselectedBox.checked = true;
+            }
+        }
+
+        document.querySelectorAll('.row-start-date, .row-end-date').forEach(input => {
+            input.addEventListener('change', function () {
+                const leaveId = this.dataset.id;
+                refreshRowDaysById(leaveId);
+            });
+        });
+
+        document.getElementById('totalCount').textContent = `${leavesData.length} إجمالي`;
+        updateSelectedCount();
+    }
+
+    function toggleSelectAll() {
+        const checked = document.getElementById('selectAll').checked;
+        document.querySelectorAll('.leave-checkbox').forEach(cb => {
+            cb.checked = checked;
+        });
+        updateSelectedCount();
+    }
+
+    function updateSelectedCount() {
+        const selected = document.querySelectorAll('.leave-checkbox:checked').length;
+        document.getElementById('selectedCount').textContent = `${selected} محدد`;
+    }
+
+    function collectSelectedRows() {
+        const selectedRows = [];
+        const checkedRows = document.querySelectorAll('.leave-checkbox:checked');
+
+        checkedRows.forEach(checkbox => {
+            const leaveId = Number(checkbox.dataset.id);
+            const row = checkbox.closest('tr');
+            if (!row || !Number.isInteger(leaveId)) return;
+
+            const typeVal = row.querySelector('.row-leave-type')?.value?.trim() || '';
+            const startVal = row.querySelector('.row-start-date')?.value?.trim() || '';
+            const endVal = row.querySelector('.row-end-date')?.value?.trim() || '';
+            const statusVal = row.querySelector('.row-status')?.value?.trim() || '';
+
+            selectedRows.push({
+                id: leaveId,
+                type: typeVal,
+                start: startVal,
+                end: endVal,
+                status: statusVal
+            });
+        });
+
+        return selectedRows;
+    }
+
+    function validateRows(rows) {
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row.type || !row.start || !row.end || !row.status) {
+                return `الصف ${i + 1}: جميع الحقول مطلوبة`;
+            }
+
+            const startDate = parseDateString(row.start);
+            const endDate = parseDateString(row.end);
+
+            if (!startDate || !endDate) {
+                return `الصف ${i + 1}: تنسيق التاريخ غير صالح`;
+            }
+
+            if (endDate < startDate) {
+                return `الصف ${i + 1}: تاريخ النهاية يجب أن يكون بعد تاريخ البداية`;
+            }
+        }
+        return '';
+    }
+
+    function saveChanges() {
+        const rows = collectSelectedRows();
+
+        if (rows.length === 0) {
+            alert('يرجى تحديد الإجازات المراد تعديلها');
+            return;
+        }
+
+        const validationError = validateRows(rows);
+        if (validationError) {
+            alert(validationError);
+            return;
+        }
+
+        if (!confirm(`سيتم تعديل ${rows.length} إجازة. هل أنت متأكد؟`)) return;
+
+        fetch('{{ url_for("leaves.bulk_edit_save") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ rows: rows })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message || `تم تعديل ${data.updated} إجازة بنجاح!`);
+                    window.location.href = "{{ url_for('leaves.list') }}";
+                } else {
+                    alert('خطأ: ' + (data.message || 'فشل حفظ التعديل'));
+                }
+            })
+            .catch(err => {
+                alert('حدث خطأ في الاتصال');
+                console.error(err);
+            });
+    }
+</script>
+
+<script src="{{ url_for('static', filename='js/date_format.js') }}"></script>
+{% endblock %}

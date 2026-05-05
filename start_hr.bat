@@ -26,15 +26,22 @@ if errorlevel 1 (
 )
 
 REM Check for and activate virtual environment if it exists
-if exist "venv\Scripts\activate.bat" (
-    echo [INFO] Activating virtual environment...
-    call venv\Scripts\activate.bat
+if exist ".venv\Scripts\activate.bat" (
+    echo [INFO] Activating virtual environment .venv...
+    call .venv\Scripts\activate.bat
     echo [OK] Virtual environment activated
     echo.
 ) else (
-    echo [WARNING] Virtual environment not found
-    echo [INFO] Using system Python
-    echo.
+    if exist "venv\Scripts\activate.bat" (
+        echo [INFO] Activating virtual environment venv...
+        call venv\Scripts\activate.bat
+        echo [OK] Virtual environment activated
+        echo.
+    ) else (
+        echo [WARNING] Virtual environment not found
+        echo [INFO] Using system Python
+        echo.
+    )
 )
 
 REM Check for run.py file
@@ -59,13 +66,39 @@ if not exist "core" (
     exit /b 1
 )
 
+set "WHATSAPP_ENV_FILE=%~dp0start_hr.local.env"
+
+REM Load WhatsApp API settings before starting the server
+echo [INFO] Checking WhatsApp API settings...
+if exist "%WHATSAPP_ENV_FILE%" (
+    for /f "usebackq tokens=1,* delims==" %%A in ("%WHATSAPP_ENV_FILE%") do (
+        if /I "%%A"=="WHATSAPP_API_URL" set "WHATSAPP_API_URL=%%B"
+        if /I "%%A"=="WHATSAPP_API_TOKEN" set "WHATSAPP_API_TOKEN=%%B"
+    )
+)
+if "%WHATSAPP_API_URL%"=="" (
+    echo [WARNING] WhatsApp API URL is not configured
+    set /p WHATSAPP_API_URL=Enter WHATSAPP_API_URL: 
+)
+if "%WHATSAPP_API_TOKEN%"=="" (
+    echo [WARNING] WhatsApp API TOKEN is not configured
+    set /p WHATSAPP_API_TOKEN=Enter WHATSAPP_API_TOKEN: 
+)
+(
+    echo WHATSAPP_API_URL=%WHATSAPP_API_URL%
+    echo WHATSAPP_API_TOKEN=%WHATSAPP_API_TOKEN%
+) > "%WHATSAPP_ENV_FILE%"
+echo [OK] WhatsApp API settings loaded
+echo [OK] WhatsApp API settings saved to start_hr.local.env
+echo.
+
 echo [OK] All required files and folders found
 echo.
 echo =====================================================
 echo Starting System...
 echo =====================================================
 echo.
-echo URL: http://127.0.0.1:5000
+echo URL: http://127.0.0.1:5000/auth/login
 echo Press Ctrl + C to stop the server
 echo.
 
@@ -73,13 +106,34 @@ REM Start Flask server in a separate window
 echo [INFO] Starting server and opening browser...
 start "HR System Server" python run.py
 
-REM Wait for server to be ready
-timeout /t 2 /nobreak
+REM Wait until the server actually responds before opening the browser
+set "APP_URL=http://127.0.0.1:5000/auth/login"
+set "MAX_WAIT_SECONDS=45"
+set /a WAIT_COUNTER=0
 
-REM Open default browser automatically
-start "" http://127.0.0.1:5000
-echo [OK] Browser opened - http://127.0.0.1:5000
+:wait_for_server
+powershell -NoProfile -Command "try { $ProgressPreference='SilentlyContinue'; Invoke-WebRequest -UseBasicParsing -Uri '%APP_URL%' -TimeoutSec 2 | Out-Null; exit 0 } catch { exit 1 }" >nul 2>&1
+if not errorlevel 1 goto server_ready
+
+set /a WAIT_COUNTER+=1
+if %WAIT_COUNTER% geq %MAX_WAIT_SECONDS% goto server_timeout
+
+timeout /t 1 /nobreak >nul
+goto wait_for_server
+
+:server_ready
+start "" "%APP_URL%"
+echo [OK] Browser opened - %APP_URL%
 echo.
+goto after_browser
+
+:server_timeout
+echo [WARNING] Server did not respond within %MAX_WAIT_SECONDS% seconds.
+echo [WARNING] Browser was not opened automatically.
+echo [INFO] Check the "HR System Server" window for any startup error.
+echo.
+
+:after_browser
 
 REM Keep this window open
 pause

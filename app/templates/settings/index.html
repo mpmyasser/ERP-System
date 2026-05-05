@@ -19,7 +19,8 @@
             <div class="py-1"><i class="fas fa-info-circle fa-2x me-3"></i></div>
             <div>
                 <h5 class="alert-heading">تحكم كامل في قواعد النظام</h5>
-                <p class="mb-0">تعديل هذه القيم سيؤثر فوراً على كافة عمليات حساب الرواتب والتقارير القادمة. يرجى الحذر عند تغيير المعاملات المالية.</p>
+                <p class="mb-0">تعديل هذه القيم سيؤثر فوراً على كافة عمليات حساب الرواتب والتقارير القادمة. يرجى الحذر
+                    عند تغيير المعاملات المالية.</p>
             </div>
         </div>
     </div>
@@ -29,22 +30,21 @@
             <ul class="nav nav-pills card-header-pills" id="settingsTabs" role="tablist">
                 {% for category, settings in categories.items() %}
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link {% if loop.first %}active{% endif %} fw-bold px-4" id="{{ category }}-tab" 
-                            data-bs-toggle="tab" data-bs-target="#{{ category }}" 
-                            type="button" role="tab" aria-controls="{{ category }}" 
-                            aria-selected="{{ loop.first }}">
+                    <button class="nav-link {% if loop.first %}active{% endif %} fw-bold px-4" id="{{ category }}-tab"
+                        data-bs-toggle="tab" data-bs-target="#{{ category }}" type="button" role="tab"
+                        aria-controls="{{ category }}" aria-selected="{{ loop.first }}">
                         {% if category == 'Attendance' %}
-                            <i class="fas fa-clock"></i> الحضور والتأخير
+                        <i class="fas fa-clock"></i> الحضور والتأخير
                         {% elif category == 'Overtime' %}
-                            <i class="fas fa-bolt"></i> محرك الإضافي
+                        <i class="fas fa-bolt"></i> محرك الإضافي
                         {% elif category == 'Financial' %}
-                            <i class="fas fa-money-bill-wave"></i> هندسة الرواتب
+                        <i class="fas fa-money-bill-wave"></i> هندسة الرواتب
                         {% elif category == 'Incentives' %}
-                            <i class="fas fa-star"></i> الحوافز
+                        <i class="fas fa-star"></i> الحوافز
                         {% elif category == 'Absence' %}
-                            <i class="fas fa-user-times"></i> الغياب والجزاءات
+                        <i class="fas fa-user-times"></i> الغياب والجزاءات
                         {% else %}
-                            {{ category }}
+                        {{ category }}
                         {% endif %}
                     </button>
                 </li>
@@ -54,11 +54,11 @@
         <div class="card-body p-4 bg-white">
             <form method="POST" action="{{ url_for('settings.index') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                
+
                 <div class="tab-content" id="settingsTabsContent">
                     {% for category, settings in categories.items() %}
-                    <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="{{ category }}" 
-                         role="tabpanel" aria-labelledby="{{ category }}-tab">
+                    <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="{{ category }}"
+                        role="tabpanel" aria-labelledby="{{ category }}-tab">
                         <div class="row pt-2">
                             {% for setting in settings %}
                             <div class="col-md-6 col-lg-4 mb-4">
@@ -67,12 +67,39 @@
                                         {{ setting.description }}
                                     </label>
                                     <div class="input-group mb-2">
-                                        <input type="text" class="form-control border-primary" name="{{ setting.key }}" 
-                                               id="{{ setting.key }}" value="{{ setting.value }}">
+                                        {% if setting.data_type == 'boolean' %}
+                                        <div class="form-check form-switch pt-1">
+                                            <input type="hidden" name="{{ setting.key }}" value="False">
+                                            <input class="form-check-input" type="checkbox" name="{{ setting.key }}"
+                                                id="{{ setting.key }}" value="True" {% if setting.value|string|lower in
+                                                ['true', '1' , 'yes' ] %}checked{% endif %}>
+                                            <label class="form-check-label ms-2 text-muted small"
+                                                for="{{ setting.key }}">تفعيل / تعطيل</label>
+                                        </div>
+                                        {% elif setting.data_type == 'select' %}
+                                        <select class="form-select border-primary" name="{{ setting.key }}"
+                                            id="{{ setting.key }}">
+                                            {% if setting.key == 'OVERTIME_ROUNDING_MODE' %}
+                                            <option value="FULL_HOUR" {% if setting.value=='FULL_HOUR' %}selected{%
+                                                endif %}>ساعة كاملة (FULL_HOUR)</option>
+                                            <option value="HALF_HOUR" {% if setting.value=='HALF_HOUR' %}selected{%
+                                                endif %}>نصف ساعة (HALF_HOUR)</option>
+                                            <option value="NONE" {% if setting.value=='NONE' %}selected{% endif %}>بدون
+                                                تقريب (NONE)</option>
+                                            {% else %}
+                                            <option value="{{ setting.value }}" selected>{{ setting.value }}</option>
+                                            {% endif %}
+                                        </select>
+                                        {% else %}
+                                        <input type="text" class="form-control border-primary" name="{{ setting.key }}"
+                                            id="{{ setting.key }}" value="{{ setting.value }}">
                                         {% if setting.data_type == 'int' %}
-                                            <span class="input-group-text bg-primary text-white border-primary"><small>عدد</small></span>
+                                        <span
+                                            class="input-group-text bg-primary text-white border-primary"><small>عدد</small></span>
                                         {% elif setting.data_type == 'float' %}
-                                            <span class="input-group-text bg-primary text-white border-primary"><small>معامل</small></span>
+                                        <span
+                                            class="input-group-text bg-primary text-white border-primary"><small>معامل</small></span>
+                                        {% endif %}
                                         {% endif %}
                                     </div>
                                     <div class="d-flex justify-content-between align-items-center">
@@ -105,14 +132,17 @@
         background-color: var(--bs-primary);
         box-shadow: 0 4px 10px rgba(13, 110, 253, 0.2);
     }
+
     .nav-link {
         color: #555;
         border-radius: 8px !important;
         margin-left: 5px;
     }
+
     .nav-link i {
         margin-left: 8px;
     }
+
     .form-control:focus {
         box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
     }

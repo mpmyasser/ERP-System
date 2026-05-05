@@ -186,7 +186,7 @@
                         const n = parseFloat(String(styleW).replace(/[^0-9\.]/g, ''));
                         if (!isNaN(n) && n > 0) w = n;
                     }
-                    if (w === null) w = Math.max(80, Math.round(cell.getBoundingClientRect().width));
+                    if (w === null) w = Math.max(30, Math.round(cell.getBoundingClientRect().width));
                     if (cols[colIndex] && !cols[colIndex].style.width) cols[colIndex].style.width = Math.round(w) + 'px';
                 });
             });
@@ -236,7 +236,7 @@
             if (w > maxWidth) maxWidth = w;
             document.body.removeChild(temp);
         });
-        const final = Math.max(40, maxWidth + 20);
+        const final = Math.max(30, maxWidth + 20);
         const col = table.querySelectorAll('colgroup col')[colIndex];
         if (col) {
             col.style.width = final + 'px';
@@ -350,7 +350,7 @@
             // Resizer handle on the right
             const handle = document.createElement('div');
             handle.className = 'col-resizer';
-            handle.style.cssText = 'position:absolute; top:0; width:7px; cursor:col-resize; user-select:none; height:100%;';
+            handle.style.cssText = 'position:absolute; top:0; width:7px; cursor:col-resize; -webkit-user-select:none; user-select:none; height:100%;';
             if (isRTL) {
                 handle.style.left = '0';
                 handle.style.right = 'auto';
@@ -390,7 +390,7 @@
 
                 function mouseMove(ev) {
                     const delta = ev.clientX - startX;
-                    const newWidth = Math.max(80, startWidth + (isRTL ? -delta : delta));
+                    const newWidth = Math.max(30, startWidth + (isRTL ? -delta : delta));
                     col.style.width = newWidth + 'px';
                     updateTableWidthFromCols(table);
                 }

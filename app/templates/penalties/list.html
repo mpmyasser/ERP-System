@@ -69,6 +69,7 @@
                         <th>أيام الخصم</th>
                         <th>المبلغ/القيمة</th>
                         <th>السبب</th>
+                        <th>القسم</th>
                         <th class="no-sort">إجراءات</th>
                     </tr>
                 </thead>
@@ -117,6 +118,7 @@
                             </strong>
                         </td>
                         <td>{{ penalty.reason or '-' }}</td>
+                        <td>{{ penalty.employee.department.name if penalty.employee and penalty.employee.department else '-' }}</td>
                         <td>
                             <a href="{{ url_for('penalties.edit', id=penalty.id) }}" class="btn btn-sm btn-warning" title="تعديل">
                                 <i class="fas fa-edit"></i>

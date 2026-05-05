@@ -2,7 +2,31 @@
 
 {% block title %}الحضور اليومي{% endblock %}
 
+{% block extra_css %}
+<style>
+    main .alert.auto-dismiss {
+        position: relative;
+        z-index: 11050;
+        margin-bottom: 1rem;
+    }
+
+    #unified-filter-bar {
+        position: relative;
+        z-index: 1;
+    }
+
+    #unified-filter-bar .form-control,
+    #unified-filter-bar .form-select,
+    #unified-filter-bar .btn,
+    #unified-filter-bar .select2-container {
+        position: relative;
+        z-index: 1;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
+<div lang="ar" dir="rtl">
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2"><i class="fas fa-clock me-2"></i> الحضور والانصراف اليومي</h1>
     <div class="btn-toolbar mb-2 mb-md-0 gap-2">
@@ -36,11 +60,11 @@
         <form action="{{ url_for('attendance.daily') }}" method="get" id="attendanceFilterForm" class="row g-3 align-items-end">
             <div class="col-md-2">
                 <label class="form-label">من تاريخ</label>
-                <input type="text" name="date_from" class="form-control form-control-sm date-string text-center" value="{{ start_date.strftime('%d/%m/%Y') }}">
+                <input type="text" name="date_from" class="form-control form-control-sm date-string text-center" value="{{ date_from_value }}">
             </div>
             <div class="col-md-2">
                 <label class="form-label">إلى تاريخ</label>
-                <input type="text" name="date_to" class="form-control form-control-sm date-string text-center" value="{{ end_date.strftime('%d/%m/%Y') }}">
+                <input type="text" name="date_to" class="form-control form-control-sm date-string text-center" value="{{ date_to_value }}">
             </div>
             <div class="col-md-5">
                 <label class="form-label">الأقسام</label>
@@ -61,7 +85,7 @@
                     </a>
                     {% endif %}
                     <span class="btn btn-dark disabled">
-                        {{ records|length if records else 0 }} موظف
+                        {{ records|length if records else 0 }} حركة
                     </span>
                 </div>
             </div>
@@ -84,7 +108,8 @@
                     <tr class="text-center">
                         <th style="width: 100px;">التاريخ</th>
                         <th style="width: 80px;">الكود</th>
-                        <th style="width: 200px;">اسم الموظف</th>
+                        <th style="width: 180px;">اسم الموظف</th>
+                        <th style="width: 100px;">القسم</th>
                         <th style="width: 100px;">حضور</th>
                         <th style="width: 100px;">انصراف</th>
                         <th style="width: 80px;">تأخير (د)</th>
@@ -102,6 +127,7 @@
                         <td class="text-start">
                             <strong>{{ record.employee.name if record.employee else 'غير معروف' }}</strong>
                         </td>
+                        <td>{{ record.employee.department.name if record.employee and record.employee.department else '-' }}</td>
                         <td>
                             {% if record.check_in %}
                             <span class="badge bg-success fs-6">{{ record.check_in.strftime('%H:%M') }}</span>
@@ -173,6 +199,12 @@
             </div>
             <div class="modal-body">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <input type="hidden" name="month" value="{{ month }}" />
+                <input type="hidden" name="year" value="{{ year }}" />
+                <input type="hidden" name="dept" value="{{ selected_dept_csv }}" />
+                <input type="hidden" name="page" class="current-page-input" value="{{ current_page_value }}" />
+                <input type="hidden" name="date_from" value="{{ date_from_value }}" />
+                <input type="hidden" name="date_to" value="{{ date_to_value }}" />
                 <div class="mb-3">
                     <label class="form-label">التاريخ</label>
                     <input type="date" name="date" class="form-control" value="{{ start_date.strftime('%Y-%m-%d') }}"
@@ -215,6 +247,12 @@
             </div>
             <div class="modal-body">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <input type="hidden" name="month" value="{{ month }}" />
+                <input type="hidden" name="year" value="{{ year }}" />
+                <input type="hidden" name="dept" value="{{ selected_dept_csv }}" />
+                <input type="hidden" name="page" class="current-page-input" value="{{ current_page_value }}" />
+                <input type="hidden" name="date_from" value="{{ date_from_value }}" />
+                <input type="hidden" name="date_to" value="{{ date_to_value }}" />
                 <input type="hidden" name="record_id" id="edit-record-id">
                 <div class="mb-3">
                     <label class="form-label">الموظف</label>
@@ -249,6 +287,12 @@
             </div>
             <div class="modal-body">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <input type="hidden" name="month" value="{{ month }}" />
+                <input type="hidden" name="year" value="{{ year }}" />
+                <input type="hidden" name="dept" value="{{ selected_dept_csv }}" />
+                <input type="hidden" name="page" class="current-page-input" value="{{ current_page_value }}" />
+                <input type="hidden" name="date_from" value="{{ date_from_value }}" />
+                <input type="hidden" name="date_to" value="{{ date_to_value }}" />
                 <p>يرجى تحديد التاريخ الذي تريد حذف جميع سجلات الحضور له:</p>
                 <div class="mb-3">
                     <label class="form-label">التاريخ</label>
@@ -278,6 +322,12 @@
             </div>
             <div class="modal-body">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <input type="hidden" name="month" value="{{ month }}" />
+                <input type="hidden" name="year" value="{{ year }}" />
+                <input type="hidden" name="dept" value="{{ selected_dept_csv }}" />
+                <input type="hidden" name="page" class="current-page-input" value="{{ current_page_value }}" />
+                <input type="hidden" name="date_from" value="{{ date_from_value }}" />
+                <input type="hidden" name="date_to" value="{{ date_to_value }}" />
                 <p>سيتم إعادة حساب التاخير والغياب بناءً على أحدث بيانات الموظفين واللوائح.</p>
                 <div class="mb-3">
                     <label class="form-label">التاريخ</label>
@@ -292,21 +342,12 @@
         </form>
     </div>
 </div>
+ </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
     $(document).ready(function () {
-        if ($('#attendance-table').length > 0) {
-            // Use common default config (includes colReorder, stateSave, colVis, etc.)
-            const cfg = $.extend(true, {}, defaultDataTableConfig, {
-                language: { url: "//cdn.datatables.net/plug-ins/1.13.7/i18n/ar.json" },
-                order: [[0, "asc"]],
-                pageLength: 25
-            });
-            $('#attendance-table').DataTable(cfg);
-        }
-
         // Handle Edit Button Click
         $('.edit-btn').click(function () {
             var id = $(this).data('id');
@@ -327,6 +368,43 @@
                 $('#attendanceFilterForm').submit();
             }
         });
+
+        const $attendanceTable = $('#attendance-table');
+        if ($attendanceTable.length && $.fn.DataTable.isDataTable($attendanceTable[0])) {
+            const table = $attendanceTable.DataTable();
+            const pageUrl = new URL(window.location.href);
+            const requestedPage = parseInt(pageUrl.searchParams.get('page') || '{{ current_page_value }}', 10);
+            const $pageInputs = $('.current-page-input');
+
+            function syncPageContext(pageIndex) {
+                const pageNumber = pageIndex + 1;
+                $pageInputs.val(pageNumber);
+
+                if (pageNumber > 1) {
+                    pageUrl.searchParams.set('page', pageNumber);
+                } else {
+                    pageUrl.searchParams.delete('page');
+                }
+
+                window.history.replaceState({}, '', pageUrl.toString());
+            }
+
+            const pageInfo = table.page.info();
+            const lastPageIndex = Math.max((pageInfo.pages || 1) - 1, 0);
+            const initialPageIndex = Number.isInteger(requestedPage) && requestedPage > 0
+                ? Math.min(requestedPage - 1, lastPageIndex)
+                : 0;
+
+            if (table.page() !== initialPageIndex) {
+                table.page(initialPageIndex).draw('page');
+            }
+
+            syncPageContext(table.page());
+            table.on('page.dt', function () {
+                syncPageContext(table.page());
+            });
+        }
+
     });
 
     function deleteAttendanceRecord(recordId) {
@@ -357,3 +435,4 @@
     }
 </script>
 {% endblock %}
+

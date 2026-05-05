@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+
+{% block title %}مخزن المنتج التام{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --stock-primary: #1e3a5f;
+        --stock-secondary: #2c3e50;
+    }
+
+    .stock-header {
+        background: linear-gradient(135deg, var(--stock-primary), var(--stock-secondary));
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    .card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    }
+
+    .stock-qty {
+        font-family: 'Cairo', sans-serif;
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
+    
+    .table thead th {
+        background-color: #f1f3f5;
+        border: none;
+        color: #495057;
+        font-weight: 600;
+        padding: 1rem;
+    }
+
+    .transition-rotate {
+        transition: transform 0.3s ease;
+    }
+    .expanded .transition-rotate {
+        transform: rotate(-90deg);
+    }
+    
+    .detail-row {
+        background-color: #f8f9fa !important;
+    }
+    .detail-table {
+        background-color: white;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .detail-table th {
+        background-color: #e9ecef !important;
+        font-size: 0.8rem !important;
+        padding: 0.5rem !important;
+    }
+    .detail-table td {
+        font-size: 0.85rem !important;
+        padding: 0.5rem !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="stock-header d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-warehouse me-2"></i> مخزن المنتج التام</h2>
+            <p class="mb-0 opacity-75">عرض وإدارة أرصدة المنتجات الجاهزة للتسليم</p>
+        </div>
+        
+        <div class="table-toolbar-actions">
+            <div class="input-group input-group-sm smart-search-group table-toolbar-search">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text" id="stockSearch" class="form-control" placeholder="بحث بالكود أو الاسم...">
+                <button type="button" class="btn btn-outline-primary" id="searchBtn">بحث</button>
+                <button type="button" class="btn btn-outline-secondary" id="clearBtn">مسح</button>
+            </div>
+            
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="togglePrintSettingsBtn">
+                <i class="fas fa-cog me-1"></i> إعدادات الطباعة
+            </button>
+
+            <button type="button" class="btn btn-sm btn-dark px-3 fw-bold" id="mainPrintBtn">
+                <i class="fas fa-print me-1"></i> طباعة الجرد
+            </button>
+        </div>
+    </div>
+
+    <div id="printSettingsContainer"></div>
+
+    <div class="card shadow-sm border-0" id="cardFinishedStock" data-foldable="true">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-list me-2 text-primary"></i> قائمة الأرصدة</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive" style="max-height: 85vh; overflow: auto;">
+                <table class="table table-hover mb-0" id="stockTable" data-resize-key="finished-stock-page">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;"></th>
+                            <th class="ps-4">الصنف</th>
+                            <th>المقاس</th>
+                            <th class="text-center">الرصيد الحالي</th>
+                            <th>آخر تحديث</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stockTableBody">
+                        {% for s in stock if (s.dozens_qty or 0) > 0 or (s.pieces_qty or 0) > 0 or (s.quantity or 0) > 0 %}
+                        <tr class="stock-row" data-code="{{ s.product_code }}" data-size="{{ s.product_size }}">
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-link text-primary btn-expand" title="عرض التفاصيل">
+                                    <i class="fas fa-chevron-left transition-rotate"></i>
+                                </button>
+                            </td>
+                            <td class="ps-4">
+                                <div class="fw-bold">{{ s.product_code }}</div>
+                                <div class="small text-muted">{{ s.product_name }}</div>
+                            </td>
+                            <td><span class="badge bg-info-subtle text-info">{{ s.product_size }}</span></td>
+                            <td class="text-center stock-qty">
+                                {% if s.dozens_qty > 0 %}
+                                    <span class="text-success">{{ s.dozens_qty|int }} د</span>
+                                {% endif %}
+                                {% if s.pieces_qty > 0 %}
+                                    {% if s.dozens_qty > 0 %}<span class="small text-muted"> و </span>{% endif %}
+                                    <span class="text-success">{{ s.pieces_qty|int }} ق</span>
+                                {% endif %}
+                                {% if s.dozens_qty <= 0 and s.pieces_qty <= 0 %}
+                                    <span class="text-muted">0</span>
+                                {% endif %}
+                            </td>
+                            <td class="small text-muted">{{ s.updated_at }}</td>
+                        </tr>
+                        <tr class="detail-row d-none" id="details-{{ loop.index }}">
+                            <td colspan="5" class="bg-light p-0">
+                                <div class="p-3">
+                                    <div class="detail-content">
+                                        <div class="text-center py-2">
+                                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                            <span class="ms-2">جاري تحميل التفاصيل...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if not stock %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5 text-muted">
+                                <i class="fas fa-box-open fa-3x mb-3 opacity-25"></i>
+                                <p>المخزن فارغ حالياً</p>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('stockSearch');
+    const tableRows = document.querySelectorAll('.stock-row');
+
+    // 1. تهيئة إعدادات الطباعة
+    if (window.OperationPrint && window.OperationPrint.initPrintSettings) {
+        window.OperationPrint.initPrintSettings({
+            containerId: 'printSettingsContainer',
+            tableId: 'stockTable',
+            storageKey: 'print_settings_finished_stock',
+            title: 'جرد مخزن المنتج التام'
+        });
+
+        const toggleBtn = document.getElementById('togglePrintSettingsBtn');
+        const panel = document.getElementById('printColumnsPanel');
+        if (toggleBtn && panel) {
+            toggleBtn.addEventListener('click', () => {
+                panel.classList.toggle('d-none');
+            });
+        }
+
+        const mainPrintBtn = document.getElementById('mainPrintBtn');
+        if (mainPrintBtn) {
+            mainPrintBtn.addEventListener('click', () => {
+                window.OperationPrint.printTable({
+                    tableId: 'stockTable',
+                    optionsId: 'printColumnsOptions',
+                    title: 'جرد مخزن المنتج التام',
+                    showTime: localStorage.getItem('print_show_time') !== 'false',
+                    showPageNumbers: localStorage.getItem('print_show_page_numbers') !== 'false',
+                    landscape: localStorage.getItem('print_landscape') === 'true',
+                    rowPadding: (localStorage.getItem('global_print_row_padding_pt') || '6') + 'pt'
+                });
+            });
+        }
+    }
+
+    // 2. منطق البحث
+    if (searchInput) {
+        const searchBtn = document.getElementById('searchBtn');
+        const clearBtn = document.getElementById('clearBtn');
+
+        function performSearch() {
+            const term = searchInput.value.toLowerCase();
+            tableRows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(term) ? '' : 'none';
+            });
+        }
+
+        searchInput.addEventListener('input', performSearch);
+        searchBtn?.addEventListener('click', performSearch);
+        clearBtn?.addEventListener('click', () => {
+            searchInput.value = '';
+            performSearch();
+        });
+    }
+
+    // 3. منطق التوسيع وعرض التفاصيل
+    document.querySelectorAll('.btn-expand').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const row = this.closest('.stock-row');
+            const nextRow = row.nextElementSibling;
+            const content = nextRow.querySelector('.detail-content');
+            const code = row.dataset.code;
+            const size = row.dataset.size;
+            
+            // Toggle visibility
+            const isExpanded = row.classList.toggle('expanded');
+            nextRow.classList.toggle('d-none');
+            
+            if (isExpanded && !row.dataset.loaded) {
+                try {
+                    const response = await fetch(`/api/finished-stock/details?code=${encodeURIComponent(code)}&size=${encodeURIComponent(size)}`);
+                    const data = await response.json();
+                    
+                    if (data.error) throw new Error(data.error);
+                    
+                    if (data.length === 0) {
+                        content.innerHTML = '<div class="alert alert-info py-2 mb-0">لا توجد تفاصيل متاحة لهذا الصنف.</div>';
+                    } else {
+                        let html = `
+                            <table class="table table-sm detail-table mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>رقم إذن التسليم</th>
+                                        <th>القسم</th>
+                                        <th>المصنع</th>
+                                        <th>رقم الرسالة</th>
+                                        <th class="text-center">الكمية</th>
+                                        <th>التاريخ</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                        `;
+                        
+                        data.forEach(item => {
+                            let qtyHtml = '';
+                            if (item.received_good_dozens > 0) qtyHtml += `<b>${parseInt(item.received_good_dozens)}</b> د `;
+                            if (item.received_good_pieces > 0) qtyHtml += `و <b>${parseInt(item.received_good_pieces)}</b> ق`;
+                            if (!qtyHtml) qtyHtml = `${item.received_good} ق`;
+                            
+                            html += `
+                                <tr>
+                                    <td><span class="badge bg-secondary-subtle text-secondary">${item.delivery_note_no || '-'}</span></td>
+                                    <td>${item.packing_department || '-'}</td>
+                                    <td>${item.factory_name || '-'}</td>
+                                    <td><span class="fw-bold text-primary">${item.message_no || '-'}</span></td>
+                                    <td class="text-center text-success">${qtyHtml}</td>
+                                    <td class="text-muted small">${item.received_actual_date || '-'}</td>
+                                </tr>
+                            `;
+                        });
+                        
+                        html += '</tbody></table>';
+                        content.innerHTML = html;
+                    }
+                    row.dataset.loaded = 'true';
+                } catch (err) {
+                    content.innerHTML = `<div class="alert alert-danger py-2 mb-0">خطأ في تحميل البيانات: ${err.message}</div>`;
+                }
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

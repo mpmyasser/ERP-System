@@ -17,12 +17,12 @@
             <div class="col-md-12 mb-2"><strong><i class="fas fa-cogs me-1"></i> إعدادات الدفعة (افتراضيات)</strong>
             </div>
             <div class="col-md-3">
-                <label class="form-label small fw-bold">تاريخ التعيين الموحد</label>
+                <label class="form-label small fw-bold" for="batchHireDate">تاريخ التعيين الموحد</label>
                 <input type="text" id="batchHireDate" class="form-control form-control-sm date-string"
                     value="{{ today }}" placeholder="DD/MM/YYYY">
             </div>
             <div class="col-md-3">
-                <label class="form-label small fw-bold">القسم الافتراضي</label>
+                <label class="form-label small fw-bold" for="batchDept">القسم الافتراضي</label>
                 <select id="batchDept" class="form-select form-select-sm" onchange="applyBatchDept()">
                     <option value="">-- اختر --</option>
                     {% for dept in departments %}
@@ -103,11 +103,12 @@
 
     <style>
         /* Excel-like Header Resize Cues */
-        .table-responsive th {
-            position: relative;
-            cursor: pointer;
-            user-select: none;
-        }
+          .table-responsive th {
+              position: relative;
+              cursor: pointer;
+              -webkit-user-select: none;
+              user-select: none;
+          }
 
         .table-responsive th:hover {
             background-color: #343a40 !important;

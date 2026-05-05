@@ -20,6 +20,8 @@
                     <tr>
                         <th>#</th>
                         <th>اسم المستخدم</th>
+                        <th>الرقم القومي</th>
+                        <th>رقم الموبايل</th>
                         <th>الاسم الكامل</th>
                         <th>الحالة</th>
                         <th>مدير النظام</th>
@@ -31,6 +33,8 @@
                     <tr>
                         <td>{{ user.id }}</td>
                         <td>{{ user.username }}</td>
+                        <td>{{ user_prefs.get(user.id, {}).get('national_id') or '-' }}</td>
+                        <td>{{ user_prefs.get(user.id, {}).get('mobile_number') or '-' }}</td>
                         <td>{{ user.full_name }}</td>
                         <td>
                             {% if user.is_active %}

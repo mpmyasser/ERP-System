@@ -7,13 +7,15 @@ from werkzeug.security import generate_password_hash, check_password_hash
 # جدول الربط بين المستخدمين والصلاحيات (Many-to-Many)
 user_permissions = Table('user_system_permissions', Base.metadata,
     Column('user_id', Integer, ForeignKey('users.id')),
-    Column('permission_id', Integer, ForeignKey('system_permissions.id'))
+    Column('permission_id', Integer, ForeignKey('system_permissions.id')),
+    extend_existing=True
 )
 
 # جدول الربط بين المستخدمين والخزائن المسموح بالوصول إليها
 user_cash_access = Table('user_cash_account_access', Base.metadata,
     Column('user_id', Integer, ForeignKey('users.id')),
-    Column('cash_account_id', Integer, ForeignKey('cash_accounts.id'))
+    Column('cash_account_id', Integer, ForeignKey('cash_accounts.id')),
+    extend_existing=True
 )
 
 class SystemPermission(Base):

@@ -41,6 +41,22 @@
             </div>
         </div>
 
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">بحث</label>
+                        <input type="text" name="search_name" class="form-control" placeholder="اسم العطلة..."
+                            value="{{ request.args.get('search_name', '') }}">
+                    </div>
+                    <div class="col-md-3 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary flex-grow-1"><i class="fas fa-filter"></i>
+                            تصفية</button>
+                        <a href="{{ url_for('leaves.holidays') }}" class="btn btn-light"><i class="fas fa-undo"></i>
+                            إعادة ضبط</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <div class="card border-0 shadow-sm">
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -50,9 +66,11 @@
                                 <th>اسم العطلة</th>
                                 <th>تاريخ البداية</th>
                                 <th>تاريخ النهاية</th>
-                                <th>المدة (أيام)</th>
+                                <th>المدفوعية</th>
+                                <th>المدة</th>
                                 <th>تاريخ الإضافة</th>
                                 <th class="text-center" style="width: 100px;">إجراءات</th>
+
                             </tr>
                         </thead>
                         <tbody>
@@ -61,9 +79,17 @@
                                 <td class="fw-bold">{{ holiday.name }}</td>
                                 <td>{{ holiday.start_date.strftime('%Y-%m-%d') }}</td>
                                 <td>{{ holiday.end_date.strftime('%Y-%m-%d') }}</td>
+                                <td>
+                                    {% if holiday.is_unpaid_for_uninsured %}
+                                    <span class="badge bg-warning text-dark"><i class="fas fa-hand-holding-usd me-1"></i>خصم ع المستثنى</span>
+                                    {% else %}
+                                    <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>مدفوعة للجميع</span>
+                                    {% endif %}
+                                </td>
                                 <td><span class="badge bg-info">{{ (holiday.end_date - holiday.start_date).days + 1
                                         }}</span></td>
                                 <td class="text-muted small">{{ holiday.created_at.strftime('%Y-%m-%d') }}</td>
+
                                 <td class="text-center">
                                     <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
                                         data-bs-target="#editHolidayModal{{ holiday.id }}" title="تعديل">
@@ -118,7 +144,20 @@
                                                             <i class="fas fa-info-circle"></i> سيتم تحديث حالة الأيام
                                                             للموظفين تلقائياً.
                                                         </div>
+                                                        <div class="mb-3">
+                                                            <div class="form-check form-switch mt-3">
+                                                                <input class="form-check-input" type="checkbox" name="is_unpaid_for_uninsured" 
+                                                                    id="isUnpaidEdit{{ holiday.id }}" {% if holiday.is_unpaid_for_uninsured %}checked{% endif %}>
+                                                                <label class="form-check-label fw-bold" for="isUnpaidEdit{{ holiday.id }}">
+                                                                    خصم قيمة اليوم من غير المؤمن عليهم فقط
+                                                                </label>
+                                                            </div>
+                                                            <small class="text-muted d-block mt-1">
+                                                                * إذا تم التفعيل، لن يتقاضى الموظفون غير المؤمن عليهم راتباً عن هذا اليوم، بينما يظل مدفوعاً للمؤمن عليهم.
+                                                            </small>
+                                                        </div>
                                                     </div>
+
                                                     <div class="modal-footer">
                                                         <button type="button" class="btn btn-secondary"
                                                             data-bs-dismiss="modal">إلغاء</button>
@@ -133,7 +172,7 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="6" class="text-center py-5 text-muted">
+                                <td colspan="7" class="text-center py-5 text-muted">
                                     <i class="fas fa-calendar-times fa-3x mb-3 d-block opacity-25"></i>
                                     لا توجد عطلات مسجلة حالياً
                                 </td>
@@ -173,9 +212,19 @@
                             <input type="date" name="end_date" class="form-control allow-month-end-date" required>
                         </div>
                     </div>
+                    <div class="mb-3">
+                        <div class="form-check form-switch mt-3">
+                            <input class="form-check-input" type="checkbox" name="is_unpaid_for_uninsured" id="isUnpaidAdd">
+                            <label class="form-check-label fw-bold" for="isUnpaidAdd">
+                                خصم قيمة اليوم من غير المؤمن عليهم فقط
+                            </label>
+                        </div>
+                        <small class="text-muted d-block mt-1">
+                            * المؤمن عليهم يتقاضون أجراً كاملاً، بينما الموظفون "غير المؤمن" يُخصم منهم اليوم.
+                        </small>
+                    </div>
                     <div class="alert alert-info mt-3 small">
-                        <i class="fas fa-info-circle"></i> سيتم اعتبار هذه الأيام مدفوعة الأجر بالكامل لجميع الموظفين
-                        ولن تخصم من رصيد الإجازات.
+                        <i class="fas fa-info-circle"></i> ملاحظة: هذا الإجراء لا يؤثر على حافز الانتظام للموظف.
                     </div>
                 </div>
                 <div class="modal-footer">

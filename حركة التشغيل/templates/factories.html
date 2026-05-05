@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+
+{% block title %}المصنعون{% endblock %}
+
+{% block content %}
+<script>
+    (() => {
+        try {
+            const pathKey = window.location.pathname.replace(/\//g, '_');
+            const collapsedIds = ['factoryEntryCard', 'factoryDataCard']
+                .filter((id) => localStorage.getItem(`fold_state_${pathKey}_${id}`) === 'true');
+            if (!collapsedIds.length) return;
+
+            const collapsedSelector = collapsedIds
+                .map((id) => `#${id} .card-body, #${id} .card-footer, #${id} .table-responsive, #${id} .table-container, #${id} .excel-export-btn-wrap, #${id} .card-header button, #${id} .card-header .btn, #${id} .card-header input, #${id} .card-header select, #${id} .card-header .input-group, #${id} .card-header .table-toolbar-actions, #${id} .card-header .table-toolbar-secondary, #${id} .card-header #unifiedPrintSettings, #${id} .card-header .form-text`)
+                .join(', ');
+
+            const style = document.createElement('style');
+            style.textContent = `${collapsedSelector} { display: none !important; }`;
+            document.head.appendChild(style);
+            document.addEventListener('DOMContentLoaded', () => {
+                requestAnimationFrame(() => style.remove());
+            }, { once: true });
+        } catch (_) {}
+    })();
+</script>
+<div class="card shadow-sm border-0 mb-3" id="factoryEntryCard" data-foldable="true">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <div>
+            <div class="text-muted small">إضافة مصنع جديد</div>
+            <h5 class="mb-0">بيانات المصنع</h5>
+        </div>
+    </div>
+
+        <div class="card-body">
+            <div class="row g-2 mb-3" data-enter-scope>
+                <div class="col-md-2">
+                    <input type="text" id="facCode" class="form-control form-control-sm input-code" placeholder="كود المصنع">
+                </div>
+                <div class="col-md-3">
+                    <input type="text" id="facName" class="form-control form-control-sm input-name" placeholder="اسم المصنع">
+                </div>
+                <div class="col-md-3">
+                    <input type="text" id="facPhone" class="form-control form-control-sm" placeholder="رقم التليفون">
+                </div>
+                <div class="col-md-2">
+                    <select id="facType" class="form-select form-select-sm">
+                        <option value="خارجي">خارجي</option>
+                        <option value="داخلي">داخلي</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-success btn-sm w-100" id="addFactoryBtn" title="إضافة مصنع">
+                        <i class="fas fa-plus me-1"></i> إضافة مصنع
+                    </button>
+                </div>
+            </div>
+            <div class="alert d-flex align-items-center small mb-0 d-none" id="inlineMessage" role="alert"></div>
+        </div>
+</div>
+
+<div class="card shadow-sm border-0" id="factoryDataCard" data-foldable="true">
+    <div class="card-header bg-white table-toolbar">
+        <div class="table-toolbar-title flex-grow-1">
+            <div class="text-muted small">مرجع المصنعين</div>
+            <h5 class="mb-0">المصانع وصالات الإنتاج</h5>
+        </div>
+        <div class="table-toolbar-actions">
+            <div class="input-group input-group-sm smart-search-group table-toolbar-search">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text" id="factorySearchInput" class="form-control" placeholder="بحث بالمصنع أو الكود...">
+                <button type="button" class="btn btn-outline-primary" id="factorySearchBtn">بحث</button>
+                <button type="button" class="btn btn-outline-secondary" id="factorySearchClearBtn">مسح</button>
+            </div>
+            <input type="file" id="factoryExcel" accept=".xlsx,.xls" hidden>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="importFactoryBtn">
+                <i class="fas fa-file-import me-1"></i> استيراد
+            </button>
+        </div>
+    </div>
+
+        <div class="card-body">
+            <div class="table-responsive" style="max-height: 85vh; overflow:auto;">
+                <table class="table table-striped table-sm mb-0" id="factoriesTable">
+                    <thead class="table-secondary">
+                        <tr>
+                            <th style="width: 140px;">الكود</th>
+                            <th>اسم المصنع</th>
+                            <th style="width: 170px;">رقم التليفون</th>
+                            <th style="width: 120px;">النوع</th>
+                            <th style="width: 220px;">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="factoryBody">
+                        <tr>
+                            <td colspan="5" class="text-center text-muted p-4">لا توجد بيانات محفوظة حتى الآن.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+</div>
+
+<script>
+    const factoryBody = document.getElementById('factoryBody');
+    const facCode = document.getElementById('facCode');
+    const facName = document.getElementById('facName');
+    const facPhone = document.getElementById('facPhone');
+    const facType = document.getElementById('facType');
+    const factoryExcel = document.getElementById('factoryExcel');
+    const importFactoryBtn = document.getElementById('importFactoryBtn');
+    const addFactoryBtn = document.getElementById('addFactoryBtn');
+    const inlineMessage = document.getElementById('inlineMessage');
+    const factoriesTable = document.getElementById('factoriesTable');
+    const factorySearchInput = document.getElementById('factorySearchInput');
+    const factorySearchClearBtn = document.getElementById('factorySearchClearBtn');
+
+    function showInlineMessage(message, type) {
+        inlineMessage.className = `alert alert-${type} d-flex align-items-center small`;
+        inlineMessage.textContent = message;
+    }
+
+    function getAddPayload() {
+        return {
+            code: facCode.value.trim().toUpperCase(),
+            name: facName.value.trim(),
+            phone: facPhone.value.trim(),
+            type: facType.value.trim(),
+        };
+    }
+
+    function clearAddFields() {
+        facCode.value = '';
+        facName.value = '';
+        facPhone.value = '';
+        facType.value = 'خارجي';
+        facCode.focus();
+    }
+
+    function setRowEditing(row, editable) {
+        if (!row) {
+            return;
+        }
+        row.dataset.editing = editable ? '1' : '0';
+        const nameInput = row.querySelector('.row-name');
+        const phoneInput = row.querySelector('.row-phone');
+        const typeInput = row.querySelector('.row-type');
+        
+        if (nameInput) nameInput.readOnly = !editable;
+        if (phoneInput) phoneInput.readOnly = !editable;
+        if (typeInput) typeInput.disabled = !editable;
+        
+        row.classList.toggle('table-warning', editable);
+    }
+
+    function renderFactoryRows(items) {
+        if (!Array.isArray(items) || items.length === 0) {
+            factoryBody.innerHTML = '<tr><td colspan="5" class="text-center text-muted p-4">لا توجد بيانات محفوظة حتى الآن.</td></tr>';
+            return;
+        }
+
+        factoryBody.innerHTML = items.map((item) => `
+            <tr data-code="${item.code || ''}" data-enter-scope>
+                <td>
+                    <input type="text" class="form-control form-control-sm row-code" value="${item.code || ''}" readonly>
+                </td>
+                <td>
+                    <input type="text" class="form-control form-control-sm row-name" value="${item.name || ''}" readonly>
+                </td>
+                <td>
+                    <input type="text" class="form-control form-control-sm row-phone" value="${item.phone || ''}" readonly>
+                </td>
+                <td>
+                    <select class="form-select form-select-sm row-type" disabled>
+                        <option value="خارجي" ${item.type === 'خارجي' ? 'selected' : ''}>خارجي</option>
+                        <option value="داخلي" ${item.type === 'داخلي' ? 'selected' : ''}>داخلي</option>
+                    </select>
+                </td>
+                <td class="text-center d-flex gap-1 justify-content-center">
+                        <a href="/factory-payments?code=${encodeURIComponent(item.code)}" class="btn btn-sm btn-outline-info" title="سجل الدفعات">
+                            <i class="fas fa-wallet"></i>
+                        </a>
+                        <button type="button" class="btn btn-sm btn-outline-primary factory-row-edit" title="تعديل">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success factory-row-save" title="حفظ">
+                            <i class="fas fa-save"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger factory-row-delete" title="حذف">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+
+        Array.from(factoryBody.querySelectorAll('tr[data-code]')).forEach((row) => setRowEditing(row, false));
+        applyFactorySearch();
+    }
+
+    function applyFactorySearch() {
+        const query = (factorySearchInput?.value || '').trim().toLowerCase();
+        const rows = Array.from(factoryBody.querySelectorAll('tr[data-code]'));
+        
+        rows.forEach(row => {
+            const code = row.querySelector('.row-code')?.value.toLowerCase() || '';
+            const name = row.querySelector('.row-name')?.value.toLowerCase() || '';
+            const phone = row.querySelector('.row-phone')?.value.toLowerCase() || '';
+            const type = row.querySelector('.row-type')?.value.toLowerCase() || '';
+            
+            const match = code.includes(query) || name.includes(query) || phone.includes(query) || type.includes(query);
+            row.classList.toggle('d-none', !match);
+        });
+    }
+
+    factorySearchInput?.addEventListener('input', applyFactorySearch);
+    factorySearchInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            applyFactorySearch();
+        }
+    });
+
+    const factorySearchBtn = document.getElementById('factorySearchBtn');
+    factorySearchBtn?.addEventListener('click', applyFactorySearch);
+
+    factorySearchClearBtn?.addEventListener('click', () => {
+        if (factorySearchInput) factorySearchInput.value = '';
+        applyFactorySearch();
+        factorySearchInput?.focus();
+    });
+
+    async function refreshFactories() {
+        try {
+            const res = await fetch('/api/factories/list');
+            const data = await res.json();
+            renderFactoryRows(data.items || []);
+        } catch (error) {
+            factoryBody.innerHTML = '<tr><td colspan="5" class="text-center text-danger p-4">تعذر تحميل البيانات.</td></tr>';
+        }
+    }
+
+    async function addFactory() {
+        const payload = getAddPayload();
+        if (!payload.code || !payload.name) {
+            showInlineMessage('املأ كود واسم المصنع قبل الإضافة.', 'warning');
+            return;
+        }
+        try {
+            const res = await fetch('/api/factories/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                throw new Error(data.message || 'تعذر إضافة المصنع.');
+            }
+            showInlineMessage('تمت إضافة المصنع بنجاح.', 'success');
+            clearAddFields();
+            refreshFactories();
+        } catch (error) {
+            showInlineMessage(error.message, 'danger');
+        }
+    }
+
+    async function saveRow(row) {
+        if (!row) {
+            return;
+        }
+        const payload = {
+            code: row.querySelector('.row-code')?.value.trim().toUpperCase() || '',
+            name: row.querySelector('.row-name')?.value.trim() || '',
+            phone: row.querySelector('.row-phone')?.value.trim() || '',
+            type: row.querySelector('.row-type')?.value.trim() || '',
+            opening_balance: parseFloat(row.querySelector('.row-opening-balance')?.value || 0),
+        };
+        if (!payload.code || !payload.name) {
+            showInlineMessage('الكود والاسم مطلوبان قبل الحفظ.', 'warning');
+            return;
+        }
+
+        const saveButton = row.querySelector('.factory-row-save');
+        const initialHtml = saveButton?.innerHTML || '';
+        if (saveButton) {
+            saveButton.disabled = true;
+            saveButton.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        }
+
+        try {
+            const res = await fetch('/api/factories/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                throw new Error(data.message || 'تعذر حفظ تعديل المصنع.');
+            }
+            setRowEditing(row, false);
+            showInlineMessage(`تم حفظ تعديل المصنع ${payload.code}.`, 'success');
+        } catch (error) {
+            showInlineMessage(error.message, 'danger');
+        } finally {
+            if (saveButton) {
+                saveButton.disabled = false;
+                saveButton.innerHTML = initialHtml;
+            }
+        }
+    }
+
+    async function deleteRow(row) {
+        if (!row) {
+            return;
+        }
+        const code = row.querySelector('.row-code')?.value.trim().toUpperCase() || '';
+        if (!code) {
+            return;
+        }
+        if (!confirm(`متأكد أنك تريد حذف المصنع ${code}؟`)) {
+            return;
+        }
+        try {
+            const res = await fetch('/api/factories/delete', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({code}),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                throw new Error(data.message || 'تعذر حذف المصنع.');
+            }
+            row.remove();
+            showInlineMessage(`تم حذف المصنع ${code}.`, 'success');
+            if (!factoryBody.querySelector('tr[data-code]')) {
+                factoryBody.innerHTML = '<tr><td colspan="5" class="text-center text-muted p-4">لا توجد بيانات محفوظة حتى الآن.</td></tr>';
+            }
+        } catch (error) {
+            showInlineMessage(error.message, 'danger');
+        }
+    }
+
+    addFactoryBtn.addEventListener('click', async (event) => {
+        event.preventDefault();
+        await addFactory();
+    });
+
+    facCode.addEventListener('input', () => {
+        facCode.value = facCode.value.toUpperCase();
+    });
+
+    factoryBody.addEventListener('input', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) {
+            return;
+        }
+        if (target.classList.contains('row-code')) {
+            target.value = target.value.toUpperCase();
+        }
+    });
+
+    factoryBody.addEventListener('click', async (event) => {
+        const editButton = event.target.closest('.factory-row-edit');
+        if (editButton) {
+            const row = editButton.closest('tr[data-code]');
+            setRowEditing(row, true);
+            row?.querySelector('.row-name')?.focus();
+            return;
+        }
+
+        const saveButton = event.target.closest('.factory-row-save');
+        if (saveButton) {
+            await saveRow(saveButton.closest('tr[data-code]'));
+            return;
+        }
+
+        const deleteButton = event.target.closest('.factory-row-delete');
+        if (deleteButton) {
+            await deleteRow(deleteButton.closest('tr[data-code]'));
+        }
+    });
+
+    importFactoryBtn.addEventListener('click', () => factoryExcel.click());
+
+    factoryExcel.addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        if (!file) {
+            return;
+        }
+        const formData = new FormData();
+        formData.append('excel_file', file);
+        showInlineMessage('جارٍ استيراد المصنعين...', 'info');
+        try {
+            const res = await fetch('/api/factories/import', {
+                method: 'POST',
+                body: formData,
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                throw new Error(data.message || 'تعذر استيراد ملف Excel.');
+            }
+            showInlineMessage(`تمت إضافة ${data.inserted} مصنع.`, 'success');
+            refreshFactories();
+        } catch (error) {
+            showInlineMessage(error.message, 'danger');
+        } finally {
+            event.target.value = '';
+        }
+    });
+
+    async function seedInternalFactories() {
+        const seed = [
+            { code: 'INT-8', name: 'صالة الإنتاج 8', phone: '', type: 'داخلي' },
+            { code: 'INT-9', name: 'صالة الإنتاج 9', phone: '', type: 'داخلي' },
+        ];
+        try {
+            await fetch('/api/factories/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(seed[0]),
+            });
+            await fetch('/api/factories/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(seed[1]),
+            });
+        } catch (_) {}
+    }
+
+
+
+    seedInternalFactories();
+    refreshFactories();
+</script>
+{% endblock %}

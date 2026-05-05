@@ -241,7 +241,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">إضافة خزنة جديدة</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" title="إغلاق"></button>
             </div>
             <form method="POST" action="{{ url_for('treasury.add_cash_account') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -299,7 +299,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">إضافة حساب بنك جديد</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" title="إغلاق"></button>
             </div>
             <form method="POST" action="{{ url_for('treasury.add_bank_account') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

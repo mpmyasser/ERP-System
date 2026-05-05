@@ -1,4 +1,4 @@
-"""
+﻿"""
 Attendance Routes
 =================
 Attendance management and import
@@ -8,6 +8,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 import sys
 import os
 from datetime import datetime, date
+from calendar import monthrange
 import pandas as pd
 from werkzeug.utils import secure_filename
 from utils.helpers import parse_date_compact
@@ -24,6 +25,41 @@ UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'upload
 
 attendance_bp = Blueprint('attendance', __name__)
 
+
+def _to_int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _daily_redirect_query_from_form(form):
+    month = _to_int(form.get('month'))
+    year = _to_int(form.get('year'))
+    page = _to_int(form.get('page'))
+    dept = (form.get('dept') or '').strip()
+    date_from = (form.get('date_from') or '').strip()
+    date_to = (form.get('date_to') or '').strip()
+
+    params = {}
+    if month and 1 <= month <= 12:
+        params['month'] = month
+    if year and 1900 <= year <= 2100:
+        params['year'] = year
+    if page and page > 1:
+        params['page'] = page
+    if dept:
+        params['dept'] = dept
+    if date_from:
+        params['date_from'] = date_from
+    if date_to:
+        params['date_to'] = date_to
+    return params
+
+
+def _redirect_daily_with_context():
+    return redirect(url_for('attendance.daily', **_daily_redirect_query_from_form(request.form)))
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -37,20 +73,35 @@ def daily():
         # Handle Date Range
         d_from = request.args.get('date_from')
         d_to = request.args.get('date_to')
+        current_page = request.args.get('page', type=int) or 1
+        month = request.args.get('month', type=int)
+        year = request.args.get('year', type=int)
+        if current_page < 1:
+            current_page = 1
         
         # Fallback to single 'date' param for backward compatibility
         d_legacy = request.args.get('date')
         
         if d_from:
             start_date = parse_date_compact(d_from)
+        elif month and year and 1 <= month <= 12:
+            start_date = date(year, month, 1)
         elif d_legacy:
             start_date = parse_date_compact(d_legacy)
         else:
             start_date = date.today()
+        
+        if not start_date:
+            start_date = date.today()
             
         if d_to:
             end_date = parse_date_compact(d_to)
+        elif month and year and 1 <= month <= 12:
+            end_date = date(year, month, monthrange(year, month)[1])
         else:
+            end_date = start_date
+        
+        if not end_date:
             end_date = start_date
             
         if end_date < start_date:
@@ -58,15 +109,20 @@ def daily():
         
         # Get filters
         dept_ids = request.args.getlist('department_ids', type=int)
+        if not dept_ids:
+            dept_csv = (request.args.get('dept') or '').strip()
+            if dept_csv:
+                dept_ids = [int(x) for x in dept_csv.split(',') if x.strip().isdigit()]
         dept_filter_mode = request.args.get('dept_filter_mode', 'include')
         search = (request.args.get('search') or '').strip()
+        selected_dept_csv = ",".join(str(d) for d in dept_ids)
         
         # Query with explicit eager loading
         query = session.query(DailyRecord)\
             .join(Employee)\
             .filter(DailyRecord.date >= start_date)\
             .filter(DailyRecord.date <= end_date)\
-            .order_by(DailyRecord.date.desc(), Employee.code)\
+            .order_by(Employee.code.asc(), DailyRecord.date.asc())\
             .options(joinedload(DailyRecord.employee))
         
         # Apply Department Filter
@@ -109,6 +165,12 @@ def daily():
                                date=start_date, # For compatibility
                                start_date=start_date,
                                end_date=end_date,
+                               date_from_value=d_from or start_date.strftime('%d/%m/%Y'),
+                               date_to_value=d_to or end_date.strftime('%d/%m/%Y'),
+                               current_page_value=current_page,
+                               month=start_date.month,
+                               year=start_date.year,
+                               selected_dept_csv=selected_dept_csv,
                                timedelta=timedelta)
         return result
     finally:
@@ -123,7 +185,7 @@ def import_attendance():
         file = form.file.data
         
         if not allowed_file(file.filename):
-            flash('❌ نوع الملف غير مدعوم. استخدم ملفات Excel فقط (.xls, .xlsx)', 'danger')
+            flash('نوع الملف غير مدعوم. استخدم ملفات Excel فقط (.xls, .xlsx)', 'danger')
             return redirect(url_for('attendance.import_attendance'))
         
         try:
@@ -151,7 +213,7 @@ def import_attendance():
             affected_dates = result.get('dates', [])
             
             if success_count > 0:
-                flash(f'✅ تم استيراد {success_count} سجل بصمة بنجاح!', 'center')
+                flash(f'تم استيراد {success_count} سجل بصمة بنجاح!', 'center')
                 
                 # Auto-process logic (Process affected dates)
                 try:
@@ -160,20 +222,20 @@ def import_attendance():
                         count_processed = 0
                         for d in affected_dates:
                             # d is datetime.date object from the script
-                            db.process_attendance_for_date(d)
+                            db.process_attendance_for_date(d, source='system')
                             count_processed += 1
                         
-                        flash(f'✅ تمت معالجة الحضور لـ {count_processed} يوم/أيام تلقائياً.', 'info')
+                        flash(f'تمت معالجة الحضور لـ {count_processed} يوم/أيام تلقائيًا.', 'info')
                 except Exception as e:
                     print(f"Error triggering processing: {e}")
-                    flash(f'⚠️ حدث خطأ أثناء معالجة البيانات: {e}', 'warning')
+                    flash(f'حدث خطأ أثناء معالجة البيانات: {e}', 'warning')
                     
             if errors:
-                flash(f'⚠️ تم العثور على {len(errors)} أخطاء. عرض أول 5:', 'warning')
+                flash(f'تم العثور على {len(errors)} أخطاء. عرض أول 5:', 'warning')
                 for err in errors[:5]:
                     flash(str(err), 'danger')
             elif success_count == 0:
-                 flash('⚠️ لم يتم استيراد أي سجلات. تأكد من صحة أسماء الأعمدة (Code, Date, In, Out)', 'warning')
+                 flash('لم يتم استيراد أي سجلات. تأكد من صحة أسماء الأعمدة (Code, Date, In, Out)', 'warning')
                  
             return redirect(url_for('attendance.import_attendance'))
             
@@ -210,135 +272,143 @@ def clear_attendance():
         if date_str:
             target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
             db.clear_attendance_records(target_date)
-            flash(f'تم حذف سجلات الحضور ليوم {date_str}', 'center')
+            flash(f'تم حذف سجلات الحضور ليوم {date_str}', 'success')
             
-        return redirect(url_for('attendance.daily'))
+        return _redirect_daily_with_context()
     except Exception as e:
         flash(f'حدث خطأ أثناء الحذف: {str(e)}', 'danger')
-        return redirect(url_for('attendance.daily'))
+        return _redirect_daily_with_context()
 
 @attendance_bp.route('/reprocess', methods=['POST'])
 def reprocess_attendance():
     """Reprocess raw logs into daily records"""
     db = current_app.db
     date_str = request.form.get('date')
-    
+
     if not date_str:
         flash('التاريخ مطلوب لإعادة المعالجة', 'danger')
-        return redirect(url_for('attendance.daily'))
-        
+        return _redirect_daily_with_context()
+
+    session = db.get_session()
     try:
         from core.services.attendance_service import AttendanceService
-        
-        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-        service = AttendanceService(db.get_session())
-        
-        # 1. Clear existing daily records for this date (optional, but safe)
-        # db.clear_attendance_records(target_date)
-        
-        # 2. Get all logs for this date
-        logs = db.get_logs_by_date(target_date)
-        
-        # 3. Group by employee
         from collections import defaultdict
+
+        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        service = AttendanceService(session)
+
+        logs = db.get_logs_by_date(target_date)
+
         emp_logs = defaultdict(list)
         for log in logs:
-            # logs only have employee_code
             emp_logs[log.employee_code].append(log.timestamp)
-            
+
         processing_count = 0
         for emp_code, timestamps in emp_logs.items():
             if not timestamps:
                 continue
-                
+
             sorted_times = sorted(timestamps)
-            
-            # Simple Logic: First is IN, Last is OUT
             check_in = sorted_times[0].time()
             check_out = sorted_times[-1].time() if len(sorted_times) > 1 else None
-            
-            # If only 1 record, it's just check-in? Or invalid?
-            # Assuming Check-in. Check-out is None.
-            
-            # We need employee_id. If log stored Code, we need to resolve it.
-            # Assuming db.get_logs_by_date returns objects with access to employee_id
-            
-            # Resolve Employee ID from Code
-            emp_id = None
-            emp = db.get_employee_by_code(str(emp_code))
-            if emp:
-                emp_id = emp.id
-            
-            if emp_id:
-                service.process_attendance_record(emp_id, target_date, check_in, check_out)
+
+            emp = session.query(Employee).filter_by(code=str(emp_code)).first()
+            if not emp:
+                continue
+
+            _, updated = service.upsert_daily_record(
+                employee_id=emp.id,
+                attendance_date=target_date,
+                check_in=check_in,
+                check_out=check_out,
+                source='reprocess',
+                commit=False,
+            )
+            if updated:
                 processing_count += 1
-                
-        flash(f'تم إعادة معالجة {processing_count} سجل موظف بنجاح', 'center')
-        return redirect(url_for('attendance.daily'))
-        
+
+        session.commit()
+        flash(f'تمت إعادة معالجة {processing_count} سجل موظف بنجاح', 'success')
+        return _redirect_daily_with_context()
+
     except Exception as e:
+        session.rollback()
         flash(f'خطأ في المعالجة: {str(e)}', 'danger')
-        return redirect(url_for('attendance.daily'))
+        return _redirect_daily_with_context()
+    finally:
+        session.close()
 
 @attendance_bp.route('/add_manual', methods=['POST'])
 def add_manual_log():
     """Add a manual attendance record"""
     db = current_app.db
-    
-    # Form data
+
     employee_id = request.form.get('employee_id')
     date_str = request.form.get('date')
     check_in_str = request.form.get('check_in')
     check_out_str = request.form.get('check_out')
-    
+
     if not all([employee_id, date_str]):
         flash('يجب تحديد الموظف والتاريخ', 'danger')
-        return redirect(url_for('attendance.daily'))
-        
+        return _redirect_daily_with_context()
+
+    session = db.get_session()
     try:
         from core.services.attendance_service import AttendanceService
-        service = AttendanceService(db.get_session())
-        
+
+        service = AttendanceService(session)
         target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-        
+
         check_in = None
         if check_in_str:
             check_in = datetime.strptime(check_in_str, '%H:%M').time()
-            
+
         check_out = None
         if check_out_str:
             check_out = datetime.strptime(check_out_str, '%H:%M').time()
-            
-        # Process directly
-        service.process_attendance_record(int(employee_id), target_date, check_in, check_out)
-        
-        flash('تم إضافة سجل الحضور بنجاح', 'center')
-        return redirect(url_for('attendance.daily'))
-        
+
+        service.process_attendance_record(
+            int(employee_id),
+            target_date,
+            check_in,
+            check_out,
+            source='manual',
+            commit=False,
+        )
+        session.commit()
+
+        flash('تم إضافة سجل الحضور بنجاح', 'success')
+        return _redirect_daily_with_context()
+
     except Exception as e:
+        session.rollback()
         flash(f'خطأ في الإضافة: {str(e)}', 'danger')
-        return redirect(url_for('attendance.daily'))
+        return _redirect_daily_with_context()
+    finally:
+        session.close()
 
 @attendance_bp.route('/update_manual', methods=['POST'])
 def update_manual_log():
     """Update an existing attendance record"""
     db = current_app.db
-    
+
     record_id = request.form.get('record_id')
     check_in_str = request.form.get('check_in')
     check_out_str = request.form.get('check_out')
-    
+
     if not record_id:
          flash('معرف السجل مفقود', 'danger')
-         return redirect(url_for('attendance.daily'))
-         
+         return _redirect_daily_with_context()
+
+    session = db.get_session()
     try:
+        from core.services.attendance_service import AttendanceService
+
         check_in = None
         if check_in_str:
             try:
                  check_in = datetime.strptime(check_in_str, '%H:%M').time()
             except ValueError:
-                 # Try with Seconds if present
                  check_in = datetime.strptime(check_in_str, '%H:%M:%S').time()
 
         check_out = None
@@ -348,22 +418,28 @@ def update_manual_log():
              except ValueError:
                  check_out = datetime.strptime(check_out_str, '%H:%M:%S').time()
 
-        # Update via Service to ensure recalcs?
-        # Or simple DB update? Service is safer for logic.
-        # But we need Employee ID and Date.
-        # Let's fetch record first to get metadata if we want to use Service.
-        # Or just use DBManager simple update if we don't care about late minutes updates yet.
-        # Ideally: Recalculate.
-        
-        # Simpler approach: update raw times in DB.
-        db.update_daily_record(int(record_id), check_in, check_out)
-        
-        flash('تم تحديث السجل بنجاح', 'center')
-        return redirect(url_for('attendance.daily'))
-        
+        service = AttendanceService(session)
+        updated_record = service.process_attendance_record_by_id(
+            record_id=int(record_id),
+            check_in=check_in,
+            check_out=check_out,
+            source='manual',
+            commit=False,
+        )
+        session.commit()
+
+        if updated_record is None:
+            flash('تم حذف سجل الحضور بنجاح', 'success')
+        else:
+            flash('تم تحديث السجل بنجاح', 'success')
+        return _redirect_daily_with_context()
+
     except Exception as e:
+        session.rollback()
         flash(f'خطأ في التحديث: {str(e)}', 'danger')
-        return redirect(url_for('attendance.daily'))
+        return _redirect_daily_with_context()
+    finally:
+        session.close()
 
 @attendance_bp.route('/bulk')
 def bulk_entry():
@@ -426,11 +502,13 @@ def bulk_save():
                     int(item['employee_id']),
                     record_date,
                     check_in,
-                    check_out
+                    check_out,
+                    source='manual',
+                    commit=False
                 )
                 count += 1
             except Exception as e:
-                errors.append(f"خطأ للموظف {item.get('employee_id')}: {str(e)}")
+                errors.append(f"ط®ط·ط£ ظ„ظ„ظ…ظˆط¸ظپ {item.get('employee_id')}: {str(e)}")
         
         session.commit()
     except Exception as e:
@@ -442,7 +520,7 @@ def bulk_save():
     if errors:
         return {'success': False, 'message': ', '.join(errors[:5])}
         
-    msg = f'تم إضافة {count} سجل حضور بنجاح'
+    msg = f'طھظ… ط¥ط¶ط§ظپط© {count} ط³ط¬ظ„ ط­ط¶ظˆط± ط¨ظ†ط¬ط§ط­'
     flash(msg, 'center')
     return {'success': True, 'message': msg, 'center': True}
 
@@ -451,18 +529,20 @@ def bulk_delete(record_id):
     """Delete an attendance record"""
     db = current_app.db
     session = db.get_session()
-    
+
     try:
         record = session.query(DailyRecord).get(record_id)
         if record:
             session.delete(record)
             session.commit()
+            flash('تم حذف سجل الحضور بنجاح', 'success')
             return {'success': True}
         else:
+            flash('السجل غير موجود', 'danger')
             return {'success': False, 'message': 'السجل غير موجود'}
     except Exception as e:
         session.rollback()
+        flash(f'حدث خطأ أثناء الحذف: {str(e)}', 'danger')
         return {'success': False, 'message': str(e)}
     finally:
         session.close()
-

@@ -5,14 +5,17 @@
 {% block content %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2"><i class="fas fa-umbrella-beach me-2"></i> قائمة الإجازات</h1>
-    <div class="btn-toolbar mb-2 mb-md-0 gap-2">
-        <a href="{{ url_for('leaves.bulk') }}" class="btn btn-success">
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('leaves.bulk') }}" class="btn btn-success me-2">
             <i class="fas fa-plus-circle me-1"></i> إدخال جماعي
         </a>
-        <a href="{{ url_for('leaves.holidays') }}" class="btn btn-warning text-white">
+        <a href="{{ url_for('leaves.bulk_edit') }}" class="btn btn-warning me-2">
+            <i class="fas fa-edit me-1"></i> تعديل جماعي
+        </a>
+        <a href="{{ url_for('leaves.holidays') }}" class="btn btn-info text-white me-2">
             <i class="fas fa-calendar-star me-1"></i> العطلات الرسمية
         </a>
-        <a href="{{ url_for('leaves.balances') }}" class="btn btn-info text-white">
+        <a href="{{ url_for('leaves.balances') }}" class="btn btn-primary">
             <i class="fas fa-chart-pie me-1"></i> الأرصدة
         </a>
     </div>
@@ -32,15 +35,14 @@
             </div>
             <div class="col-md-2">
                 <label class="form-label">إلى تاريخ</label>
-                <input type="text" name="date_to" id="date-to" class="form-control date-string allow-month-end" placeholder="DD/MM/YYYY"
-                    value="{{ date_to or '' }}">
+                <input type="text" name="date_to" id="date-to" class="form-control date-string allow-month-end"
+                    placeholder="DD/MM/YYYY" value="{{ date_to or '' }}">
             </div>
             <div class="col-md-3">
                 <label class="form-label">الأقسام</label>
                 <select name="department_ids" id="dept-filter" class="form-select" multiple size="1">
                     {% for dept in departments %}
-                    <option value="{{ dept.id }}" {% if department_ids and dept.id in department_ids %}selected{% endif
-                        %}>
+                    <option value="{{ dept.id }}" {% if department_ids and dept.id in department_ids %}selected{% endif %}>
                         {{ dept.name }}
                     </option>
                     {% endfor %}
@@ -51,8 +53,7 @@
                 <select name="leave_type" class="form-select">
                     <option value="">الكل</option>
                     {% for lt in leave_types %}
-                    <option value="{{ lt.value }}" {% if leave_type==lt.value %}selected{% endif %}>{{ lt.value }}
-                    </option>
+                    <option value="{{ lt.value }}" {% if leave_type==lt.value %}selected{% endif %}>{{ lt.value }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -72,35 +73,32 @@
     </div>
 </div>
 
-<!-- Statistics -->
-<div class="row mb-3">
-    <div class="col-md-4">
-        <div class="card bg-primary text-white">
-            <div class="card-body">
-                <h5 class="card-title">إجمالي الإجازات</h5>
-                <h2>{{ leaves|length }}</h2>
-            </div>
+<!-- Compact Stats Bar -->
+<div class="d-flex gap-3 mb-3 flex-wrap d-none d-md-flex" id="stats-row">
+    <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
+        <i class="fas fa-list-ol text-primary me-2" aria-hidden="true"></i>
+        <div class="ms-2">
+            <small class="text-muted d-block font-size-075">إجمالي الإجازات</small>
+            <span class="fw-bold">{{ leaves|length }}</span>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card bg-success text-white">
-            <div class="card-body">
-                <h5 class="card-title">إجمالي الأيام</h5>
-                <h2>{{ "%.1f"|format(total_days) }}</h2>
-            </div>
+    <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
+        <i class="fas fa-calendar-day text-success me-2" aria-hidden="true"></i>
+        <div class="ms-2">
+            <small class="text-muted d-block font-size-075">إجمالي الأيام</small>
+            <span class="fw-bold">{{ "%.1f"|format(total_days) }}</span>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card bg-info text-white">
-            <div class="card-body">
-                <h5 class="card-title">عدد الموظفين</h5>
-                <h2>{{ employees_count }}</h2>
-            </div>
+    <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center">
+        <i class="fas fa-users text-success me-2" aria-hidden="true"></i>
+        <div class="ms-2">
+            <small class="text-muted d-block font-size-075">عدد الموظفين</small>
+            <span class="fw-bold">{{ employees_count }}</span>
         </div>
     </div>
 </div>
 
-<!-- Leaves Table -->
+<!-- UI Pattern must match advances table edit/delete buttons. Do not change style without updating all modules. -->
 <div class="card">
     <div class="card-body">
         {% if leaves %}
@@ -117,7 +115,7 @@
                         <th width="10%">إلى</th>
                         <th width="8%">عدد الأيام</th>
                         <th width="10%">الحالة</th>
-                        <th width="8%" class="no-sort">إجراءات</th>
+                        <th width="13%" class="no-sort">إجراءات</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -143,7 +141,14 @@
                             </span>
                         </td>
                         <td class="text-center">
+                            <a href="{{ url_for('leaves.employee_leaves', emp_id=leave.employee_id) }}" class="btn btn-sm btn-info" title="عرض">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{{ url_for('leaves.edit_leave', leave_id=leave.id) }}" class="btn btn-sm btn-warning" title="تعديل">
+                                <i class="fas fa-edit"></i>
+                            </a>
                             <button class="btn btn-sm btn-danger delete-record-btn" data-module="leaves"
+                                data-delete-url="{{ url_for('leaves.delete', leave_id=leave.id) }}"
                                 data-id="{{ leave.id }}" data-confirm="هل أنت متأكد من حذف هذه الإجازة؟" title="حذف">
                                 <i class="fas fa-trash"></i>
                             </button>
@@ -160,5 +165,4 @@
         {% endif %}
     </div>
 </div>
-
 {% endblock %}

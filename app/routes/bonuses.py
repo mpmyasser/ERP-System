@@ -33,7 +33,9 @@ def list():
         dept_ids = request.args.getlist('department_ids', type=int)
         dept_filter_mode = request.args.get('dept_filter_mode', 'include')
         
-        query = session.query(Bonus).join(Employee).options(joinedload(Bonus.employee)).filter(Employee.is_active == True)
+        query = session.query(Bonus).join(Employee).options(
+            joinedload(Bonus.employee).joinedload(Employee.department)
+        ).filter(Employee.is_active == True)
         
         # Date filtering
         if date_from_str:
@@ -52,7 +54,7 @@ def list():
             else:
                 query = query.filter(Employee.department_id.in_(dept_ids))
                 
-        bonuses = query.order_by(Bonus.date_awarded.desc()).all()
+        bonuses = query.order_by(Employee.code.asc(), Bonus.date_awarded.asc()).all()
         departments = session.query(Department).all()
         
         # Calculate Statistics
@@ -263,7 +265,7 @@ def bulk_edit_load():
         if department_id:
             query = query.filter(Employee.department_id == department_id)
         
-        bonuses = query.order_by(Bonus.date_awarded.desc()).all()
+        bonuses = query.order_by(Employee.code.asc(), Bonus.date_awarded.asc()).all()
         
         bonuses_data = []
         for bonus in bonuses:

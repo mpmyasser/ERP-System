@@ -86,71 +86,51 @@ def list():
     hire_date_from = parse_date_compact(date_from_str)
     hire_date_to = parse_date_compact(date_to_str)
     
-    # Get all employees
-    all_employees = db.get_all_employees()
+    # Use optimized DB query with SQL-level filtering
+    # We include all status if status_filter is empty, or specific status
+    only_active = (status_filter == 'active')
+    only_inactive = (status_filter == 'inactive')
+    
+    # We filter by dept in SQL if mode is 'include'
+    sql_dept_ids = dept_ids if dept_filter_mode == 'include' else None
+    
+    # Initial optimized load
+    employees = db.get_employees_optimized(
+        only_active=only_active,
+        department_ids=sql_dept_ids,
+        job_title=job_title_filter,
+        search=search,
+        load_full=False
+    )
+    
+    # Post-process for complex filters not easily done in simple function above
+    if only_inactive:
+        employees = [e for e in employees if not e.is_active]
+    
+    if dept_ids and dept_filter_mode == 'exclude':
+        dept_ids_int = [int(d) for d in dept_ids if d]
+        employees = [e for e in employees if e.department_id not in dept_ids_int]
 
-    # 1. Apply Status Filter (First Level)
-    if status_filter == 'active':
-        status_filtered_emps = [e for e in all_employees if e.is_active]
-    elif status_filter == 'inactive':
-        status_filtered_emps = [e for e in all_employees if not e.is_active]
-    else:
-        status_filtered_emps = all_employees[:]
-        
-    # 2. Get DEPARTMENTS - Always show all departments to prevent disappearing from filter
+    # Date Range Filter (Still doing in Python but on smaller subset)
+    if hire_date_from or hire_date_to:
+        filtered = []
+        for e in employees:
+            if not e.hire_date: continue
+            include = True
+            if hire_date_from and e.hire_date < hire_date_from: include = False
+            if hire_date_to and e.hire_date > hire_date_to: include = False
+            if include: filtered.append(e)
+        employees = filtered
+
+    # 2. Get DEPARTMENTS
     departments = db.get_departments()
     
-    # 3. Apply Department Filter (Second Level)
-    dept_filtered_emps = status_filtered_emps
-    if dept_ids:
-        dept_ids = [int(d) for d in dept_ids if d]  # Convert to integers
-        if dept_filter_mode == 'exclude':
-            dept_filtered_emps = [e for e in status_filtered_emps if e.department_id not in dept_ids]
-        else:
-            dept_filtered_emps = [e for e in status_filtered_emps if e.department_id in dept_ids]
-        
-    # 4. Get Available Job Titles (based on Status + Dept)
-    # Only show job titles that exist in the dept-filtered list
-    # Use sorted(set(...)) directly as 'list' is shadowed
-    job_titles = sorted(set(e.job_title for e in dept_filtered_emps if e.job_title and e.job_title.strip()))
+    # 4. Get Available Job Titles for filtering
+    # For efficiency, we can get these from a small optimized query or use all titles
+    job_titles = db.get_unique_job_titles()
     
-    # 5. Apply Job Title Filter (Third Level)
-    final_filtered_emps = dept_filtered_emps
-    if job_title_filter:
-        final_filtered_emps = [e for e in dept_filtered_emps if e.job_title == job_title_filter]
-        
-    # 6. Apply Hire Date Filter (Fourth Level)
-    date_filtered_emps = final_filtered_emps
-    if hire_date_from or hire_date_to:
-        date_filtered_emps = []
-        for e in final_filtered_emps:
-            emp_hire_date = e.hire_date
-
-            if not emp_hire_date:
-                continue  # Skip employees without hire date
-
-            # Simple date range filter on hire_date
-            include = True
-
-            if hire_date_from and emp_hire_date < hire_date_from:
-                include = False
-
-            if hire_date_to and emp_hire_date > hire_date_to:
-                include = False
-
-            if include:
-                date_filtered_emps.append(e)
-
-    # 7. Apply Search Query (global, but applied last here for simplicity, or should it be first?)
-    # Usually search is independent. If user searches, they might want to ignore filters?
-    # Logic: Apply search on top of filters.
-    employees = date_filtered_emps
-    if search:
-        # Use simple local search since we already loaded objects
-        search_lower = search.lower()
-        employees = [e for e in employees if
-                      (e.name and search_lower in e.name.lower()) or
-                      (e.code and search_lower in e.code.lower())]
+    # Attach effective salary (based on SalaryHistory and today's date)
+    db.attach_effective_salaries(employees)
 
     # Filters data
     # departments & job_titles are already calculated above
@@ -752,52 +732,40 @@ def export_excel():
     hire_date_from = parse_date_compact(date_from_str)
     hire_date_to = parse_date_compact(date_to_str)
     
-    # Get all employees
-    all_employees = db.get_all_employees()
-
-    # 1. Apply Status Filter
-    if status_filter == 'active':
-        status_filtered_emps = [e for e in all_employees if e.is_active]
-    elif status_filter == 'inactive':
-        status_filtered_emps = [e for e in all_employees if not e.is_active]
-    else:
-        status_filtered_emps = all_employees[:]
-        
-    # 2. Apply Department Filter
-    dept_filtered_emps = status_filtered_emps
-    if dept_ids:
-        dept_ids = [int(d) for d in dept_ids if d]
-        if dept_filter_mode == 'exclude':
-            dept_filtered_emps = [e for e in status_filtered_emps if e.department_id not in dept_ids]
-        else:
-            dept_filtered_emps = [e for e in status_filtered_emps if e.department_id in dept_ids]
+    # Use optimized DB query with SQL-level filtering
+    only_active = (status_filter == 'active')
+    only_inactive = (status_filter == 'inactive')
+    
+    # We filter by dept in SQL if mode is 'include'
+    sql_dept_ids = dept_ids if dept_filter_mode == 'include' else None
+    
+    # Initial optimized load
+    employees = db.get_employees_optimized(
+        only_active=only_active,
+        department_ids=sql_dept_ids,
+        job_title=job_title_filter,
+        search=search,
+        load_full=True # Export usually needs full details
+    )
+    
+    # Post-process for complex filters
+    if only_inactive:
+        employees = [e for e in employees if not e.is_active]
+    
+    if dept_ids and dept_filter_mode == 'exclude':
+        dept_ids_int = [int(d) for d in dept_ids if d]
+        employees = [e for e in employees if e.department_id not in dept_ids_int]
             
-    # 3. Apply Job Title Filter
-    final_filtered_emps = dept_filtered_emps
-    if job_title_filter:
-        final_filtered_emps = [e for e in dept_filtered_emps if e.job_title == job_title_filter]
-
-    # 4. Apply Hire Date Filter
-    date_filtered_emps = final_filtered_emps
+    # Apply Hire Date Filter
     if hire_date_from or hire_date_to:
-        date_filtered_emps = []
-        for e in final_filtered_emps:
-            emp_hire_date = e.hire_date
-
-            if not emp_hire_date:
-                continue  # Skip employees without hire date
-
-            # Simple date range filter on hire_date
+        filtered = []
+        for e in employees:
+            if not e.hire_date: continue
             include = True
-
-            if hire_date_from and emp_hire_date < hire_date_from:
-                include = False
-
-            if hire_date_to and emp_hire_date > hire_date_to:
-                include = False
-
-            if include:
-                date_filtered_emps.append(e)
+            if hire_date_from and e.hire_date < hire_date_from: include = False
+            if hire_date_to and e.hire_date > hire_date_to: include = False
+            if include: filtered.append(e)
+        employees = filtered
 
     # 5. Apply Search Query
     employees = date_filtered_emps
@@ -954,6 +922,7 @@ def bulk_edit_load():
             'hire_date': fmt_date(emp.hire_date),
             'standard_start_time': fmt_time(emp.standard_start_time),
             'standard_end_time': fmt_time(emp.standard_end_time),
+            'daily_work_hours': float(emp.daily_work_hours or 0),
             'is_active': bool(emp.is_active),
             'basic_salary': float(emp.basic_salary or 0),
             'regularity_incentive': float(emp.regularity_incentive or 0),
@@ -1034,6 +1003,7 @@ def bulk_edit_save():
                 'hire_date': hire_date,
                 'standard_start_time': start_time,
                 'standard_end_time': end_time,
+                'daily_work_hours': float(item.get('daily_work_hours') or 0),
                 'is_active': bool(item.get('is_active')),
                 'basic_salary': float(item.get('basic_salary') or 0),
                 'regularity_incentive': float(item.get('regularity_incentive') or 0),

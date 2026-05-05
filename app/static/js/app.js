@@ -1,4 +1,4 @@
-// Custom JavaScript for HR System
+﻿// Custom JavaScript for HR System
 
 // Show a centered flash dialog (used by server-side flashes with category 'center')
 // - If SweetAlert2 (Swal) is available we show a centered modal
@@ -19,9 +19,13 @@ function showCenteredFlash(message, category = 'info') {
         Swal.fire({
             icon: icon,
             title: '',
-            html: message,
+            html: `<div lang="ar" dir="rtl">${message}</div>`,
             confirmButtonText: 'حسنًا',
-            allowOutsideClick: true
+            allowOutsideClick: true,
+            didOpen: (popup) => {
+                popup.setAttribute('lang', 'ar');
+                popup.setAttribute('dir', 'rtl');
+            }
         });
         return;
     }

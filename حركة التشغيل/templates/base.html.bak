@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}حركة التشغيل{% endblock %}</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body class="bg-light">
+    <div class="container-fluid py-4">
+        <header class="mb-3 d-flex align-items-start justify-content-between gap-3 flex-wrap">
+            <div>
+                <div class="badge rounded-pill text-bg-secondary mb-2">إدارة القص والتشغيل</div>
+                <h1 class="h3 mb-1">حركة التشغيل</h1>
+            </div>
+            <div class="bg-primary text-white rounded-4 p-3 shadow-sm small">
+                <div class="opacity-75">قاعدة البيانات المستخدمة الآن</div>
+                <div class="fw-bold mt-1" style="word-break: break-all;">{{ database_path }}</div>
+            </div>
+            <div class="d-flex gap-2 ms-auto flex-wrap">
+                <a href="{{ url_for('index') }}" class="btn {% if request.endpoint == 'index' %}btn-primary{% else %}btn-outline-secondary{% endif %} btn-sm">إدخال القصات</a>
+                <a href="{{ url_for('reference_page') }}" class="btn {% if request.endpoint == 'reference_page' %}btn-primary{% else %}btn-outline-secondary{% endif %} btn-sm">مرجع الأصناف</a>
+                <a href="{{ url_for('factories_page') }}" class="btn {% if request.endpoint == 'factories_page' %}btn-primary{% else %}btn-outline-secondary{% endif %} btn-sm">المصنعون</a>
+                <a href="{{ url_for('pricing_page') }}" class="btn {% if request.endpoint == 'pricing_page' %}btn-primary{% else %}btn-outline-secondary{% endif %} btn-sm">أسعار التصنيع</a>
+                <a href="{{ url_for('manufacturer_accounts_page') }}" class="btn {% if request.endpoint == 'manufacturer_accounts_page' %}btn-primary{% else %}btn-outline-secondary{% endif %} btn-sm">حسابات المصنعين</a>
+            </div>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="mb-3">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ 'danger' if category == 'error' else category }} shadow-sm mb-2">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script>
+        window.OperationDateUtils = (() => {
+            const currentYear = new Date().getFullYear();
+            const easternArabicDigits = '٠١٢٣٤٥٦٧٨٩';
+            const persianDigits = '۰۱۲۳۴۵۶۷۸۹';
+
+            function pad(value) {
+                return String(value).padStart(2, '0');
+            }
+
+            function normalizeDigits(value) {
+                return String(value || '').replace(/[٠-٩۰-۹]/g, (char) => {
+                    const easternIndex = easternArabicDigits.indexOf(char);
+                    if (easternIndex >= 0) {
+                        return String(easternIndex);
+                    }
+                    const persianIndex = persianDigits.indexOf(char);
+                    return persianIndex >= 0 ? String(persianIndex) : char;
+                });
+            }
+
+            function normalizeDateValue(rawValue) {
+                const original = normalizeDigits(rawValue).trim();
+                if (!original) {
+                    return '';
+                }
+
+                const value = original
+                    .replace(/[.\-]/g, '/')
+                    .replace(/\s+/g, '')
+                    .replace(/\/+/g, '/');
+
+                let match = value.match(/^(\d{1,2})\/(\d{1,2})$/);
+                if (match) {
+                    const day = Number(match[1]);
+                    const month = Number(match[2]);
+                    if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+                        return `${pad(day)}/${pad(month)}/${currentYear}`;
+                    }
+                }
+
+                match = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+                if (match) {
+                    const day = Number(match[1]);
+                    const month = Number(match[2]);
+                    const year = match[3].length === 2 ? Number(`20${match[3]}`) : Number(match[3]);
+                    if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 2000 && year <= 2100) {
+                        return `${pad(day)}/${pad(month)}/${year}`;
+                    }
+                }
+
+                match = value.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+                if (match) {
+                    const year = Number(match[1]);
+                    const month = Number(match[2]);
+                    const day = Number(match[3]);
+                    if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 2000 && year <= 2100) {
+                        return `${pad(day)}/${pad(month)}/${year}`;
+                    }
+                }
+
+                return original;
+            }
+
+            function isDateInput(element) {
+                return element instanceof HTMLInputElement && element.classList.contains('date-input');
+            }
+
+            function syncPickerValue(input) {
+                if (!isDateInput(input)) {
+                    return;
+                }
+                const normalized = normalizeDateValue(input.value);
+                input.value = normalized;
+                if (!normalized || !input._flatpickr) {
+                    return;
+                }
+
+                const parts = normalized.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+                if (!parts) {
+                    return;
+                }
+                input._flatpickr.setDate(`${parts[3]}-${parts[2]}-${parts[1]}`, false, 'Y-m-d');
+            }
+
+            function initDateInput(input) {
+                if (!isDateInput(input) || input.dataset.dateReady === '1') {
+                    return;
+                }
+                input.dataset.dateReady = '1';
+                input.setAttribute('autocomplete', 'off');
+                input.setAttribute('inputmode', 'numeric');
+                input.setAttribute('placeholder', 'dd/mm/yyyy');
+                input.dir = 'ltr';
+
+                input.addEventListener('blur', () => syncPickerValue(input));
+
+                if (window.flatpickr) {
+                    window.flatpickr(input, {
+                        allowInput: true,
+                        dateFormat: 'd/m/Y',
+                        disableMobile: true,
+                        onOpen: (_, __, instance) => {
+                            if (input.readOnly) {
+                                instance.close();
+                            }
+                        },
+                        onClose: () => syncPickerValue(input),
+                    });
+                }
+            }
+
+            function initAllDateInputs(root = document) {
+                root.querySelectorAll('input.date-input').forEach(initDateInput);
+            }
+
+            return {
+                normalizeDateValue,
+                isDateInput,
+                syncPickerValue,
+                initDateInput,
+                initAllDateInputs,
+            };
+        })();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            window.OperationDateUtils.initAllDateInputs();
+
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                        if (!(node instanceof HTMLElement)) {
+                            return;
+                        }
+                        if (node.matches?.('input.date-input')) {
+                            window.OperationDateUtils.initDateInput(node);
+                        }
+                        window.OperationDateUtils.initAllDateInputs(node);
+                    });
+                });
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' || event.defaultPrevented) {
+                return;
+            }
+
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) {
+                return;
+            }
+            if (target.closest('[data-enter-nav="off"]')) {
+                return;
+            }
+            if (target.tagName === 'TEXTAREA' || target.tagName === 'BUTTON') {
+                return;
+            }
+            if (target instanceof HTMLInputElement) {
+                const blocked = ['button', 'submit', 'reset', 'checkbox', 'radio', 'file'];
+                if (blocked.includes((target.type || '').toLowerCase())) {
+                    return;
+                }
+                if (window.OperationDateUtils.isDateInput(target)) {
+                    window.OperationDateUtils.syncPickerValue(target);
+                }
+            }
+
+            const scope = target.closest('[data-enter-scope]') || target.form || document;
+            const focusable = Array.from(scope.querySelectorAll('input, select, textarea, button'))
+                .filter((element) => {
+                    const htmlElement = element;
+                    return !htmlElement.disabled && htmlElement.tabIndex !== -1 && htmlElement.offsetParent !== null;
+                });
+            const currentIndex = focusable.indexOf(target);
+            if (currentIndex === -1) {
+                return;
+            }
+
+            const next = focusable[currentIndex + 1];
+            if (!next) {
+                return;
+            }
+
+            event.preventDefault();
+            next.focus();
+            if (typeof next.select === 'function') {
+                next.select();
+            }
+        });
+
+        // --- GLOBAL RESIZABLE TABLES ---
+        window.OperationTableResize = (() => {
+            function initTable(targetTable) {
+                if (!targetTable || targetTable.dataset.resizeReady === '1') return;
+                const headers = Array.from(targetTable.querySelectorAll('thead th'));
+                if (!headers.length) return;
+                
+                targetTable.dataset.resizeReady = '1';
+                targetTable.style.tableLayout = 'fixed';
+                
+                // Use a combination of page path and table ID/index for the storage key
+                const pathKey = window.location.pathname.replace(/\//g, '_');
+                const key = `operation_table_widths_${pathKey}_${targetTable.id || 't'}`;
+                const saved = JSON.parse(localStorage.getItem(key) || '{}');
+                
+                const syncTableWidth = () => {
+                    const totalWidth = headers.reduce((sum, item) => {
+                        const sw = parseFloat(item.style.width);
+                        const actual = isNaN(sw) ? item.getBoundingClientRect().width : sw;
+                        return sum + Math.max(40, Math.round(actual));
+                    }, 0);
+                    targetTable.style.setProperty('width', `${totalWidth}px`, 'important');
+                    targetTable.style.setProperty('min-width', `${totalWidth}px`, 'important');
+                };
+                
+                headers.forEach((header, index) => {
+                    let width = Number(saved[index]);
+                    // If no saved width, lock it to its current rendered width to prevent jumping
+                    if (!Number.isFinite(width) || width <= 40) {
+                        width = Math.max(40, Math.round(header.getBoundingClientRect().width));
+                    }
+                    header.style.width = `${width}px`;
+                    header.style.minWidth = `${width}px`;
+                    
+                    const handle = document.createElement('span');
+                    handle.className = 'resize-handle';
+                    handle.title = 'اسحب لتغيير حجم العمود';
+                    header.classList.add('resizable-header');
+                    header.appendChild(handle);
+                    
+                    handle.addEventListener('mousedown', (event) => {
+                        event.preventDefault();
+                        const rtl = document.documentElement.dir === 'rtl';
+                        const startX = event.clientX;
+                        const startWidth = header.getBoundingClientRect().width;
+                        const onMove = (moveEvent) => {
+                            const delta = moveEvent.clientX - startX;
+                            const widthNow = rtl ? startWidth - delta : startWidth + delta;
+                            const finalWidth = Math.max(40, Math.round(widthNow));
+                            header.style.width = `${finalWidth}px`;
+                            header.style.minWidth = `${finalWidth}px`;
+                            syncTableWidth();
+                        };
+                        const onUp = () => {
+                            document.removeEventListener('mousemove', onMove);
+                            document.removeEventListener('mouseup', onUp);
+                            const payload = {};
+                            headers.forEach((item, idx) => {
+                                const sw = parseFloat(item.style.width);
+                                const actual = isNaN(sw) ? item.getBoundingClientRect().width : sw;
+                                payload[idx] = Math.round(actual);
+                            });
+                            localStorage.setItem(key, JSON.stringify(payload));
+                            syncTableWidth();
+                        };
+                        document.addEventListener('mousemove', onMove);
+                        document.addEventListener('mouseup', onUp);
+                    });
+                });
+                syncTableWidth();
+            }
+            
+            return { init: initTable };
+        })();
+
+        // --- GLOBAL STATE SAVER (Choices & Inputs) ---
+        window.StateSaver = (() => {
+            function getPathKey() {
+                return window.location.pathname.replace(/\//g, '_');
+            }
+
+            function saveValue(element) {
+                if (!element.id && !element.name) return;
+                const key = `state_${getPathKey()}_${element.id || element.name}`;
+                if (element.type === 'checkbox') {
+                    localStorage.setItem(key, element.checked);
+                } else {
+                    localStorage.setItem(key, element.value);
+                }
+            }
+
+            function loadValue(element) {
+                if (!element.id && !element.name) return;
+                const key = `state_${getPathKey()}_${element.id || element.name}`;
+                const val = localStorage.getItem(key);
+                if (val !== null) {
+                    if (element.type === 'checkbox') {
+                        element.checked = val === 'true';
+                    } else {
+                        element.value = val;
+                    }
+                    element.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            }
+
+            function init() {
+                const selectors = [
+                    'input[id*="Search"]',
+                    'input[id*="search"]',
+                    'input[name="cut_date"]',
+                    'input[name="message_no"]'
+                ];
+                
+                selectors.forEach(selector => {
+                    document.querySelectorAll(selector).forEach(el => {
+                        if (el.closest('table') || el.closest('template')) return;
+                        
+                        // Wait a tick to allow other scripts to set defaults if needed
+                        setTimeout(() => loadValue(el), 50);
+                        
+                        el.addEventListener('input', () => saveValue(el));
+                        el.addEventListener('change', () => saveValue(el));
+                    });
+                });
+            }
+
+            return { init };
+        })();
+
+        // --- GLOBAL TABLE SORTER ---
+        window.TableSorter = (() => {
+            function getCellValue(tr, idx) {
+                const cell = tr.children[idx];
+                if (!cell) return '';
+                const input = cell.querySelector('input, select');
+                if (input) {
+                    return input.value || (input.options && input.options[input.selectedIndex]?.text) || '';
+                }
+                return cell.textContent.trim() || cell.innerText.trim();
+            }
+
+            function compareValues(v1, v2, ascending) {
+                // Extract numbers to sort numeric columns properly, fallback to string compare
+                const num1 = parseFloat(v1.replace(/[^\d.-]/g, ''));
+                const num2 = parseFloat(v2.replace(/[^\d.-]/g, ''));
+                const isNum1 = !isNaN(num1) && /^\d/.test(v1.trim());
+                const isNum2 = !isNaN(num2) && /^\d/.test(v2.trim());
+
+                if (isNum1 && isNum2) {
+                    return ascending ? num1 - num2 : num2 - num1;
+                }
+                return ascending ? v1.localeCompare(v2, 'ar') : v2.localeCompare(v1, 'ar');
+            }
+
+            function initTable(table) {
+                if (!table || table.dataset.sortReady === '1') return;
+                table.dataset.sortReady = '1';
+
+                const thead = table.querySelector('thead');
+                const tbody = table.querySelector('tbody');
+                if (!thead || !tbody) return;
+
+                const headers = Array.from(thead.querySelectorAll('th'));
+                let currentSortCol = -1;
+                let currentSortOrder = 0;
+
+                const storeOriginalOrder = () => {
+                    Array.from(tbody.querySelectorAll('tr')).forEach((tr, index) => {
+                        if (!tr.hasAttribute('data-original-index')) {
+                            tr.setAttribute('data-original-index', index.toString());
+                        }
+                    });
+                };
+                
+                const observer = new MutationObserver(() => storeOriginalOrder());
+                observer.observe(tbody, { childList: true });
+                storeOriginalOrder();
+
+                headers.forEach((th, index) => {
+                    if (th.dataset.sort === 'no' || th.textContent.includes('الإجراءات') || !th.textContent.trim()) return;
+
+                    // Exclude "#" column or checkboxes from sorting logic
+                    if (th.textContent.trim() === '#' || th.querySelector('input[type="checkbox"]')) return;
+
+                    th.style.cursor = 'pointer';
+                    th.title = 'تصفح للترتيب (تصاعدي/تنازلي/إلغاء)';
+
+                    th.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('resize-handle')) return;
+
+                        headers.forEach((otherTh, i) => {
+                            if (i !== index) {
+                                otherTh.dataset.sortOrder = '0';
+                                const oldIcon = otherTh.querySelector('.sort-icon-wrapper');
+                                if (oldIcon) oldIcon.remove();
+                                // Clean up any old un-wrapped icons just in case
+                                const rawIcon = otherTh.querySelector('i.fa-sort-up, i.fa-sort-down');
+                                if (rawIcon && !rawIcon.closest('.sort-icon-wrapper')) rawIcon.remove();
+                            }
+                        });
+
+                        if (currentSortCol !== index) {
+                            currentSortCol = index;
+                            currentSortOrder = 0;
+                        }
+
+                        currentSortOrder = (currentSortOrder + 1) % 3;
+                        th.dataset.sortOrder = currentSortOrder;
+
+                        let iconHtml = '';
+                        if (currentSortOrder === 1) iconHtml = '<i class="fas fa-sort-up text-primary"></i>';
+                        else if (currentSortOrder === 2) iconHtml = '<i class="fas fa-sort-down text-primary"></i>';
+                        
+                        let iconWrapper = th.querySelector('.sort-icon-wrapper');
+                        if (iconWrapper) iconWrapper.remove();
+                        // Clean up raw icon if present
+                        const rawIcon = th.querySelector('i.fa-sort-up, i.fa-sort-down');
+                        if (rawIcon && !rawIcon.closest('.sort-icon-wrapper')) rawIcon.remove();
+                        
+                        if (iconHtml) {
+                            iconWrapper = document.createElement('span');
+                            iconWrapper.className = 'sort-icon-wrapper ms-1';
+                            iconWrapper.innerHTML = iconHtml;
+                            th.appendChild(iconWrapper);
+                        }
+
+                        const rows = Array.from(tbody.querySelectorAll('tr'));
+
+                        if (currentSortOrder === 0) {
+                            rows.sort((a, b) => {
+                                const idxA = parseInt(a.getAttribute('data-original-index') || 0);
+                                const idxB = parseInt(b.getAttribute('data-original-index') || 0);
+                                return idxA - idxB;
+                            });
+                        } else {
+                            const ascending = currentSortOrder === 1;
+                            rows.sort((a, b) => {
+                                const v1 = getCellValue(a, index);
+                                const v2 = getCellValue(b, index);
+                                // Always put empty values at the bottom when sorting
+                                if (!v1 && v2) return ascending ? 1 : -1;
+                                if (!v2 && v1) return ascending ? -1 : 1;
+                                return compareValues(v1, v2, ascending);
+                            });
+                        }
+
+                        rows.forEach(tr => tbody.appendChild(tr));
+                    });
+                });
+            }
+
+            return { init: initTable };
+        })();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            window.StateSaver.init();
+            
+            document.querySelectorAll('table.table:not(.no-resize)').forEach(table => {
+                if (window.OperationTableResize) window.OperationTableResize.init(table);
+                if (window.TableSorter) window.TableSorter.init(table);
+            });
+            
+            // Prevent double form submissions globally
+            document.addEventListener('submit', (e) => {
+                if (!e.defaultPrevented) {
+                    const submitter = e.submitter || e.target.querySelector('button[type="submit"]');
+                    if (submitter && !submitter.disabled) {
+                        setTimeout(() => {
+                            submitter.disabled = true;
+                            submitter.classList.add('disabled');
+                        }, 0);
+                    }
+                }
+            });
+        });
+    </script>
+    <script src="{{ url_for('static', filename='excel_export.js') }}"></script>
+</body>
+</html>
+

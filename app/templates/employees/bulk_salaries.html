@@ -195,7 +195,8 @@
             </div>
             <div class="card-body">
                 <form method="get" id="filter-form">
-                    <select name="departments" id="dept-filter" class="form-select" multiple size="1">
+                    <label class="visually-hidden" for="dept-filter">تصفية الأقسام</label>
+                    <select name="departments" id="dept-filter" class="form-select" multiple size="1" aria-label="تصفية الأقسام" title="تصفية الأقسام">
                         {% for dept in departments %}
                         <option value="{{ dept.id }}" {% if dept.id in selected_dept_ids %}selected{% endif %}>
                             {{ dept.name }}
@@ -217,17 +218,16 @@
             <table class="table table-hover table-striped align-middle mb-0" id="bulk-salaries-table">
                 <thead class="table-dark">
                     <tr>
-                        <th style="min-width: 80px;">الكود</th>
-                        <th style="min-width: 200px;">اسم الموظف</th>
-                        <th style="min-width: 150px;">القسم</th>
-                        <th class="text-center" style="min-width: 120px;">الراتب الحالي</th>
-                        <th class="text-center" style="min-width: 120px;">التعديل</th>
-                        <th class="text-center increase-column-header" style="min-width: 120px; display: none;">الزيادة
-                        </th>
-                        <th class="text-center" style="min-width: 120px;">الراتب الجديد</th>
-                        <th class="text-center" style="min-width: 90px;">الحالة</th>
-                        <th class="text-center" style="min-width: 120px;">تاريخ التفعيل</th>
-                        <th style="min-width: 140px;">تاريخ التعديل</th>
+                        <th class="bulk-salaries-code-th">الكود</th>
+                        <th class="bulk-salaries-name-th">اسم الموظف</th>
+                        <th class="bulk-salaries-dept-th">القسم</th>
+                        <th class="text-center bulk-salaries-current-salary-th">الراتب الحالي</th>
+                        <th class="text-center bulk-salaries-adjustment-th">التعديل</th>
+                        <th class="text-center increase-column-header bulk-salaries-increase-th">الزيادة</th>
+                        <th class="text-center bulk-salaries-new-salary-th">الراتب الجديد</th>
+                        <th class="text-center bulk-salaries-status-th">الحالة</th>
+                        <th class="text-center bulk-salaries-activation-th">تاريخ التفعيل</th>
+                        <th class="bulk-salaries-edit-date-th">تاريخ التعديل</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -243,17 +243,18 @@
                         <td>
                             <div class="input-group input-group-sm">
                                 <input type="number" step="0.01" class="form-control adjustment-input text-center salary-input-wide"
-                                    value="0" oninput="window.calculateRow(this.closest('tr'))">
+                                    value="0" oninput="window.calculateRow(this.closest('tr'))" aria-label="مقدار التعديل" title="مقدار التعديل">
                                 <span class="input-group-text method-unit">ج.م</span>
                             </div>
                         </td>
-                        <td class="text-center increase-column" style="display: none;">
-                            <span class="increase-amount fw-bold" style="font-size: 0.95rem;">0.00</span>
+                        <td class="text-center increase-column bulk-salaries-increase-column">
+                            <span class="increase-amount fw-bold bulk-salaries-increase-value">0.00</span>
                         </td>
                         <td class="text-center">
                             <input type="number" step="0.01"
                                 class="form-control form-control-sm new-salary-input text-center fw-bold bg-light salary-input-wide"
-                                value="{{ "%.2f"|format(emp.effective_salary if emp.effective_salary is not none else emp.basic_salary) }}" readonly>
+                                value="{{ "%.2f"|format(emp.effective_salary if emp.effective_salary is not none else emp.basic_salary) }}" readonly
+                                aria-label="الراتب الجديد" title="الراتب الجديد">
                         </td>
                         <td class="text-center">
                             <span class="badge bg-secondary calc-status">قيد التعديل</span>
@@ -313,11 +314,12 @@
     }
 
     /* Excel-like Header Resize Cues */
-    .table-responsive th {
-        position: relative;
-        cursor: pointer;
-        user-select: none;
-    }
+      .table-responsive th {
+          position: relative;
+          cursor: pointer;
+          -webkit-user-select: none;
+          user-select: none;
+      }
 
     .table-responsive th:hover {
         background-color: #343a40 !important;

@@ -18,6 +18,70 @@ from utils.helpers import parse_date_compact
 
 leaves_bp = Blueprint('leaves', __name__)
 
+
+def _parse_leave_date(value):
+    """Parse leave date from DD/MM/YYYY or YYYY-MM-DD formats."""
+    if value is None:
+        return None
+
+    date_str = str(value).strip()
+    if not date_str:
+        return None
+
+    parsed = parse_date_compact(date_str)
+    if parsed:
+        return parsed
+
+    for fmt in ('%Y-%m-%d', '%d/%m/%Y'):
+        try:
+            return datetime.strptime(date_str, fmt).date()
+        except ValueError:
+            continue
+
+    raise ValueError(f"تنسيق تاريخ غير صالح: {date_str}")
+
+
+def _recalculate_leave_balance_for_employee_year(session, employee_id: int, year: int) -> None:
+    """
+    Recalculate leave balance usage for one employee/year based on APPROVED leaves.
+    This keeps balances consistent after bulk edits.
+    """
+    if not employee_id or not year:
+        return
+
+    service = LeaveService(session)
+    balance = session.query(LeaveBalance).filter_by(
+        employee_id=employee_id,
+        year=year
+    ).first()
+
+    if not balance:
+        balance = service.initialize_employee_balance(employee_id, year)
+
+    balance.annual_used = 0.0
+    balance.sick_used = 0.0
+    balance.casual_used = 0.0
+    balance.emergency_used = 0.0
+
+    approved_leaves = session.query(Leave).filter(
+        Leave.employee_id == employee_id,
+        Leave.start_date >= date(year, 1, 1),
+        Leave.start_date <= date(year, 12, 31),
+        Leave.status == LeaveStatus.APPROVED.value
+    ).all()
+
+    for leave in approved_leaves:
+        if leave.leave_type == LeaveTypeEnum.ANNUAL.value:
+            balance.annual_used += float(leave.days_count or 0)
+        elif leave.leave_type == LeaveTypeEnum.SICK.value:
+            balance.sick_used += float(leave.days_count or 0)
+        elif leave.leave_type == LeaveTypeEnum.CASUAL.value:
+            balance.casual_used += float(leave.days_count or 0)
+        elif leave.leave_type == LeaveTypeEnum.EMERGENCY.value:
+            balance.emergency_used += float(leave.days_count or 0)
+
+    session.flush()
+
 @leaves_bp.route('/')
 def list():
     """قائمة الإجازات"""
@@ -47,7 +111,7 @@ def list():
     if leave_type:
         query = query.filter(Leave.leave_type == leave_type)
     
-    leaves = query.order_by(Leave.start_date.desc()).all()
+    leaves = query.order_by(Employee.code.asc(), Leave.start_date.asc()).all()
     
     # الأقسام للفلتر
     departments = db.get_departments()
@@ -124,14 +188,25 @@ def bulk():
                         errors.append(f"الصف {idx+1}: الموظف {employee_code} غير موجود")
                         continue
                     
+                    leave_type = entry.get('leave_type', LeaveTypeEnum.ANNUAL.value)
+                    raw_is_paid = entry.get('is_paid', None)
+                    if raw_is_paid is None:
+                        is_paid = (leave_type != LeaveTypeEnum.UNPAID.value)
+                    elif isinstance(raw_is_paid, str):
+                        is_paid = raw_is_paid.strip().lower() in ('1', 'true', 'yes', 'on')
+                    else:
+                        is_paid = bool(raw_is_paid)
+                    if leave_type == LeaveTypeEnum.UNPAID.value:
+                        is_paid = False
+
                     # إنشاء الإجازة
                     leave = Leave(
                         employee_id=employee.id,
-                        leave_type=entry.get('leave_type', LeaveTypeEnum.ANNUAL.value),
+                        leave_type=leave_type,
                         start_date=datetime.strptime(entry['start_date'], '%d/%m/%Y').date(),
                         end_date=datetime.strptime(entry['end_date'], '%d/%m/%Y').date(),
                         days_count=float(entry.get('days_count', 1)),
-                        is_paid=entry.get('is_paid', True),
+                        is_paid=is_paid,
                         status=LeaveStatus.APPROVED.value,
                         reason=entry.get('reason', ''),
                         approved_date=date.today()
@@ -175,6 +250,80 @@ def bulk():
                          employees=employees,
                          today=today,
                          leave_types=LeaveTypeEnum)
+
+
+@leaves_bp.route('/bulk_edit', methods=['GET'])
+def bulk_edit():
+    """Bulk edit leaves page (UI pattern aligned with advances)."""
+    db = current_app.db
+    departments = db.get_departments()
+    preselected_leave_id = request.args.get('leave_id', type=int)
+    return render_template(
+        'leaves/bulk_edit.html',
+        departments=departments,
+        leave_types=LeaveTypeEnum,
+        leave_statuses=LeaveStatus,
+        preselected_leave_id=preselected_leave_id
+    )
+
+
+@leaves_bp.route('/bulk_edit/load', methods=['GET'])
+def bulk_edit_load():
+    """Load leaves for bulk editing."""
+    db = current_app.db
+    session = db.get_session()
+
+    try:
+        date_from_str = request.args.get('date_from')
+        date_to_str = request.args.get('date_to')
+        department_id = request.args.get('department_id', type=int)
+        code = (request.args.get('code') or '').strip()
+        leave_id = request.args.get('leave_id', type=int)
+
+        query = session.query(Leave).join(Employee).filter(Employee.is_active == True)
+
+        if leave_id:
+            query = query.filter(Leave.id == leave_id)
+
+        if date_from_str:
+            parsed_from = _parse_leave_date(date_from_str)
+            query = query.filter(Leave.start_date >= parsed_from)
+
+        if date_to_str:
+            parsed_to = _parse_leave_date(date_to_str)
+            query = query.filter(Leave.end_date <= parsed_to)
+
+        if department_id:
+            query = query.filter(Employee.department_id == department_id)
+
+        if code:
+            query = query.filter(Employee.code.ilike(f"%{code}%"))
+
+        leaves = query.order_by(Employee.code.asc(), Leave.start_date.asc()).all()
+
+        leaves_data = []
+        for leave in leaves:
+            leaves_data.append({
+                'id': leave.id,
+                'employee_id': leave.employee_id,
+                'employee_code': leave.employee.code if leave.employee else '',
+                'employee_name': leave.employee.name if leave.employee else '',
+                'leave_type': leave.leave_type or '',
+                'start_date': leave.start_date.strftime('%d/%m/%Y') if leave.start_date else '',
+                'end_date': leave.end_date.strftime('%d/%m/%Y') if leave.end_date else '',
+                'status': leave.status or '',
+                'days_count': float(leave.days_count or 0),
+                'department': leave.employee.department.name if leave.employee and leave.employee.department else ''
+            })
+
+        return jsonify({'success': True, 'leaves': leaves_data})
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        current_app.logger.exception('Leave bulk edit load failed')
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        session.close()
 
 @leaves_bp.route('/balances')
 def balances():
@@ -220,29 +369,153 @@ def initialize_balances(year):
     return redirect(url_for('leaves.balances', year=year))
 
 @leaves_bp.route('/delete/<int:leave_id>', methods=['POST'])
+@leaves_bp.route('/<int:leave_id>/delete', methods=['POST'])
 def delete(leave_id):
-    """حذف إجازة"""
+    """Delete leave record."""
     db = current_app.db
     session = db.get_session()
-    
+    is_ajax = request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
     try:
         leave = session.query(Leave).filter_by(id=leave_id).first()
         if not leave:
+            if is_ajax:
+                return jsonify({'success': False, 'message': 'الإجازة غير موجودة'}), 404
             flash('الإجازة غير موجودة', 'danger')
             return redirect(url_for('leaves.list'))
-        
-        # استرجاع الرصيد
+
         service = LeaveService(session)
         service.restore_balance_after_delete(leave)
-        
+
         session.delete(leave)
         session.commit()
+
+        if is_ajax:
+            return jsonify({'success': True, 'message': 'تم حذف الإجازة بنجاح'})
+
         flash('تم حذف الإجازة بنجاح', 'center')
     except Exception as e:
         session.rollback()
+        current_app.logger.exception("Leave delete failed for leave_id=%s", leave_id)
+        if is_ajax:
+            return jsonify({'success': False, 'message': f'فشل حذف الإجازة: {str(e)}'}), 500
         flash(f'خطأ: {str(e)}', 'danger')
-    
+    finally:
+        session.close()
+
     return redirect(url_for('leaves.list'))
+
+
+@leaves_bp.route('/<int:leave_id>/edit', methods=['GET'])
+def edit_leave(leave_id):
+    """Redirect single-record edit to bulk edit page pattern."""
+    return redirect(url_for('leaves.bulk_edit', leave_id=leave_id))
+
+@leaves_bp.route('/bulk_edit/save', methods=['POST'])
+def bulk_edit_save():
+    """Bulk update selected leaves row-by-row in one transaction."""
+    db = current_app.db
+    session = db.get_session()
+
+    try:
+        data = request.get_json(silent=True) or {}
+        rows = data.get('rows', [])
+
+        if not isinstance(rows, list) or not rows:
+            return jsonify({'success': False, 'message': 'يجب اختيار إجازة واحدة على الأقل'}), 400
+
+        valid_leave_types = {lt.value for lt in LeaveTypeEnum}
+        valid_statuses = {st.value for st in LeaveStatus}
+
+        row_updates = {}
+        leave_ids = []
+
+        for index, row in enumerate(rows, start=1):
+            if not isinstance(row, dict):
+                return jsonify({'success': False, 'message': f'الصف {index}: تنسيق البيانات غير صالح'}), 400
+
+            raw_id = row.get('id')
+            if raw_id is None or not str(raw_id).strip().isdigit():
+                return jsonify({'success': False, 'message': f'الصف {index}: معرف الإجازة غير صالح'}), 400
+
+            leave_id = int(raw_id)
+            if leave_id in row_updates:
+                return jsonify({'success': False, 'message': f'تكرار نفس الإجازة في الطلب (ID: {leave_id})'}), 400
+
+            leave_type = (row.get('type') or '').strip()
+            start_raw = row.get('start')
+            end_raw = row.get('end')
+            status = (row.get('status') or '').strip()
+
+            if not leave_type or leave_type not in valid_leave_types:
+                return jsonify({'success': False, 'message': f'الصف {index}: نوع الإجازة غير صالح'}), 400
+
+            if not status or status not in valid_statuses:
+                return jsonify({'success': False, 'message': f'الصف {index}: حالة الإجازة غير صالحة'}), 400
+
+            if not str(start_raw or '').strip() or not str(end_raw or '').strip():
+                return jsonify({'success': False, 'message': f'الصف {index}: تاريخ البداية والنهاية مطلوبان'}), 400
+
+            parsed_start = _parse_leave_date(start_raw)
+            parsed_end = _parse_leave_date(end_raw)
+
+            if parsed_end < parsed_start:
+                return jsonify({
+                    'success': False,
+                    'message': f'الصف {index}: تاريخ النهاية يجب أن يكون بعد تاريخ البداية'
+                }), 400
+
+            row_updates[leave_id] = {
+                'leave_type': leave_type,
+                'start_date': parsed_start,
+                'end_date': parsed_end,
+                'status': status
+            }
+            leave_ids.append(leave_id)
+
+        leaves = session.query(Leave).filter(Leave.id.in_(leave_ids)).all()
+        found_ids = {lv.id for lv in leaves}
+        missing = sorted(set(leave_ids) - found_ids)
+        if missing:
+            return jsonify({'success': False, 'message': f'بعض الإجازات غير موجودة: {missing}'}), 404
+
+        affected_balances = set()
+        updated_count = 0
+
+        for leave in leaves:
+            old_year = leave.start_date.year if leave.start_date else None
+            affected_balances.add((leave.employee_id, old_year))
+
+            row_data = row_updates[leave.id]
+            leave.leave_type = row_data['leave_type']
+            leave.start_date = row_data['start_date']
+            leave.end_date = row_data['end_date']
+            leave.status = row_data['status']
+            if leave.leave_type == LeaveTypeEnum.UNPAID.value:
+                leave.is_paid = False
+            leave.days_count = float((leave.end_date - leave.start_date).days + 1)
+
+            new_year = leave.start_date.year if leave.start_date else None
+            affected_balances.add((leave.employee_id, new_year))
+            updated_count += 1
+
+        for employee_id, year in affected_balances:
+            if employee_id and year:
+                _recalculate_leave_balance_for_employee_year(session, employee_id, year)
+
+        session.commit()
+        msg = f'تم تعديل {updated_count} إجازة بنجاح'
+        flash(msg, 'center')
+        return jsonify({'success': True, 'updated': updated_count, 'message': msg, 'center': True})
+    except ValueError as e:
+        session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        session.rollback()
+        current_app.logger.exception('Leave bulk edit failed')
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        session.close()
 
 @leaves_bp.route('/employee/<int:emp_id>')
 def employee_leaves(emp_id):
@@ -262,7 +535,7 @@ def employee_leaves(emp_id):
         Leave.employee_id == emp_id,
         Leave.start_date >= date(year, 1, 1),
         Leave.start_date <= date(year, 12, 31)
-    ).order_by(Leave.start_date.desc()).all()
+    ).order_by(Leave.start_date.asc()).all()
     
     # الرصيد
     balance = session.query(LeaveBalance).filter_by(
@@ -299,10 +572,13 @@ def holidays():
                 flash('تاريخ النهاية يجب أن يكون بعد تاريخ البداية', 'danger')
                 return redirect(url_for('leaves.holidays'))
                 
+            is_unpaid = request.form.get('is_unpaid_for_uninsured') == 'on'
+            
             holiday = PublicHoliday(
                 name=name,
                 start_date=start_date,
-                end_date=end_date
+                end_date=end_date,
+                is_unpaid_for_uninsured=is_unpaid
             )
             session.add(holiday)
             session.commit()
@@ -384,9 +660,12 @@ def edit_holiday(id):
             flash('تاريخ النهاية يجب أن يكون بعد تاريخ البداية', 'danger')
             return redirect(url_for('leaves.holidays'))
 
+        is_unpaid = request.form.get('is_unpaid_for_uninsured') == 'on'
+
         holiday.name = name
         holiday.start_date = start_date
         holiday.end_date = end_date
+        holiday.is_unpaid_for_uninsured = is_unpaid
         
         session.commit()
         flash('تم تعديل العطلة بنجاح', 'center')
@@ -396,3 +675,4 @@ def edit_holiday(id):
         flash(f'حدث خطأ أثناء التعديل: {str(e)}', 'danger')
         
     return redirect(url_for('leaves.holidays'))
+
