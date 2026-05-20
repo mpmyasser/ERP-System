@@ -1,0 +1,24 @@
+{
+  "pythonVersion": "3.11",
+  "pythonPlatform": "Windows",
+  "venvPath": ".",
+  "venv": ".venv",
+  "extraPaths": [
+    ".",
+    "core",
+    "app/routes"
+  ],
+  "include": [
+    "app",
+    "core",
+    "run.py"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    ".venv",
+    "tmp",
+    "backups"
+  ],
+  "reportMissingImports": "warning",
+  "reportMissingModuleSource": "none"
+}

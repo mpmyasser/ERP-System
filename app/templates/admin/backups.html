@@ -4,7 +4,10 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h3 mb-0"><i class="fas fa-code-branch me-2"></i>Git Version Controller</h1>
+    <h1 class="h3 mb-0"><i class="fas fa-code-branch me-2"></i>نظام النسخ الاحتياطي (Git & DB)</h1>
+    <button id="createBackupBtn" class="btn btn-primary">
+        <i class="fas fa-plus-circle me-1"></i>إنشاء نسخة احتياطية الآن
+    </button>
 </div>
 
 <div class="alert alert-warning" role="alert">
@@ -192,6 +195,37 @@
         confirmInput.value = '';
         confirmBtn.disabled = true;
         setStatus('', '');
+    });
+
+    // Create Backup logic
+    const createBackupBtn = document.getElementById('createBackupBtn');
+    createBackupBtn.addEventListener('click', async function() {
+        if (!confirm('هل أنت متأكد من رغبتك في إنشاء نسخة احتياطية كاملة الآن؟')) return;
+        
+        createBackupBtn.disabled = true;
+        createBackupBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>جاري الحفظ...';
+        
+        try {
+            const response = await fetch('/admin/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken()
+                }
+            });
+            const data = await response.json();
+            if (data.success) {
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert('فشل: ' + data.message);
+            }
+        } catch (error) {
+            alert('خطأ في الاتصال: ' + error.message);
+        } finally {
+            createBackupBtn.disabled = false;
+            createBackupBtn.innerHTML = '<i class="fas fa-plus-circle me-1"></i>إنشاء نسخة احتياطية الآن';
+        }
     });
 })();
 </script>

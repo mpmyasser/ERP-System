@@ -306,21 +306,40 @@ html[dir="rtl"] .sidebar {
 }
 
 /* Table Head for Resizing */
-th {
-    position: relative;
-    min-width: 30px;
-}
+/* Professional Table Resizer Handles */
+th { position: relative; }
 
 .resizer {
-    /* For RTL: handle on left edge */
     position: absolute;
     top: 0;
-    left: 0;
-    width: 5px;
-    height: 100%;
-    cursor: col-resize;
-    -webkit-user-select: none;
+    right: 0;
+    width: 15px;
+    cursor: col-resize !important;
     user-select: none;
+    z-index: 1000 !important;
+    background-color: transparent;
+    transition: box-shadow 0.12s, background-color 0.12s;
+    touch-action: none;
+}
+
+[dir="rtl"] .resizer {
+    right: auto;
+    left: 0;
+}
+
+.resizer:hover, .resizer.resizing {
+    background-color: transparent !important;
+    box-shadow: inset -5px 0 0 var(--bs-primary, #0d6efd);
+}
+
+[dir="rtl"] .resizer:hover,
+[dir="rtl"] .resizer.resizing {
+    box-shadow: inset 5px 0 0 var(--bs-primary, #0d6efd);
+}
+
+.is-resizing {
+    cursor: col-resize !important;
+    user-select: none !important;
 }
 
 /* Top Scrollbar for wide tables */
@@ -358,13 +377,7 @@ th {
     background: #888;
 }
 
-/* Column Resizer Visuals */
-.resizer:hover,
-.resizing {
-    background-color: #0d6efd;
-    width: 6px;
-    opacity: 1;
-}
+/* Table Scrollbar & Print Rules */
 
 /* Hide table footer on screen, show in print */
 tfoot {

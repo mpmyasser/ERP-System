@@ -1,0 +1,76 @@
+/* Print Styles for RTL Tables and Reports */
+@media print {
+    html, body {
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: white !important;
+        direction: rtl !important;
+    }
+
+    body {
+        font-family: Cairo, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        color: #000 !important;
+    }
+
+    /* Universal Print Reset for Clarity */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        text-shadow: none !important;
+        box-sizing: border-box;
+    }
+
+    .no-print, .btn, .navbar, .sidebar, nav, footer {
+        display: none !important;
+    }
+
+    .text-muted, .text-secondary, .text-black-50, .opacity-75, .opacity-50, .opacity-25 {
+        color: #000 !important;
+        opacity: 1 !important;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+
+    table thead th {
+        background-color: #f3f4f6 !important;
+        color: #000 !important;
+        font-weight: 700;
+        border: 1px solid #000 !important;
+        border-bottom: 2px solid #000 !important;
+    }
+
+    table th,
+    table td {
+        border: 1px solid #000 !important;
+        padding: 6pt 4pt;
+        text-align: right;
+        color: #000 !important;
+        font-size: 10pt;
+    }
+    
+    tr {
+        background: #fff !important;
+    }
+
+    .signature-label {
+        font-size: 10pt;
+        font-weight: bold;
+        color: #000;
+    }
+
+    .signature-line {
+        border-top: 1.5px solid #000;
+        display: inline-block;
+        width: 180px;
+        margin-top: 30pt;
+    }
+
+    .page-break {
+        page-break-after: always;
+    }
+}

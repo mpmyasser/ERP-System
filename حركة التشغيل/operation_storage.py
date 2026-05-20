@@ -92,6 +92,17 @@ def initialize_database() -> None:
             CREATE INDEX IF NOT EXISTS idx_operation_factory_prices_lookup
             ON operation_factory_prices(factory_code, product_code);
 
+            CREATE TABLE IF NOT EXISTS operation_factories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                type TEXT NOT NULL DEFAULT 'مناسل',
+                phone TEXT,
+                opening_balance REAL NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
             CREATE TABLE IF NOT EXISTS operation_factory_payments (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 factory_code TEXT NOT NULL,
@@ -502,22 +513,22 @@ def purge_cut_data() -> dict[str, Any]:
 
 def update_cut_item_dispatch(
     item_id: int,
-    cut_date: str = "",
-    message_no: str = "",
-    code: str = "",
-    name: str = "",
-    size: str = "",
-    quantity: Any = "",
-    factory_code: str = "",
-    factory_name: str = "",
-    manufacturing_price: Any = "",
-    dispatch_date: str = "",
-    description: str = "",
+    cut_date: str = None,
+    message_no: str = None,
+    code: str = None,
+    name: str = None,
+    size: str = None,
+    quantity: Any = None,
+    factory_code: str = None,
+    factory_name: str = None,
+    manufacturing_price: Any = None,
+    dispatch_date: str = None,
+    description: str = None,
 ) -> dict[str, Any]:
     try:
         normalized_id = int(item_id)
     except (TypeError, ValueError) as exc:
-        raise ValueError("رقم السطر غير صحيح.") from exc
+        raise ValueError("الكود مطلوب.") from exc
 
     with get_connection() as connection:
         row = connection.execute(
@@ -543,28 +554,23 @@ def update_cut_item_dispatch(
             (normalized_id,),
         ).fetchone()
         if not row:
-            raise ValueError("السطر المطلوب غير موجود.")
+            raise ValueError("الصنف غير موجود.")
 
-        if cut_date is None:
-            normalized_cut_date = normalize_date_text(row["cut_date"])
-        else:
-            cut_date_text = clean_text(cut_date)
-            normalized_cut_date = normalize_date_text(row["cut_date"] if cut_date_text == "" else cut_date_text)
+        normalized_cut_date = normalize_date_text(cut_date) if cut_date else normalize_date_text(row["cut_date"])
+        normalized_message_no = clean_text(message_no) if message_no else clean_text(row["message_no"])
+        normalized_code = clean_text(code) if code else clean_text(row["code"])
+        normalized_name = clean_text(name) if name else clean_text(row["name"])
+        normalized_size = clean_text(size) if size else clean_text(row["size"])
 
-        normalized_message_no = clean_text(message_no) if message_no is not None else clean_text(row["message_no"])
-        normalized_code = clean_text(code) if code is not None else clean_text(row["code"])
-        normalized_name = clean_text(name) if name is not None else clean_text(row["name"])
-        normalized_size = clean_text(size) if size is not None else clean_text(row["size"])
-
-        if quantity is None:
+        if quantity is None or str(quantity).strip() == "":
             normalized_quantity = _parse_quantity(row["quantity"])
         else:
-            quantity_text = clean_text(quantity)
-            normalized_quantity = _parse_quantity(row["quantity"] if quantity_text == "" else quantity_text)
+            normalized_quantity = _parse_quantity(quantity)
 
         normalized_description = clean_text(description) if description is not None else clean_text(row["description"])
-        normalized_factory_code = clean_text(factory_code) if factory_code is not None else clean_text(row["factory_code"])
-        normalized_factory_name = clean_text(factory_name) if factory_name is not None else clean_text(row["factory_name"])
+        normalized_factory_code = clean_text(factory_code) if factory_code else clean_text(row["factory_code"])
+        normalized_factory_name = clean_text(factory_name) if factory_name else clean_text(row["factory_name"])
+        
         normalized_manufacturing_price = _resolve_manufacturing_price(
             connection,
             code=normalized_code,
@@ -572,11 +578,8 @@ def update_cut_item_dispatch(
             raw_price=row["manufacturing_price"] if manufacturing_price is None else manufacturing_price,
             preserve_existing=True,
         )
-        if dispatch_date is None:
-            normalized_dispatch_date = normalize_date_text(row["dispatch_date"])
-        else:
-            dispatch_text = clean_text(dispatch_date)
-            normalized_dispatch_date = normalize_date_text(row["dispatch_date"] if dispatch_text == "" else dispatch_text)
+        
+        normalized_dispatch_date = normalize_date_text(dispatch_date) if dispatch_date else normalize_date_text(row["dispatch_date"])
 
         if not normalized_code:
             raise ValueError("الكود مطلوب.")
@@ -590,7 +593,7 @@ def update_cut_item_dispatch(
 
         status_value = (
             "تم الإرسال"
-            if normalized_factory_code and normalized_factory_name and normalized_dispatch_date
+            if normalized_factory_code and normalized_dispatch_date
             else "داخل القص"
         )
 
@@ -608,7 +611,6 @@ def update_cut_item_dispatch(
                 factory_name = ?,
                 manufacturing_price = ?,
                 dispatch_date = ?,
-                received_date = ?,
                 status = ?
             WHERE id = ?
             """,
@@ -622,7 +624,6 @@ def update_cut_item_dispatch(
                 normalized_factory_code,
                 normalized_factory_name,
                 normalized_manufacturing_price,
-                normalized_dispatch_date,
                 normalized_dispatch_date,
                 status_value,
                 normalized_id,

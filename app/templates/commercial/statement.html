@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block title %}كشف حساب: {{ partner.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-file-invoice text-info"></i> كشف حساب: {{ partner.name }}</h2>
+            <p class="text-muted mb-0">
+                النوع: {% if partner.type == 'Customer' %}عميل{% elif partner.type == 'Supplier' %}مورد{% else %}{{ partner.type }}{% endif %} |
+                الهاتف: {{ partner.phone or '-' }}
+            </p>
+        </div>
+        <div class="text-end">
+            <div class="small text-muted mb-1">الرصيد الحالي</div>
+            <div class="fs-4 fw-bold {% if current_balance > 0 %}text-success{% elif current_balance < 0 %}text-danger{% else %}text-secondary{% endif %}">
+                {{ "{:,.2f}".format(current_balance|abs) }} 
+                <span class="fs-6 fw-normal">{% if current_balance > 0 %}مدين (عليه){% elif current_balance < 0 %}دائن (له){% else %}متزن{% endif %}</span>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary mt-2" onclick="window.print()"><i class="fas fa-print"></i> طباعة الكشف</button>
+        </div>
+    </div>
+
+    <!-- المحاسبة (القيود) -->
+    {% if journal_items %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="fas fa-book-open text-primary"></i> الحركات المحاسبية التفصيلية</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>التاريخ</th>
+                            <th>رقم القيد</th>
+                            <th>البيان</th>
+                            <th class="text-end">مدين (عليه)</th>
+                            <th class="text-end">دائن (له)</th>
+                            <th class="text-end bg-light">الرصيد التراكمي</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in journal_items %}
+                        <tr>
+                            <td>{{ item.journal_entry.date }}</td>
+                            <td><a href="{{ url_for('accounting.view_journal', id=item.journal_entry_id) }}">#{{ item.journal_entry_id }}</a></td>
+                            <td>{{ item.description }}</td>
+                            <td class="text-end {% if item.debit > 0 %}text-success fw-bold{% endif %}">{{ "{:,.2f}".format(item.debit) if item.debit > 0 else '-' }}</td>
+                            <td class="text-end {% if item.credit > 0 %}text-danger fw-bold{% endif %}">{{ "{:,.2f}".format(item.credit) if item.credit > 0 else '-' }}</td>
+                            <td class="text-end bg-light fw-bold" dir="ltr">
+                                {{ "{:,.2f}".format(item.running_balance) }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">لا توجد حركات محاسبية مسجلة لهذا الشريك.</div>
+    {% endif %}
+
+    <!-- الفواتير المرجعية -->
+    {% if invoices %}
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="fas fa-file-alt text-secondary"></i> الفواتير المسجلة</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>التاريخ</th>
+                            <th>النوع</th>
+                            <th>رقم الفاتورة</th>
+                            <th>الإجمالي</th>
+                            <th>الحالة</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inv in invoices %}
+                        <tr>
+                            <td>{{ inv.date }}</td>
+                            <td>{{ inv.type }}</td>
+                            <td>{{ inv.invoice_number }}</td>
+                            <td>{{ "{:,.2f}".format(inv.total_amount) }}</td>
+                            <td>
+                                {% if inv.status == 'Posted' %}
+                                <span class="badge bg-success">مرحلة</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ inv.status }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+@media print {
+    body * { visibility: hidden; }
+    .container-fluid, .container-fluid * { visibility: visible; }
+    .container-fluid { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
+    .btn { display: none !important; }
+    .card { border: none !important; box-shadow: none !important; }
+    .card-header { border-bottom: 2px solid #000 !important; }
+}
+</style>
+{% endblock %}

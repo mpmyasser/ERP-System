@@ -10,6 +10,8 @@ class AccountType(enum.Enum):
     EQUITY = "Equity"         # حقوق ملكية
     INCOME = "Income"         # إيرادات
     EXPENSE = "Expense"       # مصروفات
+    TRADING = "Trading"       # متاجرة
+    PRODUCTION = "Production" # تشغيل
 
 class CostCenter(Base):
     """
@@ -37,6 +39,14 @@ class Account(Base):
     name = Column(String(100), nullable=False)             # e.g. 'NBE Bank'
     type = Column(String(20), nullable=False)              # Asset, Liability...
     parent_id = Column(Integer, ForeignKey('accounts.id'), nullable=True)
+    
+    # Hierarchy fields
+    level = Column(Integer, default=1)           # المستوى (1, 2, 3...)
+    path = Column(String(200), nullable=True)     # المسار البرمجي (1/101/10101)
+    
+    # Accounting details
+    account_class = Column(String(50), nullable=True) # Balance Sheet / P&L
+    balance_type = Column(String(20), default='Debit') # Debit / Credit
     
     # تفاصيل إضافية
     description = Column(String(200), nullable=True)

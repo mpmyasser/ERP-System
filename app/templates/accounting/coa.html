@@ -5,10 +5,22 @@
     <div class="col-md-6">
         <h3>شجرة الحسابات (Chart of Accounts)</h3>
     </div>
-    <div class="col-md-6 text-start">
+    <div class="col-md-8 text-start">
+        {% if has_perm('MANAGE_COA') %}
+        <button class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#deleteAllModal">
+            <i class="fas fa-trash-alt"></i> حذف الشجرة بالكامل
+        </button>
+        {% endif %}
+        {% if has_perm('COA_IMPORT') %}
+        <button class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#importCoaModal">
+            <i class="fas fa-file-excel"></i> استيراد من إكسل
+        </button>
+        {% endif %}
+        {% if has_perm('MANAGE_COA') %}
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAccountModal">
             <i class="fas fa-plus"></i> إضافة حساب
         </button>
+        {% endif %}
     </div>
 </div>
 
@@ -35,9 +47,10 @@
                     </thead>
                     <tbody>
                         {% for acc in accounts %}
-                        <tr style="font-weight: {{ 'bold' if not acc.parent_id else 'normal' }};">
+                        <tr class="{% if not acc.parent_id %}fw-bold{% endif %}">
                             <td>{{ acc.display_order }}</td>
-                            <td style="padding-right: {{ (acc.code|length * 5) }}px">
+                            {% set padding = (acc.code|length * 5) ~ 'px' %}
+                            <td style="padding-right: {{ padding }};">
                                 {% if not acc.parent_id %}
                                 <i class="fas fa-folder text-warning"></i>
                                 {% else %}
@@ -48,6 +61,7 @@
                             <td>{{ acc.name }}</td>
                             <td><span class="badge bg-secondary">{{ acc.type }}</span></td>
                             <td>
+                                {% if has_perm('MANAGE_COA') %}
                                 <button class="btn btn-sm btn-outline-primary ms-1"
                                     onclick="setParent('{{ acc.id }}', '{{ acc.name }}')">
                                     <i class="fas fa-plus-circle"></i> فرعي
@@ -56,6 +70,7 @@
                                     data-bs-target="#editAccountModal{{ acc.id }}">
                                     <i class="fas fa-edit"></i> تعديل
                                 </button>
+                                {% endif %}
 
                                 <!-- Modal Edit Account -->
                                 <div class="modal fade" id="editAccountModal{{ acc.id }}" tabindex="-1">
@@ -151,6 +166,96 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
                     <button type="submit" class="btn btn-primary">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Delete All -->
+<div class="modal fade" id="deleteAllModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-danger">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle"></i> تحذير: حذف الشجرة بالكامل</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                {% if journal_items_count > 0 %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    يوجد حالياً <strong>{{ journal_items_count }}</strong> بند قيد محاسبي مسجل في النظام.
+                    <hr class="my-2">
+                    للحذف يجب اختيار أحد الخيارين أدناه:
+                </div>
+                <div class="d-grid gap-2 mt-3">
+                    <form method="POST" action="{{ url_for('accounting.delete_all_accounts') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="force" value="0">
+                        <button type="submit" class="btn btn-warning w-100" disabled>
+                            <i class="fas fa-lock"></i> حذف الشجرة فقط (محظور لوجود قيود)
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('accounting.delete_all_accounts') }}"
+                          onsubmit="return confirm('تحذير: سيتم حذف \u062cميع القيود المحاسبية وشجرة الحسابات. هل أنت \u0645تأكد تماماً؟')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="force" value="1">
+                        <button type="submit" class="btn btn-danger w-100">
+                            <i class="fas fa-nuclear"></i> حذف الشجرة + جميع القيود <span class="badge bg-white text-danger">إجباري</span>
+                        </button>
+                    </form>
+                </div>
+                {% else %}
+                <p class="fs-5">هل أنت متأكد من رغبتك في حذف <strong>جميع الحسابات</strong>؟</p>
+                <p class="text-success small"><i class="fas fa-check-circle"></i> لا توجد قيود محاسبية مرتبطة &mdash; يمكن الحذف بأمان.</p>
+                <form method="POST" action="{{ url_for('accounting.delete_all_accounts') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="force" value="0">
+                    <div class="modal-footer justify-content-center">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                        <button type="submit" class="btn btn-danger"><i class="fas fa-trash-alt"></i> تأكيد الحذف النهائي</button>
+                    </div>
+                </form>
+                {% endif %}
+            </div>
+            {% if journal_items_count > 0 %}
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Import Excel -->
+<div class="modal fade" id="importCoaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('importer.import_coa') }}" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-file-excel"></i> استيراد شجرة الحسابات</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info small">
+                        <strong>تعليمات الاستيراد:</strong> يجب أن يحتوي ملف الإكسل (xlsx) على الأعمدة التالية بالترتيب:
+                        <ul class="mb-0 mt-1">
+                            <li>الكود (رقم الحساب)</li>
+                            <li>اسم الحساب</li>
+                            <li>نوع الحساب (Assets, Liabilities, Equity, Revenue, Expenses)</li>
+                            <li>المستوى (1, 2, 3...)</li>
+                            <li>الحساب الأب (كود الحساب الرئيسي - يترك فارغاً للرئيسي)</li>
+                        </ul>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">اختر ملف الإكسل</label>
+                        <input type="file" class="form-control" name="file" accept=".xlsx,.xls" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+                    <button type="submit" class="btn btn-success"><i class="fas fa-upload"></i> بدء الاستيراد</button>
                 </div>
             </form>
         </div>

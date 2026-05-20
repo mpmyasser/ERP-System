@@ -3,6 +3,61 @@ from sqlalchemy.orm import relationship
 from core.database_models import Base
 from datetime import datetime
 
+class Warehouse(Base):
+    """
+    المخازن (خام، إكسسوار، منتج تام، أدوات مكتبية)
+    """
+    __tablename__ = 'warehouses'
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False, unique=True)
+    type = Column(String(50), nullable=False) # Raw, Accessory, Finished, General
+    location = Column(String(200), nullable=True)
+    is_active = Column(Boolean, default=True)
+
+class Product(Base):
+    """
+    الأصناف (للمبيعات والمشتريات العادية غير التشغيل)
+    """
+    __tablename__ = 'products'
+    
+    id = Column(Integer, primary_key=True)
+    code = Column(String(50), unique=True, nullable=False)
+    name = Column(String(100), nullable=False)
+    category = Column(String(50), nullable=True)
+    
+    # وحدة القياس (كجم، متر، قطعة)
+    unit = Column(String(20), default='Piece')
+    
+    # الأسعار
+    cost_price = Column(Float, default=0.0)
+    sale_price = Column(Float, default=0.0)
+    
+    # الرصيد الحالي (يمكن حسابه لاحقاً من الحركات)
+    current_stock = Column(Float, default=0.0)
+    
+    is_active = Column(Boolean, default=True)
+
+class InventoryTransaction(Base):
+    """
+    سجل حركات المخازن الموحد
+    """
+    __tablename__ = 'inventory_transactions'
+    
+    id = Column(Integer, primary_key=True)
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    warehouse_id = Column(Integer, ForeignKey('warehouses.id'), nullable=False)
+    
+    transaction_type = Column(String(20), nullable=False) # In, Out
+    quantity = Column(Float, nullable=False)
+    unit_cost = Column(Float, default=0.0)
+    
+    reference = Column(String(100), nullable=True) # Invoice number, Operation Cut ID, etc.
+    date = Column(Date, default=datetime.now)
+    
+    product = relationship('Product')
+    warehouse = relationship('Warehouse')
+
 class Partner(Base):
     """
     الشركاء (عملاء وموردين)

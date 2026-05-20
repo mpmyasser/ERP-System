@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify, session as flask_session
 from core.db_manager import DBManager
 from core.accounting_models import Account, AccountType, JournalEntry, JournalItem, CostCenter
-from app.routes.auth import login_required
+from app.routes.auth import login_required, permission_required
 from sqlalchemy import or_
 from sqlalchemy.orm import joinedload
 from datetime import datetime
@@ -21,12 +21,13 @@ def coa():
     db_session = db.get_session()
     try:
         accounts = db_session.query(Account).order_by(Account.code).all()
-        return render_template('accounting/coa.html', accounts=accounts)
+        journal_items_count = db_session.query(JournalItem).count()
+        return render_template('accounting/coa.html', accounts=accounts, journal_items_count=journal_items_count)
     finally:
         db_session.close()
 
 @accounting_bp.route('/coa/add', methods=['POST'])
-@login_required
+@permission_required('MANAGE_COA')
 def add_account():
     code = request.form.get('code')
     name = request.form.get('name')
@@ -56,7 +57,7 @@ def add_account():
     return redirect(url_for('accounting.coa'))
 
 @accounting_bp.route('/coa/<int:id>/edit', methods=['POST'])
-@login_required
+@permission_required('MANAGE_COA')
 def edit_account(id):
     name = request.form.get('name')
     display_order = request.form.get('display_order', 0)
@@ -74,6 +75,38 @@ def edit_account(id):
     except Exception as e:
         db_session.rollback()
         flash(f'خطأ: {e}', 'danger')
+    finally:
+        db_session.close()
+    return redirect(url_for('accounting.coa'))
+
+@accounting_bp.route('/coa/delete-all', methods=['POST'])
+@permission_required('MANAGE_COA')
+def delete_all_accounts():
+    """حذف جميع الحسابات مع خيار إجباري لحذف القيود أيضاً"""
+    force = request.form.get('force') == '1'
+    db_session = db.get_session()
+    try:
+        ji_count = db_session.query(JournalItem).count()
+        
+        if ji_count > 0 and not force:
+            flash(f'يوجد <strong>{ji_count}</strong> بند قيد محاسبي مرتبط بالحسابات. يمكنك اختيار الحذف الإجباري من نافذة التأكيد.', 'warning')
+            return redirect(url_for('accounting.coa'))
+        
+        if force:
+            # Delete in order: JournalItems → JournalEntries → Accounts
+            db_session.query(JournalItem).delete(synchronize_session=False)
+            db_session.query(JournalEntry).delete(synchronize_session=False)
+        
+        db_session.execute(Account.__table__.delete())
+        db_session.commit()
+        
+        if force:
+            flash('تم حذف شجرة الحسابات وجميع القيود المحاسبية بالكامل', 'center')
+        else:
+            flash('تم حذف شجرة الحسابات بالكامل بنجاح', 'center')
+    except Exception as e:
+        db_session.rollback()
+        flash(f'خطأ أثناء الحذف: {e}', 'danger')
     finally:
         db_session.close()
     return redirect(url_for('accounting.coa'))

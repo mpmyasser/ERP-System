@@ -177,3 +177,19 @@ def restore_commit(commit_id: str):
         ),
         'commit': target_commit.hexsha,
     })
+
+
+@admin_bp.route('/create', methods=['POST'])
+@admin_required
+def create_backup():
+    try:
+        from scripts.backup_system import run_backup
+        project_root = _project_root()
+        backup_dir = run_backup(str(project_root))
+        return jsonify({
+            'success': True,
+            'message': f'تم إنشاء نسخة احتياطية بنجاح في: {backup_dir.name}',
+            'backup_dir': str(backup_dir)
+        })
+    except Exception as exc:
+        return jsonify({'success': False, 'message': f'فشل إنشاء النسخة الاحتياطية: {exc}'}), 500

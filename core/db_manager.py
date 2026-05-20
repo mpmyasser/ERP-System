@@ -4,6 +4,8 @@ from core.database_models import Base, Department, Employee, AttendanceLog, Dail
 from core.treasury_models import CashAccount, BankAccount, CheckRecord
 from core.auth_models import User, SystemPermission
 from core.accounting_models import Account, CostCenter, JournalEntry, JournalItem
+from core.commercial_models import Partner, Invoice, InvoiceItem, Warehouse, Product
+from core.fabric_models import FabricRoll, ProductionMessage, FabricDesign
 import os
 from datetime import date, datetime, time
 
@@ -151,7 +153,7 @@ class DBManager:
 
         except Exception as e:
             # ظپظٹ ط­ط§ظ„ط© ط­ط¯ظˆط« ط£ظٹ ط®ط·ط£طŒ ظٹطھظ… ط·ط¨ط§ط¹طھظ‡ ظ„ظ„ظ…ط³ط§ط¹ط¯ط© ظپظٹ ط§ظ„طھط´ط®ظٹطµ
-            print(f"ERROR: ظپط´ظ„ ط§ظ„طھط­ظ‚ظ‚ ظ…ظ† ط¹ظ…ظˆط¯ 'excluded_months' ط£ظˆ ط¥ط¶ط§ظپطھظ‡: {e}")
+            print(f"ERROR: ظپط´ظ„ ط§ظ„طھط­ظ‚ظ‚: {e}")
 
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine, expire_on_commit=False)

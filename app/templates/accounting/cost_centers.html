@@ -16,13 +16,13 @@
 <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover mb-0 align-middle text-center">
+            <table id="costCentersTable" class="table table-hover mb-0 align-middle text-center">
                 <thead class="bg-light">
                     <tr>
-                        <th width="10%">الترتيب</th>
-                        <th width="15%">الكود</th>
-                        <th width="45%">اسم مركز التكلفة</th>
-                        <th width="30%">الإجراءات</th>
+                        <th width="10%" class="sortable" data-col="0">الترتيب <i class="fas fa-sort text-muted small"></i></th>
+                        <th width="15%" class="sortable" data-col="1">الكود <i class="fas fa-sort text-muted small"></i></th>
+                        <th width="45%" class="sortable" data-col="2">اسم مركز التكلفة <i class="fas fa-sort text-muted small"></i></th>
+                        <th width="30%" data-orderable="false">الإجراءات</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -130,4 +130,27 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if ($.fn.DataTable) {
+        $('#costCentersTable').DataTable({
+            language: {
+                url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/ar.json'
+            },
+            order: [[0, 'asc']],
+            columnDefs: [
+                { orderable: false, targets: 3 }
+            ],
+            pageLength: 25,
+            dom: '<"d-flex justify-content-between align-items-center mb-3"lf>rt<"d-flex justify-content-between"ip>'
+        });
+        
+        // Add sort cursor to headers
+        $('#costCentersTable thead th[data-col]').css('cursor', 'pointer');
+    }
+});
+</script>
 {% endblock %}

@@ -19,8 +19,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const hasArabicLocale = (window.flatpickr && flatpickr.l10ns && flatpickr.l10ns.ar);
     if (!hasArabicLocale) console.warn('flatpickr: invalid locale ar - not loaded; falling back to default');
 
-    // تطبيق Flatpickr على جميع حقول class="date-string"
-    const dateInputs = document.querySelectorAll('input.date-string');
+    // تطبيق Flatpickr على جميع حقول class="date-string" أو class="date-input"
+    const dateInputs = document.querySelectorAll('input.date-string, input.date-input');
 
     dateInputs.forEach(input => {
         // تحويل القيم الموجودة من ISO إلى DD/MM/YYYY إذا لزم الأمر
@@ -64,8 +64,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const mutationObserver = new MutationObserver(function (mutations) {
         mutations.forEach(function (mutation) {
-            // البحث عن حقول date-string جديدة
-            const newDateInputs = mutation.target.querySelectorAll('input.date-string:not([data-flatpickr-loaded])');
+            // البحث عن حقول date-string أو date-input جديدة
+            const newDateInputs = mutation.target.querySelectorAll('input.date-string:not([data-flatpickr-loaded]), input.date-input:not([data-flatpickr-loaded])');
 
             newDateInputs.forEach(input => {
                 // إضافة علامة لتجنب التطبيق المتكرر

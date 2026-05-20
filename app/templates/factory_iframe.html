@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}حركة التشغيل والمصنع{% endblock %}
+
+{% block extra_css %}
+<style>
+    .factory-container {
+        position: relative;
+        width: 100%;
+        height: calc(100vh - 120px);
+        overflow: hidden;
+    }
+    .factory-iframe {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 text-primary fw-bold"><i class="fas fa-industry me-2"></i> حركة التشغيل والمصنع</h5>
+        <a href="http://127.0.0.1:5100" target="_blank" class="btn btn-sm btn-outline-secondary" title="فتح في نافذة جديدة">
+            <i class="fas fa-external-link-alt"></i>
+        </a>
+    </div>
+    <div class="card-body p-0">
+        <div class="factory-container">
+            <iframe src="http://127.0.0.1:5100" class="factory-iframe" id="factoryIframe"></iframe>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // تفعيل التحديث التلقائي إذا لزم الأمر أو معالجة الروابط
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Factory Iframe Loaded');
+    });
+</script>
+{% endblock %}

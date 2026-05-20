@@ -4,13 +4,8 @@ Main Routes - Dashboard
 """
 
 from flask import Blueprint, render_template, current_app
-import sys
-import os
 
-# Add core to path
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'core'))
-
-from db_manager import DBManager
+from core.db_manager import DBManager
 
 main_bp = Blueprint('main', __name__)
 
@@ -32,6 +27,12 @@ def dashboard():
     }
     
     return render_template('dashboard.html', stats=stats)
+
+
+@main_bp.route('/manufacturing/factory')
+def factory_module():
+    """Display the Factory (حركة التشغيل) project inside an iframe"""
+    return render_template('factory_iframe.html')
 
 
 @main_bp.route('/debug/resizer')

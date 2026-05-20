@@ -5,11 +5,7 @@ Flask Application Factory
 
 from flask import Flask
 from flask_wtf.csrf import CSRFProtect
-import os
-import sys
-
-# Add core directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'core'))
+from core.db_manager import DBManager
 
 csrf = CSRFProtect()
 
@@ -24,13 +20,13 @@ def create_app():
     csrf.init_app(app)
     
     # Initialize Database Manager
-    from db_manager import DBManager
     app.db = DBManager()
 
     # Ensure required system permissions exist
     try:
         from core.auth_models import SystemPermission
         session = app.db.get_session()
+        # System Permissions
         perm = session.query(SystemPermission).filter_by(name='bulk_salary_manage').first()
         if not perm:
             session.add(SystemPermission(
@@ -39,6 +35,8 @@ def create_app():
                 category='HR'
             ))
             session.commit()
+        
+        session.commit()
         session.close()
     except Exception:
         # Avoid blocking app startup if permissions table isn't ready yet
@@ -62,8 +60,9 @@ def create_app():
     from app.routes.accounting import accounting_bp
     from app.routes.treasury import treasury_bp
     from app.routes.interactive_api import interactive_api_bp
-    # from app.routes.commercial import commercial_bp
-
+    from app.routes.universal_importer import importer_bp
+    from app.routes.commercial import commercial_bp
+    from app.routes.manufacturing import manufacturing_bp
 
 
 
@@ -86,7 +85,9 @@ def create_app():
     app.register_blueprint(accounting_bp, url_prefix='/accounting')
     app.register_blueprint(treasury_bp, url_prefix='/treasury')
     app.register_blueprint(interactive_api_bp, url_prefix='/api/interactive')
-    # app.register_blueprint(commercial_bp, url_prefix='/commercial')
+    app.register_blueprint(importer_bp, url_prefix='/importer')
+    app.register_blueprint(commercial_bp, url_prefix='/commercial')
+    app.register_blueprint(manufacturing_bp, url_prefix='/manufacturing')
 
 
 

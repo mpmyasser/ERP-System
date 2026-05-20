@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}حركة التشغيل{% endblock %}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <!-- Bootstrap 5 RTL -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/colreorder/1.7.0/css/colReorder.bootstrap5.min.css">
+
+    <!-- Flatpickr (Date Picker) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    
+    <!-- AG-Grid CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@30.2.0/styles/ag-grid.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@30.2.0/styles/ag-theme-alpine.min.css">
+
+    <!-- Select2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='manufacturing/app.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/print-styles.css') }}">
+    <!-- محرك الطباعة المتقدم - CSS للجداول RTL -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='manufacturing/print.css') }}">
+    
+    {% block extra_css %}{% endblock %}
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+        }
+        /* Folding Feature Styles - Oracle/Modern Style */
+        .card[data-foldable="true"] .card-header { 
+            position: relative; 
+            cursor: pointer; 
+            user-select: none;
+            transition: background-color 0.2s;
+        }
+        .card[data-foldable="true"] .card-header:hover {
+            background-color: rgba(0,0,0,0.02) !important;
+        }
+        .fold-icon-wrapper {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            margin-left: 8px; /* Space between icon and text */
+            color: #6c757d;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        /* When open, chevron points down. When collapsed, rotate 90deg to point left (in RTL) */
+        .card-collapsed .fold-icon-wrapper {
+            transform: rotate(90deg);
+        }
+        
+        /* Hide body content when collapsed */
+        .card-collapsed .card-body, 
+        .card-collapsed .card-footer,
+        .card-collapsed .table-responsive,
+        .card-collapsed .table-container,
+        .card-collapsed .excel-export-btn-wrap {
+            display: none !important;
+        }
+
+        /* Hide header action elements (buttons, search inputs, toolbars) when collapsed */
+        .card-collapsed .card-header button,
+        .card-collapsed .card-header .btn,
+        .card-collapsed .card-header input,
+        .card-collapsed .card-header select,
+        .card-collapsed .card-header .input-group,
+        .card-collapsed .card-header .table-toolbar-actions,
+        .card-collapsed .card-header .table-toolbar-secondary,
+        .card-collapsed .card-header #unifiedPrintSettings,
+        .card-collapsed .card-header .form-text {
+            display: none !important;
+        }
+        
+        @media print {
+            .fold-icon-wrapper { display: none !important; }
+            .card-collapsed .card-body, 
+            .card-collapsed .card-footer,
+            .card-collapsed .table-responsive,
+            .card-collapsed .table-container {
+                display: block !important;
+            }
+        }
+
+        /* Column Reorder Styles (Fallback for non-datatable tables) */
+        thead th[draggable="true"] {
+            cursor: grab;
+            position: relative;
+        }
+        thead th[draggable="true"]:hover::after {
+            content: '\2195';
+            position: absolute;
+            top: 50%;
+            left: 4px;
+            transform: translateY(-50%) rotate(90deg);
+            font-size: 0.7rem;
+            color: #adb5bd;
+            opacity: 0.7;
+        }
+        thead th.col-drag-active {
+            opacity: 0.4;
+            cursor: grabbing !important;
+        }
+        thead th.col-drag-over {
+            border-inline-start: 3px solid #3498db !important;
+            background-color: rgba(52, 152, 219, 0.08) !important;
+        }
+        @media print {
+            thead th::after { display: none !important; }
+        }
+    </style>
+    <!-- CSRF Token for JavaScript -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+</head>
+<body class="bg-light">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary d-print-none">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('main.dashboard') }}">
+                <i class="fas fa-users me-2" aria-hidden="true"></i>
+                نظام الموارد البشرية
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="فتح أو إغلاق القائمة" title="فتح أو إغلاق القائمة">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">{%- if has_perm('view_dashboard') -%}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.dashboard') }}">
+                            <i class="fas fa-home" aria-hidden="true"></i> الرئيسية
+                        </a>
+                    </li>{{- '' -}}
+                {%- endif -%}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employees.list') }}">
+                            <i class="fas fa-users" aria-hidden="true"></i> الموظفين
+                        </a>
+                    </li>{{- '' -}}
+                </ul>
+                <ul class="navbar-nav ms-auto">{%- if session.get('user_id') -%}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle fw-bold text-white px-3" href="#" id="userDropdown"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-user-circle me-1" aria-hidden="true"></i>
+                            {{ session.get('full_name') or session.get('username') }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2" aria-labelledby="userDropdown">
+                            <li><a class="dropdown-item py-2" href="{{ url_for('auth.profile') }}"><i
+                                        class="fas fa-id-card me-2 text-primary" aria-hidden="true"></i> الملف الشخصي</a></li>{{- '' -}}
+                            {%- if session.get('is_admin') -%}
+                            <li><a class="dropdown-item py-2" href="{{ url_for('auth.list_users') }}"><i
+                                        class="fas fa-user-shield me-2 text-warning" aria-hidden="true"></i> إدارة المستخدمين</a></li>{{- '' -}}
+                            {%- endif %}
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>{{- '' -}}
+                            <li><a class="dropdown-item py-2 text-danger" href="{{ url_for('auth.logout') }}"><i
+                                        class="fas fa-sign-out-alt me-2" aria-hidden="true"></i> تسجيل الخروج</a></li>{{- '' -}}
+                        </ul>
+                    </li>{{- '' -}}
+                {%- endif -%}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Main content -->
+            <main class="{% if session.get('user_id') %}col-md-9 col-lg-10{% else %}col-12{% endif %} px-md-4 order-md-1">
+                <div class="pt-3 pb-2 mb-3">
+                    <header class="mb-3 d-flex align-items-start justify-content-between gap-3 flex-wrap d-print-none">
+                        <div>
+                            <div class="badge rounded-pill text-bg-secondary mb-2">إدارة القص والتشغيل</div>
+                            <h1 class="h3 mb-1">حركة التشغيل</h1>
+                        </div>
+
+                        <div class="d-flex gap-2 ms-auto flex-wrap">
+                            <a href="{{ url_for('manufacturing.index') }}" class="btn {% if request.endpoint == 'manufacturing.index' %}btn-primary{% else %}btn-outline-secondary{% endif %} btn-sm">إدخال القصات</a>
+                            <a href="{{ url_for('manufacturing.reference_page') }}" class="btn {% if request.endpoint == 'manufacturing.reference_page' %}btn-primary{% else %}btn-outline-secondary{% endif %} btn-sm">مرجع الأصناف</a>
+                            <a href="{{ url_for('manufacturing.factories_page') }}" class="btn {% if request.endpoint == 'manufacturing.factories_page' %}btn-primary{% else %}btn-outline-secondary{% endif %} btn-sm">المصنعون</a>
+                            <a href="{{ url_for('manufacturing.pricing_page') }}" class="btn {% if request.endpoint == 'manufacturing.pricing_page' %}btn-primary{% else %}btn-outline-secondary{% endif %} btn-sm">أسعار التصنيع</a>
+                            <a href="{{ url_for('manufacturing.manufacturer_accounts_page') }}" class="btn {% if request.endpoint == 'manufacturing.manufacturer_accounts_page' %}btn-primary{% else %}btn-outline-secondary{% endif %} btn-sm">حسابات المصنعين</a>
+                            <a href="{{ url_for('manufacturing.receiving_page') }}" class="btn {% if request.endpoint == 'manufacturing.receiving_page' %}btn-primary{% else %}btn-outline-secondary{% endif %} btn-sm">استلام وتصنيف</a>
+                            <a href="{{ url_for('manufacturing.warehouse_page') }}" class="btn {% if request.endpoint == 'manufacturing.warehouse_page' %}btn-primary{% else %}btn-outline-secondary{% endif %} btn-sm">التعبئة والدمج</a>
+                            <a href="{{ url_for('manufacturing.finished_stock_page') }}" class="btn {% if request.endpoint == 'manufacturing.finished_stock_page' %}btn-primary{% else %}btn-outline-secondary{% endif %} btn-sm">مخزن المنتج التام</a>
+                            <a href="{{ url_for('manufacturing.factory_payments_page') }}" class="btn {% if request.endpoint == 'manufacturing.factory_payments_page' %}btn-primary{% else %}btn-outline-secondary{% endif %} btn-sm">السلف والدفعات</a>
+                            <a href="{{ url_for('manufacturing.factory_deficits_report_page') }}" class="btn {% if request.endpoint == 'manufacturing.factory_deficits_report_page' %}btn-primary{% else %}btn-outline-secondary{% endif %} btn-sm">تقرير العجز</a>
+                            <a href="{{ url_for('manufacturing.production_packing_report') }}" class="btn {% if request.endpoint == 'manufacturing.production_packing_report' %}btn-primary{% else %}btn-outline-secondary{% endif %} btn-sm">إنتاج التعبئة</a>
+                            <a href="{{ url_for('manufacturing.production_cutting_report') }}" class="btn {% if request.endpoint == 'manufacturing.production_cutting_report' %}btn-primary{% else %}btn-outline-secondary{% endif %} btn-sm">إنتاج القص</a>
+                            <a href="{{ url_for('manufacturing.message_detailed_report_page') }}" class="btn {% if request.endpoint == 'manufacturing.message_detailed_report_page' %}btn-primary{% else %}btn-outline-secondary{% endif %} btn-sm">تقرير الرسالة</a>
+                        </div>
+                    </header>
+
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% set center_messages = [] %}
+                    {% if messages %}
+                    {% for category, message in messages %}
+                        {% if category == 'center' %}
+                            {% set _ = center_messages.append([message, category]) %}
+                        {% else %}
+                            <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show auto-dismiss d-print-none" role="alert">
+                                {{ message | safe }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="إغلاق"></button>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                    {% endif %}
+                    {% if center_messages %}
+                    <div id="center-messages-data" data-messages="{{ center_messages|tojson }}" class="d-none"></div>
+                    {% endif %}
+                    {% endwith %}
+
+                    {% block content %}{% endblock %}
+                </div>
+            </main>
+            <!-- Sidebar -->
+            {% include 'partials/_sidebar.html' %}
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/colreorder/1.7.0/js/dataTables.colReorder.min.js"></script>
+
+    <!-- Flatpickr (Date Picker) -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ar.js"></script>
+
+    <!-- Select2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <!-- Custom Global HR Scripts (Unified Logic) -->
+    <script src="{{ url_for('static', filename='js/settings_manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/table_resizer.js') }}"></script>
+    <script src="{{ url_for('static', filename='manufacturing/tables_manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/enter_navigation.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/delete_handler.js') }}"></script>
+
+    <script>
+        // Restored Manufacturing-Specific Date Utils
+        window.OperationDateUtils = (() => {
+            const currentYear = new Date().getFullYear();
+            const easternArabicDigits = '٠١٢٣٤٥٦٧٨٩';
+            const persianDigits = '۰۱۲۳۴٥٦٧٨٩';
+
+            function pad(value) { return String(value).padStart(2, '0'); }
+            function normalizeDigits(value) {
+                return String(value || '').replace(/[٠-٩۰-۹]/g, (char) => {
+                    const easternIndex = easternArabicDigits.indexOf(char);
+                    if (easternIndex >= 0) return String(easternIndex);
+                    const persianIndex = persianDigits.indexOf(char);
+                    return persianIndex >= 0 ? String(persianIndex) : char;
+                });
+            }
+
+            function normalizeDateValue(rawValue) {
+                const original = normalizeDigits(rawValue).trim();
+                if (!original) return '';
+                const value = original.replace(/[.\-]/g, '/').replace(/\s+/g, '').replace(/\/+/g, '/');
+
+                let match = value.match(/^(\d{1,2})\/(\d{1,2})$/);
+                if (match) {
+                    const day = Number(match[1]), month = Number(match[2]);
+                    if (day >= 1 && day <= 31 && month >= 1 && month <= 12) return `${pad(day)}/${pad(month)}/${currentYear}`;
+                }
+                match = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+                if (match) {
+                    const day = Number(match[1]), month = Number(match[2]);
+                    const year = match[3].length === 2 ? Number(`20${match[3]}`) : Number(match[3]);
+                    if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 2000 && year <= 2100) return `${pad(day)}/${pad(month)}/${year}`;
+                }
+                return original;
+            }
+
+            function isDateInput(element) { return element instanceof HTMLInputElement && element.classList.contains('date-input'); }
+            function syncPickerValue(input) {
+                if (!isDateInput(input)) return;
+                const normalized = normalizeDateValue(input.value);
+                input.value = normalized;
+                if (!normalized || !input._flatpickr) return;
+                const parts = normalized.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+                if (parts) input._flatpickr.setDate(`${parts[3]}-${parts[2]}-${parts[1]}`, false, 'Y-m-d');
+            }
+
+            function initDateInput(input) {
+                if (!isDateInput(input) || input.dataset.dateReady === '1') return;
+                input.dataset.dateReady = '1';
+                input.setAttribute('autocomplete', 'off');
+                input.setAttribute('inputmode', 'numeric');
+                input.setAttribute('placeholder', 'dd/mm/yyyy');
+                input.dir = 'ltr';
+
+                input.addEventListener('blur', () => {
+                    if (!input._flatpickr?.isOpen) syncPickerValue(input);
+                });
+
+                if (window.flatpickr) {
+                    window.flatpickr(input, {
+                        allowInput: true, dateFormat: 'd/m/Y', disableMobile: true, locale: 'ar',
+                        onOpen: (_, __, instance) => { if (input.readOnly) instance.close(); },
+                        onClose: () => syncPickerValue(input),
+                    });
+                }
+            }
+
+            return { initDateInput, initAllDateInputs: (root = document) => root.querySelectorAll('input.date-input').forEach(initDateInput), syncPickerValue, normalizeDateValue };
+        })();
+
+        // --- Restored Manufacturing Print Engine (Refactored to use HRSettingsUtil) ---
+        window.OperationPrint = (() => {
+            function getPrintPageMarginsMm() {
+                return window.HRSettingsUtil.getObject('operation_print_margins_mm', {"top":15,"bottom":15,"left":10,"right":10});
+            }
+            function setPrintPageMarginsMm(margins) {
+                window.HRSettingsUtil.setObject('operation_print_margins_mm', margins);
+            }
+            function syncPrintMarginInputsToDom() {
+                const margins = getPrintPageMarginsMm();
+                ['top', 'bottom', 'left', 'right'].forEach(side => {
+                    const el = document.getElementById('print_margin_' + side);
+                    if (el) el.value = margins[side];
+                });
+            }
+            function bindPrintMarginInputsOnce() {
+                ['top', 'bottom', 'left', 'right'].forEach(side => {
+                    const el = document.getElementById('print_margin_' + side);
+                    if (el) el.addEventListener('change', () => {
+                        const margins = getPrintPageMarginsMm();
+                        margins[side] = parseFloat(el.value) || 0;
+                        setPrintPageMarginsMm(margins);
+                    });
+                });
+            }
+            function readCellText(cell) {
+                if (!cell) return '';
+                const input = cell.querySelector('input, select');
+                if (input) return input.value || (input.options && input.options[input.selectedIndex]?.text) || '';
+                return cell.innerText.trim();
+            }
+            function buildColumnChooser(tableId, panelId, storageKey, onToggle) {
+                const table = document.getElementById(tableId), panel = document.getElementById(panelId);
+                if (!table || !panel) return;
+                const headers = Array.from(table.querySelectorAll('thead th')), options = panel.querySelector('.print-column-options');
+                if (!options) return;
+                options.innerHTML = '';
+                const saved = window.HRSettingsUtil.getObject(storageKey, []);
+                headers.forEach((h, idx) => {
+                    const text = h.innerText.trim();
+                    if (!text || text === '#' || h.dataset.print === 'no' || h.querySelector('input[type="checkbox"]')) return;
+                    const checked = saved.length ? saved.includes(idx) : true;
+                    const label = document.createElement('label');
+                    label.className = 'd-inline-flex align-items-center gap-1 px-2 py-1 border rounded-pill small text-nowrap';
+                    label.style.cssText = 'cursor:pointer; font-size:0.76rem; background:' + (checked ? '#e8f0fe' : '#f8f9fa') + ';';
+                    label.innerHTML = `<input class="form-check-input print-column-check m-0" type="checkbox" value="${idx}" ${checked ? 'checked' : ''} style="width:13px;height:13px;">${text}`;
+                    const input = label.querySelector('input');
+                    input.addEventListener('change', () => {
+                        label.style.background = input.checked ? '#e8f0fe' : '#f8f9fa';
+                    });
+                    options.appendChild(label);
+                });
+                options.addEventListener('change', () => {
+                    const checked = Array.from(options.querySelectorAll('.print-column-check:checked')).map(i => Number(i.value));
+                    window.HRSettingsUtil.setObject(storageKey, checked);
+                    if (onToggle) onToggle(checked);
+                });
+            }
+            function printTable(config) {
+                const { tableId, optionsId, title = 'تقرير', enforcePrivacy = false, priceColumnMapping = [9, 10], summaryData = null } = config;
+                const table = document.getElementById(tableId), options = document.getElementById(optionsId);
+                if (!table || !options) return;
+                let selected = Array.from(options.querySelectorAll('.print-column-check:checked')).map(i => Number(i.value));
+                if (enforcePrivacy) selected = selected.filter(index => !priceColumnMapping.includes(index));
+                if (!selected.length) { alert('اختر عموداً واحداً على الأقل للطباعة.'); return; }
+                const headers = Array.from(table.querySelectorAll('thead th')), rows = Array.from(table.querySelectorAll('tbody tr:not(.d-none):not(.no-print)'));
+                if (!rows.length) { alert('لا توجد بيانات متاحة للطباعة حالياً.'); return; }
+                const colGroup = table.querySelector('colgroup'), colElements = colGroup ? Array.from(colGroup.children) : [];
+                const widths = selected.map(idx => {
+                    let w = (colElements[idx] && colElements[idx].style.width) ? parseFloat(colElements[idx].style.width) : headers[idx].offsetWidth;
+                    return isNaN(w) ? 100 : w;
+                });
+                const computedTotalWidth = widths.reduce((sum, w) => sum + w, 0);
+                const colGroupHtml = '<colgroup>' + selected.map((idx, i) => `<col style="width: ${((widths[i] / computedTotalWidth) * 100).toFixed(2)}%;">`).join('') + '</colgroup>';
+                const finalRowPadding = config.rowPadding || (window.HRSettingsUtil.get('global_print_row_padding_pt') ? (window.HRSettingsUtil.get('global_print_row_padding_pt') + 'pt') : '6pt');
+                const headHtml = selected.map(idx => `<th>${headers[idx].textContent.trim()}</th>`).join('');
+                const bodyHtml = rows.map(row => {
+                    const cells = Array.from(row.querySelectorAll('td'));
+                    return `<tr>${selected.map(idx => `<td>${readCellText(cells[idx])}</td>`).join('')}</tr>`;
+                }).join('');
+                const summaryHtml = summaryData ? `<div class="print-summary">${summaryData.map(item => `<span>${item.label}: ${item.value}</span>`).join('')}</div>` : '';
+                const showTime = config.showTime !== false, showPageNumbers = config.showPageNumbers !== false, hideTitle = config.hideTitle === true, landscape = config.landscape === true;
+                const win = window.open('', '_blank', 'width=1200,height=800');
+                Promise.all([
+                    fetch('/manufacturing/api/settings?key=statement_header_note').then(r => r.json()),
+                    fetch('/manufacturing/api/settings?key=statement_footer_note').then(r => r.json())
+                ]).then(([headerPayload, footerPayload]) => {
+                    const headerNote = headerPayload.value || '', footerNote = footerPayload.value || '';
+                    const now = new Date(), dateStr = now.toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' }), timeStr = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+                    const dateTimeStr = showTime ? `${dateStr} - ${timeStr}` : '', safeHeaderNote = headerNote.replace(/"/g, '\\"'), safeFooterNote = footerNote.replace(/"/g, '\\"');
+                    const pageNumberCss = showPageNumbers ? '"صفحة " counter(page)' : '""', mainTitleHtml = hideTitle ? '' : `<h3>${title}</h3>`;
+                    const pageMm = getPrintPageMarginsMm(), effectiveTopMm = Math.max(pageMm.top, 8), effectiveBottomMm = Math.max(pageMm.bottom, 8);
+                    win.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>${title}</title><style>@page { margin: ${effectiveTopMm}mm ${pageMm.right}mm ${effectiveBottomMm}mm ${pageMm.left}mm; size: A4 ${landscape ? 'landscape' : ''}; @top-right { content: "${safeHeaderNote}"; font-family: Cairo, Arial, sans-serif; font-size: 10px; color: #000; vertical-align: bottom; padding-bottom: 2mm; } @top-left { content: "التاريخ: ${dateTimeStr}"; font-family: Cairo, Arial, sans-serif; font-size: 10px; color: #000; vertical-align: bottom; padding-bottom: 2mm; } @bottom-right { content: "${safeFooterNote}"; font-family: Cairo, Arial, sans-serif; font-size: 10px; color: #000; vertical-align: top; padding-top: 2mm; } @bottom-left { content: ${pageNumberCss}; font-family: Cairo, Arial, sans-serif; font-size: 10px; color: #000; vertical-align: top; padding-top: 2mm; } } body { box-sizing: border-box; font-family: Cairo, Arial, sans-serif; margin: 0; direction: rtl; color: #000; } h3 { text-align: center; margin-bottom: 15px; font-size: 14pt; font-weight: bold; } table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 20px; } th, td { border: 1px solid #000 !important; padding: ${finalRowPadding} 4pt; text-align: center; font-size: 10pt; word-break: break-word; } th { background: #f3f4f6 !important; font-weight: bold; -webkit-print-color-adjust: exact; print-color-adjust: exact; border-bottom: 2px solid #000 !important; } .print-summary { margin-top: 20px; padding: 12px; background: #fff !important; border: 2px solid #000 !important; border-radius: 5px; display: flex; justify-content: space-around; font-weight: bold; font-size: 11pt; -webkit-print-color-adjust: exact; }</style></head><body><div class="print-content">${mainTitleHtml}<table>${colGroupHtml}<thead><tr>${headHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>${summaryHtml}</div></body></html>`);
+                    win.document.close(); win.focus(); setTimeout(() => { win.print(); win.close(); }, 500);
+                }).catch(() => { win.document.write('خطأ في إعداد الصفحة المطبوعة'); win.document.close(); });
+            }
+            function initPrintSettings(config) {
+                const { tableId, storageKey, onToggle, containerId = 'unifiedPrintSettings' } = config;
+                const container = document.getElementById(containerId);
+                if (!container) return;
+                
+                container.innerHTML = `
+                    <div id="${containerId}_Panel" class="d-none mt-2 p-2 border rounded bg-white shadow-sm d-print-none" style="font-size:0.82rem;">
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+                            <h6 class="mb-0 text-primary" style="font-size:0.85rem;"><i class="fas fa-print me-1"></i> إعدادات الطباعة المتقدمة</h6>
+                            <div class="d-flex gap-1">
+                                <button type="button" class="btn btn-outline-primary btn-select-all" style="font-size:0.65rem; padding:1px 6px;">تحديد الكل</button>
+                                <button type="button" class="btn btn-outline-secondary btn-clear-all" style="font-size:0.65rem; padding:1px 6px;">إلغاء الكل</button>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 mb-2 print-column-options" id="printColumnsOptions"></div>
+                        <div class="d-flex flex-wrap gap-3 pt-2 border-top" style="font-size:0.78rem;">
+                            <div class="d-flex flex-wrap align-items-center gap-3">
+                                <div class="form-check form-check-inline m-0" style="min-height:auto;">
+                                    <input class="form-check-input" type="checkbox" id="printShowTimeCheck_${containerId}" style="width:13px;height:13px;">
+                                    <label class="form-check-label" for="printShowTimeCheck_${containerId}">التاريخ والوقت</label>
+                                </div>
+                                <div class="form-check form-check-inline m-0" style="min-height:auto;">
+                                    <input class="form-check-input" type="checkbox" id="printShowPageNumbersCheck_${containerId}" style="width:13px;height:13px;">
+                                    <label class="form-check-label" for="printShowPageNumbersCheck_${containerId}">رقم الصفحة</label>
+                                </div>
+                                <div class="form-check form-check-inline m-0" style="min-height:auto;">
+                                    <input class="form-check-input" type="checkbox" id="printLandscapeCheck_${containerId}" style="width:13px;height:13px;">
+                                    <label class="form-check-label" for="printLandscapeCheck_${containerId}">أفقي</label>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-1 me-2">
+                                <span class="text-muted text-nowrap" style="font-size:0.72rem;"><i class="fas fa-arrows-alt-v"></i> الكثافة</span>
+                                <input type="range" id="printRowPaddingRange_${containerId}" min="1" max="15" step="1" style="width:80px; height:16px;">
+                            </div>
+                            <div class="d-flex align-items-center gap-1">
+                                <span class="text-muted text-nowrap" style="font-size:0.72rem;"><i class="fas fa-arrows-alt"></i> هوامش</span>
+                                <input type="number" class="form-control p-0 text-center" id="print_margin_top" min="0" max="50" style="font-size:0.7rem; width:36px; height:20px;" title="أعلى">
+                                <input type="number" class="form-control p-0 text-center" id="print_margin_bottom" min="0" max="50" style="font-size:0.7rem; width:36px; height:20px;" title="أسفل">
+                                <input type="number" class="form-control p-0 text-center" id="print_margin_right" min="0" max="50" style="font-size:0.7rem; width:36px; height:20px;" title="يمين">
+                                <input type="number" class="form-control p-0 text-center" id="print_margin_left" min="0" max="50" style="font-size:0.7rem; width:36px; height:20px;" title="يسار">
+                            </div>
+                        </div>
+                    </div>
+                `;
+                buildColumnChooser(tableId, `${containerId}_Panel`, storageKey, onToggle);
+                bindPrintMarginInputsOnce();
+                syncPrintMarginInputsToDom();
+
+                // Select All / Clear All buttons
+                const selectAllBtn = container.querySelector('.btn-select-all');
+                const clearAllBtn = container.querySelector('.btn-clear-all');
+                const optionsEl = document.getElementById('printColumnsOptions');
+                if (selectAllBtn && optionsEl) {
+                    selectAllBtn.addEventListener('click', () => {
+                        optionsEl.querySelectorAll('.print-column-check').forEach(c => c.checked = true);
+                        optionsEl.dispatchEvent(new Event('change'));
+                    });
+                }
+                if (clearAllBtn && optionsEl) {
+                    clearAllBtn.addEventListener('click', () => {
+                        optionsEl.querySelectorAll('.print-column-check').forEach(c => c.checked = false);
+                        optionsEl.dispatchEvent(new Event('change'));
+                    });
+                }
+
+                const timeCheck = document.getElementById(`printShowTimeCheck_${containerId}`);
+                if (timeCheck) {
+                    timeCheck.checked = window.HRSettingsUtil.get('print_show_time') !== 'false';
+                    timeCheck.addEventListener('change', e => window.HRSettingsUtil.set('print_show_time', e.target.checked ? 'true' : 'false'));
+                }
+                const pageCheck = document.getElementById(`printShowPageNumbersCheck_${containerId}`);
+                if (pageCheck) {
+                    pageCheck.checked = window.HRSettingsUtil.get('print_show_page_numbers') !== 'false';
+                    pageCheck.addEventListener('change', e => window.HRSettingsUtil.set('print_show_page_numbers', e.target.checked ? 'true' : 'false'));
+                }
+                const landCheck = document.getElementById(`printLandscapeCheck_${containerId}`);
+                if (landCheck) {
+                    landCheck.checked = window.HRSettingsUtil.get('print_landscape') === 'true';
+                    landCheck.addEventListener('change', e => window.HRSettingsUtil.set('print_landscape', e.target.checked ? 'true' : 'false'));
+                }
+                const padRange = document.getElementById(`printRowPaddingRange_${containerId}`);
+                if (padRange) {
+                    padRange.value = window.HRSettingsUtil.get('global_print_row_padding_pt') || 6;
+                    padRange.addEventListener('input', e => window.HRSettingsUtil.set('global_print_row_padding_pt', e.target.value));
+                }
+
+                const toggleBtn = document.getElementById('togglePrintColumnsButton') || document.getElementById('togglePrintSettingsBtn');
+                const panel = document.getElementById(`${containerId}_Panel`);
+                if (toggleBtn && panel) {
+                    const newBtn = toggleBtn.cloneNode(true);
+                    toggleBtn.parentNode.replaceChild(newBtn, toggleBtn);
+                    newBtn.addEventListener('click', () => panel.classList.toggle('d-none'));
+                }
+            }
+
+            return { buildColumnChooser, printTable, getPrintPageMarginsMm, syncPrintMarginInputsToDom, bindPrintMarginInputsOnce, initPrintSettings };
+        })();
+
+        // --- Restored Global Section Folding (Refactored to use HRSettingsUtil) ---
+        window.OperationFolding = (() => {
+            function getStorageKey(id) { return `fold_state_${window.location.pathname.replace(/\//g, '_')}_${id}`; }
+            function toggleFold(card) {
+                const id = card.id, isCollapsed = card.classList.toggle('card-collapsed');
+                if (id) window.HRSettingsUtil.set(getStorageKey(id), isCollapsed);
+                window.dispatchEvent(new Event('resize'));
+            }
+            function init() {
+                document.querySelectorAll('.card[data-foldable="true"]').forEach(card => {
+                    if (card.dataset.foldReady === '1') return;
+                    card.dataset.foldReady = '1';
+                    const header = card.querySelector('.card-header');
+                    if (!header) return;
+                    if (!card.id) card.id = 'foldable_' + Math.random().toString(36).substr(2, 9);
+                    let titleContainer = header.querySelector('div:first-child') || header;
+                    let targetElement = titleContainer.querySelector('h5, h6, .fw-bold') || titleContainer;
+                    const iconWrapper = document.createElement('span');
+                    iconWrapper.className = 'fold-icon-wrapper no-print';
+                    iconWrapper.innerHTML = '<i class="fas fa-chevron-down"></i>';
+                    targetElement.prepend(iconWrapper);
+                    targetElement.style.display = 'flex'; targetElement.style.alignItems = 'center';
+                    header.addEventListener('click', (e) => { if (!e.target.closest('button, a, input, select')) toggleFold(card); });
+                    const savedState = window.HRSettingsUtil.get(getStorageKey(card.id));
+                    if (savedState === true || savedState === 'true') card.classList.add('card-collapsed');
+                });
+            }
+            return { init };
+        })();
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            window.OperationDateUtils.initAllDateInputs();
+            window.OperationFolding.init();
+            
+            // Re-initialize resizer and printer settings
+            if (window.OperationPrint) {
+                window.OperationPrint.bindPrintMarginInputsOnce();
+                window.OperationPrint.syncPrintMarginInputsToDom();
+            }
+
+            // Sync SweetAlert2 Flash Messages from center-messages-data
+            const dataEl = document.getElementById('center-messages-data');
+            if (dataEl && typeof showCenteredFlash === 'function') {
+                try {
+                    const msgs = JSON.parse(dataEl.dataset.messages);
+                    msgs.forEach(pair => showCenteredFlash(pair[0], pair[1]));
+                } catch (e) { console.error('Error parsing center_messages:', e); }
+            }
+
+            // Global MutationObserver to handle dynamic content
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                        if (!(node instanceof HTMLElement)) return;
+                        window.OperationDateUtils.initAllDateInputs(node);
+                        if (node.matches?.('.card[data-foldable="true"]')) window.OperationFolding.init();
+                        node.querySelectorAll?.('.card[data-foldable="true"]').forEach(() => window.OperationFolding.init());
+                        // If it's a table, re-init global resizer
+                        if (window.HRTableResizer) {
+                            if (node.matches?.('table.table')) window.HRTableResizer.init(node);
+                            node.querySelectorAll?.('table.table').forEach(t => window.HRTableResizer.init(t));
+                        }
+                    });
+                });
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+        });
+    </script>
+    <script src="{{ url_for('static', filename='manufacturing/excel_export.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

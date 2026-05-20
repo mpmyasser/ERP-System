@@ -1,0 +1,195 @@
+{% if session.get('user_id') %}
+<nav id="sidebar" class="col-md-3 col-lg-2 d-md-block sidebar collapse order-md-2">
+    <div class="position-sticky pt-3">
+        <ul class="nav flex-column">{%- if has_perm('view_dashboard') -%}
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}"
+                    href="{{ url_for('main.dashboard') }}">
+                    <i class="fas fa-dashboard" aria-hidden="true"></i> لوحة التحكم
+                </a>
+            </li>{{- '' -}}
+        {%- endif -%}
+        {%- if has_perm('view_employees') -%}
+            <li class="nav-item">
+                <a class="nav-link {% if 'employees' in request.endpoint %}active{% endif %}"
+                    href="{{ url_for('employees.list') }}">
+                    <i class="fas fa-users" aria-hidden="true"></i> إدارة الموظفين
+                </a>
+            </li>{{- '' -}}
+        {%- endif -%}
+        {%- if has_perm('view_departments') -%}
+            <li class="nav-item">
+                <a class="nav-link {% if 'departments' in request.endpoint %}active{% endif %}"
+                    href="{{ url_for('departments.list') }}">
+                    <i class="fas fa-building" aria-hidden="true"></i> الأقسام
+                </a>
+            </li>{{- '' -}}
+        {%- endif -%}
+        {%- if has_perm('view_attendance') -%}
+            <li class="nav-item">
+                <a class="nav-link {% if 'attendance' in request.endpoint %}active{% endif %}"
+                    href="{{ url_for('attendance.daily') }}">
+                    <i class="fas fa-clock" aria-hidden="true"></i> الحضور
+                </a>
+            </li>{{- '' -}}
+        {%- endif -%}
+        {%- if has_perm('view_loans') -%}
+            <li class="nav-item">
+                <a class="nav-link {% if 'loans' in request.endpoint %}active{% endif %}"
+                    href="{{ url_for('loans.list') }}">
+                    <i class="fas fa-hand-holding-usd" aria-hidden="true"></i> السلف
+                </a>
+            </li>{{- '' -}}
+        {%- endif -%}
+        {%- if has_perm('view_penalties') -%}
+            <li class="nav-item">
+                <a class="nav-link {% if 'penalties' in request.endpoint %}active{% endif %}"
+                    href="{{ url_for('penalties.list') }}">
+                    <i class="fas fa-exclamation-triangle" aria-hidden="true"></i> الجزاءات
+                </a>
+            </li>{{- '' -}}
+        {%- endif -%}
+        {%- if has_perm('view_bonuses') -%}
+            <li class="nav-item">
+                <a class="nav-link {% if 'bonuses' in request.endpoint %}active{% endif %}"
+                    href="{{ url_for('bonuses.list') }}">
+                    <i class="fas fa-gift" aria-hidden="true"></i> المكافآت
+                </a>
+            </li>{{- '' -}}
+        {%- endif -%}
+        {%- if has_perm('view_permissions') -%}
+            <li class="nav-item">
+                <a class="nav-link {% if 'permissions' in request.endpoint %}active{% endif %}"
+                    href="{{ url_for('permissions.list') }}">
+                    <i class="fas fa-calendar-check" aria-hidden="true"></i> التصاريح
+                </a>
+            </li>{{- '' -}}
+        {%- endif -%}
+        {%- if has_perm('view_leaves') -%}
+            <li class="nav-item">
+                <a class="nav-link {% if 'leaves' in request.endpoint %}active{% endif %}"
+                    href="{{ url_for('leaves.list') }}">
+                    <i class="fas fa-umbrella-beach" aria-hidden="true"></i> الإجازات
+                </a>
+            </li>{{- '' -}}
+        {%- endif -%}
+        {%- if has_perm('view_payroll') -%}
+            <li class="nav-item">
+                <a class="nav-link {% if 'payroll' in request.endpoint %}active{% endif %}"
+                    href="{{ url_for('payroll.index') }}">
+                    <i class="fas fa-money-bill" aria-hidden="true"></i> الرواتب
+                </a>
+            </li>{{- '' -}}
+        {%- endif -%}
+        {%- if has_perm('view_hr_reports') -%}
+            <li class="nav-item">
+                <a class="nav-link {% if 'reports' in request.endpoint %}active{% endif %}"
+                    href="{{ url_for('reports.index') }}">
+                    <i class="fas fa-file-alt" aria-hidden="true"></i> التقارير
+                </a>
+            </li>{{- '' -}}
+        {%- endif -%}
+        {%- if has_perm('view_settings') -%}
+            <li class="nav-item border-top mt-2 pt-2">
+                <a class="nav-link {% if 'settings' in request.endpoint %}active{% endif %} text-primary"
+                    href="{{ url_for('settings.index') }}">
+                    <i class="fas fa-cog" aria-hidden="true"></i> إعدادات النظام
+                </a>
+            </li>{{- '' -}}
+        {%- endif -%}
+        {%- if has_perm('view_accounting') -%}
+            <!-- ERP Modules -->
+            <li class="nav-item border-top mt-2 pt-2">
+                <div class="px-3 mb-2 fw-bold text-muted small">نظام الـ ERP</div>
+            </li>{{- '' -}}
+            <li class="nav-item">
+                <a class="nav-link {% if 'accounting.coa' in request.endpoint %}active{% endif %}"
+                    href="{{ url_for('accounting.coa') }}">
+                    <i class="fas fa-sitemap" aria-hidden="true"></i> شجرة الحسابات
+                </a>
+            </li>{{- '' -}}
+            <li class="nav-item">
+                <a class="nav-link {% if 'accounting.list_journals' in request.endpoint %}active{% endif %}"
+                    href="{{ url_for('accounting.list_journals') }}">
+                    <i class="fas fa-book-open" aria-hidden="true"></i> قيود اليومية
+                </a>
+            </li>{{- '' -}}
+            <li class="nav-item">
+                <a class="nav-link {% if 'accounting.list_cost_centers' in request.endpoint %}active{% endif %}"
+                    href="{{ url_for('accounting.list_cost_centers') }}">
+                    <i class="fas fa-bullseye" aria-hidden="true"></i> مراكز التكلفة
+                </a>
+            </li>{{- '' -}}
+        {%- endif -%}
+
+
+        {%- if session.is_admin -%}
+            <li class="nav-item">
+                <a class="nav-link {% if 'auth.list_users' in request.endpoint %}active{% endif %}"
+                    href="{{ url_for('auth.list_users') }}">
+                    <i class="fas fa-user-shield" aria-hidden="true"></i> المستخدمين والمهمات
+                </a>
+            </li>{{- '' -}}
+            <li class="nav-item">
+                <a class="nav-link {% if 'admin.backups_dashboard' in request.endpoint %}active{% endif %}"
+                    href="{{ url_for('admin.backups_dashboard') }}">
+                    <i class="fas fa-history" aria-hidden="true"></i> النسخ الاحتياطي
+                </a>
+            </li>{{- '' -}}
+        {%- endif -%}
+        {%- if has_perm('view_treasury') -%}
+            <!-- Treasury Modules -->
+            <li class="nav-item border-top mt-2 pt-2">
+                <div class="px-3 mb-2 fw-bold text-muted small">الخزينة والبنوك</div>
+            </li>{{- '' -}}
+            <li class="nav-item">
+                <a class="nav-link {% if 'treasury.dashboard' in request.endpoint %}active{% endif %}"
+                    href="{{ url_for('treasury.dashboard') }}">
+                    <i class="fas fa-cash-register" aria-hidden="true"></i> إدارة النقدية والبنوك
+                </a>
+            </li>{{- '' -}}
+            <li class="nav-item">
+                <a class="nav-link {% if 'treasury.list_checks' in request.endpoint %}active{% endif %}"
+                    href="{{ url_for('treasury.list_checks') }}">
+                    <i class="fas fa-money-check-alt" aria-hidden="true"></i> حافظة الشيكات
+                </a>
+            </li>{{- '' -}}
+        {%- endif -%}
+        {% if has_perm('view_commercial') %}
+        <li class="nav-item border-top mt-2 pt-2">
+            <div class="px-3 mb-2 fw-bold text-muted small">المبيعات والمشتريات</div>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if 'commercial.opening_balances' in request.endpoint %}active{% endif %}"
+                href="{{ url_for('commercial.opening_balances') }}">
+                <i class="fas fa-play-circle" aria-hidden="true"></i> أرصدة أول المدة
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if 'commercial.sales_dashboard' in request.endpoint %}active{% endif %}"
+                href="{{ url_for('commercial.sales_dashboard') }}">
+                <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i> فواتير المبيعات
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if 'importer.index' in request.endpoint %}active{% endif %}"
+                href="{{ url_for('importer.index') }}">
+                <i class="fas fa-file-import" aria-hidden="true"></i> أدوات الاستيراد
+            </a>
+        </li>
+        {% endif %}
+
+        <!-- Factory Integration -->
+        <li class="nav-item border-top mt-2 pt-2">
+            <div class="px-3 mb-2 fw-bold text-muted small">حركة التشغيل والمصانع</div>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'manufacturing.index' %}active{% endif %} text-success fw-bold"
+                href="{{ url_for('manufacturing.index') }}">
+                <i class="fas fa-industry" aria-hidden="true"></i> قسم القص (حركة التشغيل)
+            </a>
+        </li>
+        </ul>
+    </div>
+</nav>
+{% endif %}

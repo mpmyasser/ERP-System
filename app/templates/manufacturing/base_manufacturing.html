@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}نظام التشغيل والمصنع{% endblock %}
+
+{% block extra_css %}
+<!-- استدعاء ملف الستايبل الأصلي للمصنع لضمان شكل الأزرار القديم -->
+<link rel="stylesheet" href="{{ url_for('static', filename='manufacturing/app.css') }}">
+<style>
+    .nav-manufacturing {
+        background: #fdfdfd;
+        border-bottom: 2px solid #0d6efd;
+        margin-bottom: 1.5rem;
+        padding: 0.75rem 1rem;
+        display: flex;
+        gap: 0.75rem;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+    /* استعادة شكل الأزرار الأصلي */
+    .nav-manufacturing .btn-nav {
+        padding: 0.5rem 1.5rem;
+        font-weight: bold;
+        border-radius: 8px;
+        transition: all 0.2s;
+        border: 1px solid #0d6efd;
+        color: #0d6efd;
+        text-decoration: none;
+        background: #fff;
+    }
+    .nav-manufacturing .btn-nav:hover, .nav-manufacturing .btn-nav.active {
+        background: #0d6efd;
+        color: #fff;
+    }
+    
+    /* تحسينات نظام الطي */
+    .card-header.cursor-pointer {
+        cursor: pointer;
+        user-select: none;
+    }
+    .toggle-btn {
+        transition: transform 0.3s ease;
+        padding: 0.25rem 0.5rem;
+        color: #6c757d;
+    }
+    .card.collapsed .toggle-btn {
+        transform: rotate(180deg);
+    }
+    .card.collapsed .card-body, 
+    .card.collapsed .card-footer, 
+    .card.collapsed .table-responsive {
+        display: none !important;
+    }
+    /* Table Management Styles */
+    th.dragging { opacity: 0.4; background-color: #e9ecef !important; }
+    th.over { border-left: 3px solid #0d6efd !important; }
+    .sort-icon { font-size: 0.75rem; cursor: pointer; }
+    th { position: relative; }
+    th:hover { background-color: #f8f9fa; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- شريط التنقل الفرعي بالمسميات الأصلية -->
+<div class="nav-manufacturing shadow-sm mb-4 no-print">
+    {% if has_perm('mfg_cutting_department') %}
+    <a href="{{ url_for('manufacturing.index') }}" class="btn-nav {% if request.endpoint == 'manufacturing.index' %}active{% endif %}">
+        <i class="fas fa-cut me-1"></i> قسم القص
+    </a>
+    {% endif %}
+    
+    {% if has_perm('mfg_receive_cuts') %}
+    <a href="{{ url_for('manufacturing.receiving_page') }}" class="btn-nav {% if request.endpoint == 'manufacturing.receiving_page' %}active{% endif %}">
+        <i class="fas fa-truck-loading me-1"></i> استلام القصات
+    </a>
+    {% endif %}
+    
+    {% if has_perm('mfg_packing_merging') %}
+    <a href="{{ url_for('manufacturing.warehouse_page') }}" class="btn-nav {% if request.endpoint == 'manufacturing.warehouse_page' %}active{% endif %}">
+        <i class="fas fa-box me-1"></i> التعبئة والدمج
+    </a>
+    {% endif %}
+    
+    {% if has_perm('mfg_factory_accounts') %}
+    <a href="{{ url_for('manufacturing.manufacturer_accounts_page') }}" class="btn-nav {% if request.endpoint == 'manufacturing.manufacturer_accounts_page' %}active{% endif %}">
+        <i class="fas fa-calculator me-1"></i> حسابات المصانع
+    </a>
+    {% endif %}
+    
+    {% if has_perm('mfg_items_reference') %}
+    <a href="{{ url_for('manufacturing.reference_page') }}" class="btn-nav {% if request.endpoint == 'manufacturing.reference_page' %}active{% endif %}">
+        <i class="fas fa-list me-1"></i> مرجع الأصناف
+    </a>
+    {% endif %}
+    
+    {% if has_perm('mfg_manufacturers') %}
+    <a href="{{ url_for('manufacturing.factories_page') }}" class="btn-nav {% if request.endpoint == 'manufacturing.factories_page' %}active{% endif %}">
+        <i class="fas fa-industry me-1"></i> المصنعون
+    </a>
+    {% endif %}
+    
+    {% if has_perm('mfg_manufacturing_prices') %}
+    <a href="{{ url_for('manufacturing.pricing_page') }}" class="btn-nav {% if request.endpoint == 'manufacturing.pricing_page' %}active{% endif %}">
+        <i class="fas fa-tags me-1"></i> أسعار التصنيع
+    </a>
+    {% endif %}
+    
+    {% if has_perm('mfg_payments') %}
+    <a href="{{ url_for('manufacturing.factory_payments_page') }}" class="btn-nav {% if request.endpoint == 'manufacturing.factory_payments_page' %}active{% endif %}">
+        <i class="fas fa-money-bill-wave me-1"></i> المدفوعات
+    </a>
+    {% endif %}
+    
+    {% if has_perm('mfg_finished_goods_warehouse') %}
+    <a href="{{ url_for('manufacturing.finished_stock_page') }}" class="btn-nav {% if request.endpoint == 'manufacturing.finished_stock_page' %}active{% endif %}">
+        <i class="fas fa-warehouse me-1"></i> مخزن المنتج التام
+    </a>
+    {% endif %}
+    
+    {% if has_perm('mfg_deficit_report') %}
+    <a href="{{ url_for('manufacturing.factory_deficits_report_page') }}" class="btn-nav {% if request.endpoint == 'manufacturing.factory_deficits_report_page' %}active{% endif %}">
+        <i class="fas fa-file-invoice me-1"></i> تقرير العجز
+    </a>
+    {% endif %}
+    
+    {% if has_perm('mfg_packing_production') %}
+    <a href="{{ url_for('manufacturing.production_packing_report') }}" class="btn-nav {% if request.endpoint == 'manufacturing.production_packing_report' %}active{% endif %}">
+        <i class="fas fa-chart-line me-1"></i> إنتاج التعبئة
+    </a>
+    {% endif %}
+    
+    {% if has_perm('mfg_cutting_production') %}
+    <a href="{{ url_for('manufacturing.production_cutting_report') }}" class="btn-nav {% if request.endpoint == 'manufacturing.production_cutting_report' %}active{% endif %}">
+        <i class="fas fa-chart-pie me-1"></i> إنتاج القص
+    </a>
+    {% endif %}
+    
+    {% if has_perm('mfg_message_detailed_report') %}
+    <a href="{{ url_for('manufacturing.message_detailed_report_page') }}" class="btn-nav {% if request.endpoint == 'manufacturing.message_detailed_report_page' %}active{% endif %}">
+        <i class="fas fa-file-invoice-dollar me-1"></i> تقرير الرسالة
+    </a>
+    {% endif %}
+</div>
+
+{% block manufacturing_content %}{% endblock %}
+
+<script>
+    // نظام طي الكروت (Section Folding)
+    document.addEventListener('DOMContentLoaded', function() {
+        const pathKey = window.location.pathname.replace(/\//g, '_');
+        
+        document.querySelectorAll('.card[data-foldable="true"]').forEach(card => {
+            const header = card.querySelector('.card-header');
+            if (!header) return;
+            
+            header.classList.add('cursor-pointer');
+            const cardId = card.id || 'card_' + Math.random().toString(36).substr(2, 9);
+            
+            if (!header.querySelector('.toggle-btn')) {
+                const btn = document.createElement('span');
+                btn.className = 'toggle-btn ms-2';
+                btn.innerHTML = '<i class="fas fa-chevron-up"></i>';
+                header.appendChild(btn);
+            }
+            
+            const isCollapsed = localStorage.getItem(`fold_state_${pathKey}_${cardId}`) === 'true';
+            if (isCollapsed) card.classList.add('collapsed');
+            
+            header.addEventListener('click', function(e) {
+                if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('a')) return;
+                
+                card.classList.toggle('collapsed');
+                localStorage.setItem(`fold_state_${pathKey}_${cardId}`, card.classList.contains('collapsed'));
+            });
+        });
+    });
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+<script src="{{ url_for('static', filename='manufacturing/excel_export.js') }}"></script>
+<script src="{{ url_for('static', filename='manufacturing/print_system.js') }}"></script>
+<script src="{{ url_for('static', filename='manufacturing/tables_manager.js') }}"></script>
+<!-- إضافة مكتبة Print.js إذا كانت مستخدمة في النظام الأصلي -->
+{% block manufacturing_scripts %}{% endblock %}
+{% endblock %}

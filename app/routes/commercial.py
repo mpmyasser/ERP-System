@@ -1,16 +1,15 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify
 from core.db_manager import DBManager
-from core.commercial_models import Partner, Invoice, InvoiceItem
+from core.commercial_models import Partner, Invoice, InvoiceItem, Warehouse, Product, InventoryTransaction
 from core.accounting_models import Account, JournalEntry, JournalItem
-from core.production_models import Warehouse, Product, InventoryTransaction
-from app.routes.auth import login_required
+from app.routes.auth import permission_required, login_required
 from datetime import datetime
 
 commercial_bp = Blueprint('commercial', __name__)
 db = DBManager()
 
 @commercial_bp.route('/opening-balances')
-@login_required
+@permission_required('VIEW_BALANCES')
 def opening_balances():
     session = db.get_session()
     try:
@@ -25,8 +24,7 @@ def opening_balances():
         session.close()
 
 @commercial_bp.route('/opening-balances/save-accounts', methods=['POST'])
-
-@login_required
+@permission_required('EDIT_BALANCES')
 def save_opening_accounts():
     session = db.get_session()
     try:
@@ -69,7 +67,7 @@ def save_opening_accounts():
     return redirect(url_for('commercial.opening_balances'))
 
 @commercial_bp.route('/opening-balances/save-stock', methods=['POST'])
-@login_required
+@permission_required('EDIT_BALANCES')
 def save_opening_stock():
     session = db.get_session()
     try:
@@ -101,6 +99,96 @@ def save_opening_stock():
     except Exception as e:
         session.rollback()
         flash(f'خطأ أثناء الحفظ: {e}', 'danger')
+    finally:
+        session.close()
+    return redirect(url_for('commercial.opening_balances'))
+
+@commercial_bp.route('/sync-products')
+@login_required
+def sync_products():
+    """مزامنة المنتجات من حركة التشغيل إلى النظام المالي/التجاري"""
+    import sqlite3
+    import os
+    
+    op_db_path = r'e:\backoup\25-2-2026\حركة التشغيل\data\operation.db'
+    if not os.path.exists(op_db_path):
+        flash('قاعدة بيانات حركة التشغيل غير موجودة.', 'danger')
+        return redirect(request.referrer or url_for('commercial.sales_dashboard'))
+        
+    try:
+        op_conn = sqlite3.connect(op_db_path)
+        op_cursor = op_conn.cursor()
+        
+        # Fetch only products that have quantity > 0 in finished stock
+        query = """
+            SELECT p.code, p.name, p.size, s.quantity 
+            FROM operation_products p
+            JOIN operation_finished_stock s ON p.code = s.product_code
+            WHERE s.quantity > 0
+        """
+        op_cursor.execute(query)
+        op_results = op_cursor.fetchall()
+        
+        session = db.get_session()
+        synced_codes = []
+        synced_count = 0
+        new_count = 0
+        
+        # Reset stock for all products first (or we can do it selectively)
+        # For now, let's just update the ones we find and assume those not found have 0 stock
+        session.query(Product).update({Product.current_stock: 0})
+        
+        for code, name, size, stock in op_results:
+            product = session.query(Product).filter_by(code=code).first()
+            full_name = f"{name} - {size}" if size else name
+            
+            if product:
+                product.name = full_name
+                product.current_stock = stock
+                synced_count += 1
+            else:
+                new_product = Product(
+                    code=code,
+                    name=full_name,
+                    category='منتج تام',
+                    unit='Piece',
+                    current_stock=stock,
+                    is_active=True
+                )
+                session.add(new_product)
+                new_count += 1
+            synced_codes.append(code)
+                
+        session.commit()
+        flash(f'تم مزامنة {synced_count + new_count} منتج من حركة التشغيل بنجاح.', 'success')
+    except Exception as e:
+        session.rollback()
+        flash(f'خطأ أثناء المزامنة: {e}', 'danger')
+    finally:
+        if 'op_conn' in locals(): op_conn.close()
+        if 'session' in locals(): session.close()
+        
+    return redirect(request.referrer or url_for('commercial.sales_dashboard'))
+
+@commercial_bp.route('/delete-all-products', methods=['POST'])
+@login_required
+def delete_all_products():
+    """حذف كافة الأصناف من النظام التجاري (التي ليس لها حركات)"""
+    session = db.get_session()
+    try:
+        # Check if products are used in invoices or transactions
+        has_invoices = session.query(InvoiceItem).first() is not None
+        has_trans = session.query(InventoryTransaction).first() is not None
+        
+        if has_invoices or has_trans:
+            flash('لا يمكن حذف الأصناف لوجود فواتير أو حركات مخزنية مرتبطة بها. يجب حذف الفواتير أولاً.', 'danger')
+        else:
+            session.query(Product).delete()
+            session.commit()
+            flash('تم حذف كافة الأصناف بنجاح.', 'success')
+    except Exception as e:
+        session.rollback()
+        flash(f'خطأ أثناء الحذف: {e}', 'danger')
     finally:
         session.close()
     return redirect(url_for('commercial.opening_balances'))
@@ -356,5 +444,146 @@ def list_invoices(type):
     try:
         invoices = session.query(Invoice).filter_by(type=type).all()
         return render_template('commercial/invoices_list.html', invoices=invoices, type=type)
+    finally:
+        session.close()
+
+@commercial_bp.route('/sales')
+@permission_required('VIEW_SALES')
+def sales_dashboard():
+    """Dashboard for sales"""
+    session = db.get_session()
+    try:
+        invoices = session.query(Invoice).filter(Invoice.type.in_(['Sales', 'POS'])).order_by(Invoice.date.desc()).all()
+        return render_template('commercial/sales.html', invoices=invoices)
+    finally:
+        session.close()
+
+@commercial_bp.route('/sales/new', methods=['GET', 'POST'])
+@permission_required('CREATE_SALES')
+def new_sale():
+    """Create a new sales invoice (Showroom or Cutting Dept)"""
+    session = db.get_session()
+    try:
+        if request.method == 'POST':
+            partner_id = request.form.get('partner_id')
+            warehouse_id = request.form.get('warehouse_id')
+            sale_type = request.form.get('sale_type', 'Sales')
+            
+            invoice = Invoice(
+                type=sale_type,
+                invoice_number=f"INV-{int(datetime.now().timestamp())}",
+                date=datetime.now().date(),
+                partner_id=partner_id,
+                warehouse_id=warehouse_id,
+                status='Posted'
+            )
+            session.add(invoice)
+            session.flush()
+            
+            product_ids = request.form.getlist('product_id[]')
+            quantities = request.form.getlist('qty[]')
+            prices = request.form.getlist('price[]')
+            
+            total = 0
+            for i in range(len(product_ids)):
+                if not product_ids[i]: continue
+                qty = float(quantities[i] or 0)
+                price = float(prices[i] or 0)
+                if qty <= 0: continue
+                
+                line_total = qty * price
+                total += line_total
+                
+                item = InvoiceItem(
+                    invoice_id=invoice.id,
+                    product_id=product_ids[i],
+                    quantity=qty,
+                    unit_price=price,
+                    total=line_total
+                )
+                session.add(item)
+                
+                product = session.query(Product).get(product_ids[i])
+                if product:
+                    product.current_stock -= qty
+            
+            invoice.total_amount = total
+            invoice.net_amount = total
+            
+            # Generate automatic accounting entry
+            partner = session.query(Partner).get(partner_id)
+            if partner and partner.account_id:
+                # Debit Customer, Credit Sales
+                # NOTE: In a real system, you'd fetch the specific sales account from settings
+                sales_account = session.query(Account).filter_by(code='4101').first() # Example: 4101 Sales Account
+                
+                je = JournalEntry(
+                    date=datetime.now().date(),
+                    description=f"فاتورة مبيعات رقم {invoice.invoice_number}",
+                    status='Posted'
+                )
+                session.add(je)
+                session.flush()
+                
+                # Debit Customer
+                session.add(JournalItem(
+                    journal_entry_id=je.id,
+                    account_id=partner.account_id,
+                    debit=total,
+                    credit=0,
+                    description=f"قيمة الفاتورة {invoice.invoice_number}"
+                ))
+                
+                # Credit Sales
+                if sales_account:
+                    session.add(JournalItem(
+                        journal_entry_id=je.id,
+                        account_id=sales_account.id,
+                        debit=0,
+                        credit=total,
+                        description=f"مبيعات للعميل {partner.name}"
+                    ))
+                
+                invoice.journal_entry_id = je.id
+            
+            session.commit()
+            flash('تم حفظ الفاتورة وإنشاء القيد المحاسبي بنجاح', 'success')
+            return redirect(url_for('commercial.sales_dashboard'))
+            
+        partners = session.query(Partner).filter(Partner.type.in_(['Customer', 'Both'])).all()
+        warehouses = session.query(Warehouse).all()
+        products = session.query(Product).filter_by(is_active=True).all()
+        return render_template('commercial/new_sale.html', partners=partners, warehouses=warehouses, products=products)
+    except Exception as e:
+        session.rollback()
+        flash(f'خطأ أثناء الحفظ: {e}', 'danger')
+        return redirect(url_for('commercial.sales_dashboard'))
+    finally:
+        session.close()
+
+@commercial_bp.route('/partner-statement/<int:partner_id>')
+@permission_required('VIEW_REPORTS')
+def partner_statement(partner_id):
+    """Detailed Statement of Account for a Partner"""
+    session = db.get_session()
+    try:
+        partner = session.query(Partner).get(partner_id)
+        if not partner:
+            flash('الشريك غير موجود', 'danger')
+            return redirect(url_for('commercial.sales_dashboard'))
+            
+        invoices = session.query(Invoice).filter_by(partner_id=partner.id).order_by(Invoice.date.asc()).all()
+        
+        journal_items = []
+        balance = 0
+        if partner.account_id:
+            journal_items = session.query(JournalItem).filter_by(account_id=partner.account_id).join(JournalEntry).order_by(JournalEntry.date.asc()).all()
+            
+            # Calculate running balance
+            for ji in journal_items:
+                balance += (ji.debit - ji.credit)
+                ji.running_balance = balance
+                
+        return render_template('commercial/statement.html', partner=partner, invoices=invoices, journal_items=journal_items, current_balance=balance)
     finally:
         session.close()

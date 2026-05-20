@@ -1,0 +1,12 @@
+{
+    "timestamp": "20260505_153401",
+    "git_commit": "Manual System Backup: 20260505_153401",
+    "db_files": [
+        "hr_system.db",
+        "core\\hr.db",
+        "core\\production.db",
+        "\u062d\u0631\u0643\u0629 \u0627\u0644\u062a\u0634\u063a\u064a\u0644\\data\\operation.db",
+        "\u062d\u0631\u0643\u0629 \u0627\u0644\u062a\u0634\u063a\u064a\u0644\\tmp_admin_purge_test\\operation.db"
+    ],
+    "status": "Success"
+}
