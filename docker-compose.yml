@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  hr-system:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hr-system-app
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_APP=run.py
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Persist database
+      - ./core:/app/core
+      # Persist uploads
+      - ./app/static/uploads:/app/app/static/uploads
+      # Persist logs
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - hr-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  hr-network:
+    driver: bridge
+
+volumes:
+  hr-data:
+    driver: local
