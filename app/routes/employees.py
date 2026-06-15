@@ -75,7 +75,7 @@ def list():
     search = request.args.get('search', '')
     dept_filter_mode = request.args.get('dept_filter_mode', 'include')
     status_filter = request.args.get('status', '')
-    job_title_filter = request.args.get('job_title', '')
+    job_title_filter = request.args.getlist('job_title')  # supports multiple selections
     date_from_str = request.args.get('date_from', '')
     date_to_str = request.args.get('date_to', '')
     dept_ids = request.args.getlist('department_ids')
@@ -94,11 +94,11 @@ def list():
     # We filter by dept in SQL if mode is 'include'
     sql_dept_ids = dept_ids if dept_filter_mode == 'include' else None
     
-    # Initial optimized load
+    # Initial optimized load (job_title=None, filtered in Python below for multi-select)
     employees = db.get_employees_optimized(
         only_active=only_active,
         department_ids=sql_dept_ids,
-        job_title=job_title_filter,
+        job_title=None,
         search=search,
         load_full=False
     )
@@ -110,6 +110,10 @@ def list():
     if dept_ids and dept_filter_mode == 'exclude':
         dept_ids_int = [int(d) for d in dept_ids if d]
         employees = [e for e in employees if e.department_id not in dept_ids_int]
+
+    # Filter by job titles (multiple)
+    if job_title_filter and any(job_title_filter):
+        employees = [e for e in employees if e.job_title in job_title_filter]
 
     # Date Range Filter (Still doing in Python but on smaller subset)
     if hire_date_from or hire_date_to:
@@ -152,6 +156,93 @@ def list():
     hire_date_to_display = format_date_ar(hire_date_to) if hire_date_to else date_to_str
 
     return render_template('employees/list.html',
+                          employees=employees_page,
+                          search=search,
+                          selected_departments=dept_ids,
+                          dept_filter_mode=dept_filter_mode,
+                          status_filter=status_filter,
+                          selected_job_title=job_title_filter,  # list
+                          hire_date_from=hire_date_from_display,
+                          hire_date_to=hire_date_to_display,
+                          departments=departments,
+                          job_titles=job_titles,
+                          page=page,
+                          total_pages=total_pages,
+                          total=total,
+                          total_basic_salary=sum(getattr(e, 'effective_salary', e.basic_salary or 0) for e in employees),
+                          total_incentives=sum(e.regularity_incentive or 0 for e in employees))
+
+@employees_bp.route('/preview-filter')
+def preview_filter():
+    """Preview route for the new search filter design"""
+    db = current_app.db
+    
+    # Get parameters
+    search = request.args.get('search', '')
+    dept_filter_mode = request.args.get('dept_filter_mode', 'include')
+    status_filter = request.args.get('status', '')
+    job_title_filter = request.args.getlist('job_title')
+    date_from_str = request.args.get('date_from', '')
+    date_to_str = request.args.get('date_to', '')
+    dept_ids = request.args.getlist('department_ids')
+    page = request.args.get('page', 1, type=int)
+    
+    # Parse dates
+    from utils.helpers import parse_date_compact
+    hire_date_from = parse_date_compact(date_from_str)
+    hire_date_to = parse_date_compact(date_to_str)
+    
+    # Use optimized DB query with SQL-level filtering
+    only_active = (status_filter == 'active')
+    only_inactive = (status_filter == 'inactive')
+    sql_dept_ids = dept_ids if dept_filter_mode == 'include' else None
+    
+    employees = db.get_employees_optimized(
+        only_active=only_active,
+        department_ids=sql_dept_ids,
+        job_title=None, # Filtered in Python below to support multiple values
+        search=search,
+        load_full=False
+    )
+    
+    # Post-process for complex filters not easily done in simple function above
+    if only_inactive:
+        employees = [e for e in employees if not e.is_active]
+    
+    if dept_ids and dept_filter_mode == 'exclude':
+        dept_ids_int = [int(d) for d in dept_ids if d]
+        employees = [e for e in employees if e.department_id not in dept_ids_int]
+
+    # Filter by job titles (multiple)
+    if job_title_filter and any(job_title_filter):
+        employees = [e for e in employees if e.job_title in job_title_filter]
+
+    # Date Range Filter
+    if hire_date_from or hire_date_to:
+        filtered = []
+        for e in employees:
+            if not e.hire_date: continue
+            include = True
+            if hire_date_from and e.hire_date < hire_date_from: include = False
+            if hire_date_to and e.hire_date > hire_date_to: include = False
+            if include: filtered.append(e)
+        employees = filtered
+
+    # Get DEPARTMENTS & Job Titles
+    departments = db.get_departments()
+    job_titles = db.get_unique_job_titles()
+    
+    db.attach_effective_salaries(employees)
+    employees_page = employees
+    
+    total_pages = 1
+    total = len(employees)
+    
+    from utils.helpers import format_date_ar
+    hire_date_from_display = format_date_ar(hire_date_from) if hire_date_from else date_from_str
+    hire_date_to_display = format_date_ar(hire_date_to) if hire_date_to else date_to_str
+
+    return render_template('employees/preview_filter.html',
                           employees=employees_page,
                           search=search,
                           selected_departments=dept_ids,

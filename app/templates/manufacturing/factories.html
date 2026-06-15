@@ -24,6 +24,7 @@
         } catch (_) {}
     })();
 </script>
+<input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token() }}">
 <div class="card shadow-sm border-0 mb-3" id="factoryEntryCard" data-foldable="true">
     <div class="card-header bg-white d-flex justify-content-between align-items-center">
         <div>
@@ -114,6 +115,7 @@
     const factoriesTable = document.getElementById('factoriesTable');
     const factorySearchInput = document.getElementById('factorySearchInput');
     const factorySearchClearBtn = document.getElementById('factorySearchClearBtn');
+    const csrfToken = document.getElementById('csrf_token')?.value || '';
 
     function showInlineMessage(message, type) {
         inlineMessage.className = `alert alert-${type} d-flex align-items-center small`;
@@ -250,7 +252,10 @@
         try {
             const res = await fetch('/manufacturing/api/factories/add', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
                 body: JSON.stringify(payload),
             });
             const data = await res.json();
@@ -290,7 +295,10 @@
         try {
             const res = await fetch('/manufacturing/api/factories/add', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
                 body: JSON.stringify(payload),
             });
             const data = await res.json();
@@ -323,7 +331,10 @@
         try {
             const res = await fetch('/manufacturing/api/factories/delete', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
                 body: JSON.stringify({code}),
             });
             const data = await res.json();
@@ -393,6 +404,9 @@
         try {
             const res = await fetch('/manufacturing/api/factories/import', {
                 method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
                 body: formData,
             });
             const data = await res.json();

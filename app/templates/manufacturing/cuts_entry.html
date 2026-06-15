@@ -110,6 +110,7 @@
                 </div>
 
                 <form method="POST" action="{{ url_for('manufacturing.save_cuts') }}" id="cutsForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="source" id="sourceField" value="manual">
 
                     <div class="row g-3 mb-3">
@@ -209,6 +210,9 @@
                 <a href="{{ url_for('manufacturing.manufacturer_accounts_page') }}" class="btn btn-outline-success btn-sm">
                     <i class="fas fa-industry me-1"></i> حسابات المصنعين
                 </a>
+                <button type="button" class="btn btn-warning btn-sm fw-bold shadow-sm" id="bulkDispatchButton" title="ترحيل جميع القصات التي بها مصنع وتاريخ خروج">
+                    <i class="fas fa-truck-loading me-1"></i> ترحيل
+                </button>
                 <button type="button" class="btn btn-outline-secondary btn-sm" id="togglePrintColumnsButton">
                     <i class="fas fa-print me-1"></i> إعدادات الطباعة
                 </button>
@@ -219,7 +223,15 @@
             </div>
         </div>
         <div class="row g-2 mt-2 table-toolbar-secondary">
-            <div class="col-lg-8">
+            <div class="col-lg-3">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="fas fa-filter"></i></span>
+                    <select id="messageFilterSelect" class="form-select form-select-sm">
+                        <option value="">كل الرسائل</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-lg-9">
                 <div class="input-group input-group-sm smart-search-group table-toolbar-search">
                     <span class="input-group-text"><i class="fas fa-search"></i></span>
                     <input
@@ -257,7 +269,7 @@
                 <tbody id="recentCutsTableBody">
                     {% if recent_cut_items %}
                     {% for item in recent_cut_items %}
-                    <tr data-item-id="{{ item.id }}">
+                    <tr data-item-id="{{ item.id }}" data-price-updated-at="{{ item.price_updated_at or '' }}">
                         <td>
                             <input type="text" class="form-control form-control-sm recent-cut-date recent-basic-field date-input" value="{{ item.cut_date or '' }}" placeholder="تاريخ القص" readonly>
                         </td>
@@ -867,6 +879,8 @@
         const recentCutsSearchButton = document.getElementById('recentCutsSearchButton');
         const recentCutsSearchClearButton = document.getElementById('recentCutsSearchClearButton');
         const recentCutsSearchEmptyRow = document.getElementById('recentCutsSearchEmptyRow');
+        const messageFilterSelect = document.getElementById('messageFilterSelect');
+        const bulkDispatchButton = document.getElementById('bulkDispatchButton');
 
         if (!recentTable || !recentTableBody) {
             return;
@@ -902,6 +916,7 @@
 
         function applyRecentCutsSearch() {
             const query = (recentCutsSearchInput?.value || '').trim().toLowerCase();
+            const messageFilter = messageFilterSelect?.value || '';
             const terms = query.split(/\s+/).filter(Boolean);
             const rows = Array.from(recentTableBody.querySelectorAll('tr[data-item-id]'));
             let visibleCount = 0;
@@ -909,6 +924,12 @@
             let totalQty = 0;
 
             rows.forEach((row) => {
+                const msgInput = row.querySelector('.recent-message-no');
+                if (messageFilter && msgInput && msgInput.value.trim() !== messageFilter) {
+                    row.classList.add('d-none');
+                    return;
+                }
+
                 const haystack = buildSearchText(row);
                 const matches = !terms.length || terms.every((term) => haystack.includes(term));
                 row.classList.toggle('d-none', !matches);
@@ -930,17 +951,51 @@
             }
         }
 
+        function populateMessageDropdown() {
+            if (!messageFilterSelect) return;
+            const messages = new Set();
+            recentTableBody.querySelectorAll('.recent-message-no').forEach(input => {
+                if (input.value.trim()) messages.add(input.value.trim());
+            });
+            const currentValue = messageFilterSelect.value;
+            messageFilterSelect.innerHTML = '<option value="">كل الرسائل</option>';
+            Array.from(messages).sort().forEach(msg => {
+                const option = document.createElement('option');
+                option.value = msg;
+                option.textContent = msg;
+                messageFilterSelect.appendChild(option);
+            });
+            if (messages.has(currentValue)) {
+                messageFilterSelect.value = currentValue;
+            }
+        }
+
+        populateMessageDropdown();
+
         function lookupFactoryCode(factoryName) {
             const normalizedName = (factoryName || '').trim().toLowerCase();
             if (!normalizedName || !factoryList) {
                 return '';
             }
-            const options = Array.from(factoryList.options);
+            const options = Array.from(factoryList.querySelectorAll('option'));
             const option = options.find((item) => item.value.trim().toLowerCase() === normalizedName);
             if (!option) {
                 return '';
             }
             return (option.dataset.code || option.textContent || '').trim();
+        }
+
+        function lookupFactoryName(factoryCode) {
+            const normalizedCode = (factoryCode || '').trim().toLowerCase();
+            if (!normalizedCode || !factoryList) {
+                return '';
+            }
+            const options = Array.from(factoryList.querySelectorAll('option'));
+            const option = options.find((item) => {
+                const optionCode = (item.dataset.code || item.textContent || '').trim().toLowerCase();
+                return optionCode === normalizedCode;
+            });
+            return option ? option.value.trim() : '';
         }
 
         function isDeliveredStatus(status) {
@@ -968,6 +1023,45 @@
             }
         }
 
+        function formatArabicDateTime(dateStr) {
+            if (!dateStr) return '';
+            try {
+                const normalized = dateStr.replace(' ', 'T');
+                const date = new Date(normalized);
+                if (isNaN(date.getTime())) return dateStr;
+                return date.toLocaleString('ar-EG', {
+                    year: 'numeric',
+                    month: 'numeric',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                });
+            } catch (e) {
+                return dateStr;
+            }
+        }
+
+        function updatePriceTooltip(row) {
+            if (!row) return;
+            const updatedAt = row.dataset.priceUpdatedAt;
+            const codeInput = row.querySelector('.recent-code');
+            const nameInput = row.querySelector('.recent-name');
+            const priceInput = row.querySelector('.recent-manufacturing-price');
+            
+            if (updatedAt) {
+                const formatted = formatArabicDateTime(updatedAt);
+                const titleText = `تاريخ آخر تعديل لسعر الصنف: ${formatted}`;
+                
+                if (codeInput) codeInput.title = titleText;
+                if (nameInput) nameInput.title = titleText;
+                if (priceInput) priceInput.title = titleText;
+            } else {
+                if (codeInput) codeInput.removeAttribute('title');
+                if (nameInput) nameInput.removeAttribute('title');
+                if (priceInput) priceInput.removeAttribute('title');
+            }
+        }
 
         function normalizeDateValue(text) {
             if (window.OperationDateUtils) {
@@ -1049,9 +1143,7 @@
                 }
 
                 reloadPage(
-                    isDeliveredStatus(result.item.status)
-                        ? `تم حفظ السطر ${itemId} ونقله إلى حسابات المصنعين.`
-                        : `تم حفظ السطر ${itemId} داخل السجل العام.`,
+                    `تم حفظ السطر ${itemId} داخل السجل العام.`,
                     'success'
                 );
             } catch (error) {
@@ -1105,6 +1197,47 @@
             });
         });
 
+        messageFilterSelect?.addEventListener('change', applyRecentCutsSearch);
+
+        bulkDispatchButton?.addEventListener('click', async () => {
+            if (!confirm('هل أنت متأكد من ترحيل جميع القصات المكتملة الظاهرة أمامك؟')) return;
+            
+            bulkDispatchButton.disabled = true;
+            const initialHtml = bulkDispatchButton.innerHTML;
+            bulkDispatchButton.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            
+            try {
+                const rows = Array.from(recentTableBody.querySelectorAll('tr[data-item-id]:not(.d-none)'));
+                const dispatchRows = rows
+                    .map((row) => ({
+                        id: row.dataset.itemId,
+                        factory_code: row.querySelector('.recent-factory-code')?.value.trim().toUpperCase() || '',
+                        factory_name: row.querySelector('.recent-factory-name')?.value.trim() || '',
+                        manufacturing_price: row.querySelector('.recent-manufacturing-price')?.value.trim() || '',
+                        dispatch_date: normalizeDateValue(row.querySelector('.recent-dispatch-date')?.value.trim() || '')
+                    }))
+                    .filter((item) => item.id && item.factory_code && item.dispatch_date);
+
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+                const response = await fetch('/manufacturing/api/cut-items/bulk-dispatch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({ rows: dispatchRows })
+                });
+                const result = await response.json();
+                if (!response.ok || !result.ok) throw new Error(result.message || 'تعذر الترحيل');
+                
+                reloadPage(`تم ترحيل ${result.updated} قصة بنجاح.`, 'success');
+            } catch (error) {
+                showMessage(error.message, 'danger');
+                bulkDispatchButton.disabled = false;
+                bulkDispatchButton.innerHTML = initialHtml;
+            }
+        });
+
         const printRecentBatchesButton = document.getElementById('printRecentBatchesButton');
         printRecentBatchesButton?.addEventListener('click', () => {
             const printWin = window.open('', '_blank');
@@ -1151,36 +1284,55 @@
                 target.value = target.value.toUpperCase();
             }
             if (target.classList.contains('recent-factory-code')) {
-                target.value = target.value.toUpperCase();
                 const row = target.closest('tr');
                 const nameInput = row?.querySelector('.recent-factory-name');
-                const lookedUpName = findFactoryNameByCode(target.value);
-                if (nameInput && lookedUpName) {
+                const lookedUpName = lookupFactoryName(target.value);
+                if (nameInput && target.value.trim()) {
                     nameInput.value = lookedUpName;
+                } else if (nameInput && !target.value.trim()) {
+                    nameInput.value = '';
                 }
             }
             if (target.classList.contains('recent-factory-name')) {
                 const row = target.closest('tr');
                 const codeInput = row?.querySelector('.recent-factory-code');
                 const lookedUpCode = lookupFactoryCode(target.value);
-                if (codeInput && lookedUpCode) {
-                    codeInput.value = lookedUpCode.toUpperCase();
+                if (codeInput && target.value.trim()) {
+                    codeInput.value = lookedUpCode;
+                } else if (codeInput && !target.value.trim()) {
+                    codeInput.value = '';
                 }
             }
             if (target.classList.contains('recent-factory-code') || target.classList.contains('recent-factory-name') || target.classList.contains('recent-code')) {
                 const row = target.closest('tr');
                 const code = row?.querySelector('.recent-code')?.value.trim().toUpperCase() || '';
                 const factoryCode = row?.querySelector('.recent-factory-code')?.value.trim().toUpperCase() || '';
+                const factoryNameInput = row?.querySelector('.recent-factory-name');
                 const priceInput = row?.querySelector('.recent-manufacturing-price');
-                if (row && code && factoryCode && priceInput && !priceInput.value.trim()) {
+                const needsFactoryName = factoryNameInput && (target.classList.contains('recent-factory-code') || !factoryNameInput.value.trim());
+                const needsPrice = priceInput && !priceInput.value.trim();
+                if (row && code && factoryCode) {
                     fetch(`/manufacturing/api/prices/lookup?factory_code=${encodeURIComponent(factoryCode)}&product_code=${encodeURIComponent(code)}`)
                         .then((response) => response.json())
                         .then((payload) => {
-                            if (payload.found && payload.item && priceInput && !priceInput.value.trim()) {
-                                priceInput.value = payload.item.price_per_dozen ?? '';
+                            if (payload.found && payload.item) {
+                                if (needsPrice && priceInput) {
+                                    priceInput.value = payload.item.price_per_dozen ?? '';
+                                }
+                                if (needsFactoryName && factoryNameInput && payload.item.factory_name) {
+                                    factoryNameInput.value = payload.item.factory_name;
+                                }
+                                row.dataset.priceUpdatedAt = payload.item.updated_at || '';
+                                updatePriceTooltip(row);
+                            } else {
+                                delete row.dataset.priceUpdatedAt;
+                                updatePriceTooltip(row);
                             }
                         })
                         .catch(() => {});
+                } else if (row) {
+                    delete row.dataset.priceUpdatedAt;
+                    updatePriceTooltip(row);
                 }
             }
             if (target.classList.contains('recent-dispatch-date')) {
@@ -1265,6 +1417,7 @@
         Array.from(recentTableBody.querySelectorAll('tr[data-item-id]')).forEach((row) => {
             setRecentRowEditable(row, false);
             updateRecentStatus(row, row.querySelector('.recent-status')?.textContent.trim() || '');
+            updatePriceTooltip(row);
         });
         applyRecentCutsSearch();
 

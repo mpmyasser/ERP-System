@@ -45,12 +45,11 @@ Professional Print Styles for HR System
     /* 3. Page Definitions */
     @page {
         margin: 10mm;
-        size: auto; /* Allow auto choice but usually A4 */
+        size: A4 portrait;
     }
 
-    /* Force landscape via class */
-    .print-landscape {
-        @page { size: A4 landscape; }
+    @page:landscape {
+        size: A4 landscape;
     }
 
     /* 4. Formatting Fixes */
@@ -58,13 +57,15 @@ Professional Print Styles for HR System
         width: 100% !important;
         border-collapse: collapse !important;
         margin-bottom: 1em !important;
-        font-size: 9pt !important; /* Smaller text for printing tables */
+        font-size: 9pt !important;
+        table-layout: auto !important;
     }
 
     th, td {
         border: 1px solid #333 !important;
-        padding: 4px 6px !important;
+        padding: 2px 2px !important;
         word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
     }
 
     th {

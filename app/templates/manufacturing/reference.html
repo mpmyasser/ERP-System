@@ -34,31 +34,44 @@
 </script>
 <div class="row g-3">
     <!-- Entry Card -->
-    <div class="col-lg-4">
+    <div class="col-lg-5">
         <div class="card shadow-sm border-0 h-100" id="referenceEntryCard" data-foldable="true">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
-                    <div class="text-muted small">إضافة صنف جديد</div>
-                    <h5 class="mb-0">بيانات الصنف</h5>
+                    <div class="text-muted small">إضافة عدة أصناف دفعة واحدة</div>
+                    <h5 class="mb-0">حقول الأصناف</h5>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <input type="number" id="referenceRowsCount" class="form-control form-control-sm" min="1" max="50" value="3" style="width: 76px;" aria-label="عدد الصفوف">
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="generateReferenceRowsBtn">
+                        <i class="fas fa-layer-group me-1"></i> توليد
+                    </button>
                 </div>
             </div>
             <div class="card-body">
-                <div class="row g-2 mb-3" data-enter-scope>
-                    <div class="col-12">
-                        <label class="form-label small fw-bold">الكود</label>
-                        <input type="text" id="refCode" class="form-control form-control-sm input-code" placeholder="الكود">
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label small fw-bold">اسم الصنف</label>
-                        <input type="text" id="refName" class="form-control form-control-sm input-name" placeholder="اسم الصنف">
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label small fw-bold">المقاس</label>
-                        <input type="text" id="refSize" class="form-control form-control-sm input-size" placeholder="المقاس">
-                    </div>
-                    <div class="col-12 mt-3">
-                        <button class="btn btn-success btn-sm w-100" id="addReferenceBtn" title="إضافة صنف">
-                            <i class="fas fa-plus me-1"></i> إضافة لقاعدة البيانات
+                <div class="table-responsive mb-3" data-enter-scope>
+                    <table class="table table-sm align-middle mb-0" style="min-width: 520px;">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 28%;">الكود</th>
+                                <th>اسم الصنف</th>
+                                <th style="width: 24%;">المقاس</th>
+                                <th style="width: 48px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="referenceBatchBody"></tbody>
+                    </table>
+                </div>
+                <div class="d-flex gap-2 mb-3">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="appendReferenceRowBtn">
+                        <i class="fas fa-plus me-1"></i> صف جديد
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm" id="clearReferenceRowsBtn">
+                        <i class="fas fa-eraser me-1"></i> مسح
+                    </button>
+                    <div class="ms-auto">
+                        <button class="btn btn-success btn-sm" id="addReferenceBtn" title="حفظ الأصناف">
+                            <i class="fas fa-save me-1"></i> حفظ الدفعة
                         </button>
                     </div>
                 </div>
@@ -68,7 +81,7 @@
     </div>
 
     <!-- Data Card -->
-    <div class="col-lg-8">
+    <div class="col-lg-7">
         <div class="card shadow-sm border-0 h-100" id="referenceDataCard" data-foldable="true">
             <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-3">
                 <div>
@@ -86,10 +99,63 @@
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="importReferenceBtn">
                         <i class="fas fa-file-import me-1"></i> استيراد
                     </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm" id="showRefPurgePanelButton" title="للأدمن فقط">
+                        <i class="fas fa-trash-alt me-1"></i> حذف الأصناف
+                    </button>
                 </div>
             </div>
 
             <div class="card-body p-0">
+                <div class="danger-zone d-none m-3" id="refPurgeWarningPanel" data-enter-scope>
+                    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                        <div>
+                            <div class="fw-bold text-danger mb-1">تحذير شديد جدًا</div>
+                            <div class="small text-danger-emphasis">
+                                هذه العملية ستحذف كل الأصناف المرجعية نهائيًا ولن يمكن التراجع عنها.
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-light btn-sm" id="cancelRefPurgePanelTop">إغلاق</button>
+                    </div>
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-danger small mb-1">كلمة سر الأدمن</label>
+                            <input type="password" id="adminRefPurgePassword" class="form-control form-control-sm" autocomplete="current-password" placeholder="كلمة السر">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-danger small mb-1">جملة التأكيد</label>
+                            <input type="text" id="adminRefPurgeConfirm" class="form-control form-control-sm" placeholder="احذف جميع الأصناف المرجعية">
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end gap-2">
+                            <button type="button" class="btn btn-danger btn-sm" id="confirmRefPurgeButton">حذف نهائي للأصناف</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="cancelRefPurgeButton">إلغاء</button>
+                        </div>
+                    </div>
+                    <div class="alert alert-danger d-none mt-2 small" id="refPurgeMessage" role="alert"></div>
+                </div>
+
+                <!-- عناصر التحكم في الصفحات (Pagination) في الأعلى -->
+                <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom bg-light flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="small text-muted" style="font-size: 0.85rem;">عدد العناصر في الصفحة:</span>
+                        <select id="pageSizeSelect" class="form-select form-select-sm" style="width: 110px; font-size: 0.85rem;">
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100" selected>100</option>
+                            <option value="200">200</option>
+                            <option value="500">500</option>
+                        </select>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-outline-primary btn-sm px-2 py-0" id="prevPageBtn" disabled style="font-size: 0.85rem; line-height: 1.5;">
+                            <i class="fas fa-chevron-right me-1" style="font-size: 0.75rem;"></i> السابق
+                        </button>
+                        <span id="pageInfo" class="small fw-bold mx-2" style="font-size: 0.85rem;">الصفحة 1 من 1</span>
+                        <button type="button" class="btn btn-outline-primary btn-sm px-2 py-0" id="nextPageBtn" disabled style="font-size: 0.85rem; line-height: 1.5;">
+                            التالي <i class="fas fa-chevron-left ms-1" style="font-size: 0.75rem;"></i>
+                        </button>
+                    </div>
+                </div>
+
                 <div class="table-responsive reference-table-wrapper" style="max-height: 85vh; overflow:auto;">
                     <table class="table table-striped table-hover table-sm mb-0" id="referenceTable">
                         <thead class="table-secondary sticky-top">
@@ -111,19 +177,52 @@
         </div>
     </div>
 </div>
+<div id="refPurgeConfig" data-phrase="{{ config['REFERENCE_PURGE_CONFIRM_PHRASE'] }}" style="display:none;"></div>
 
 
 <script>
     const referenceBody = document.getElementById('referenceBody');
-    const refCode = document.getElementById('refCode');
-    const refName = document.getElementById('refName');
-    const refSize = document.getElementById('refSize');
+    const referenceBatchBody = document.getElementById('referenceBatchBody');
+    const referenceRowsCount = document.getElementById('referenceRowsCount');
+    const generateReferenceRowsBtn = document.getElementById('generateReferenceRowsBtn');
+    const appendReferenceRowBtn = document.getElementById('appendReferenceRowBtn');
+    const clearReferenceRowsBtn = document.getElementById('clearReferenceRowsBtn');
     const referenceExcel = document.getElementById('referenceExcel');
+
+    // متغيرات وعناصر التصفح (Pagination)
+    let currentPage = 1;
+    let pageSize = 100;
+    let totalItems = 0;
+    const pageSizeSelect = document.getElementById('pageSizeSelect');
+    const prevPageBtn = document.getElementById('prevPageBtn');
+    const nextPageBtn = document.getElementById('nextPageBtn');
+    const pageInfo = document.getElementById('pageInfo');
     const importReferenceBtn = document.getElementById('importReferenceBtn');
     const addReferenceBtn = document.getElementById('addReferenceBtn');
     const inlineMessage = document.getElementById('inlineMessage');
     const referenceSearchInput = document.getElementById('referenceSearchInput');
     const referenceSearchClearBtn = document.getElementById('referenceSearchClearBtn');
+    const showRefPurgePanelButton = document.getElementById('showRefPurgePanelButton');
+    const refPurgeWarningPanel = document.getElementById('refPurgeWarningPanel');
+    const adminRefPurgePassword = document.getElementById('adminRefPurgePassword');
+    const adminRefPurgeConfirm = document.getElementById('adminRefPurgeConfirm');
+    const confirmRefPurgeButton = document.getElementById('confirmRefPurgeButton');
+    const cancelRefPurgeButton = document.getElementById('cancelRefPurgeButton');
+    const cancelRefPurgePanelTop = document.getElementById('cancelRefPurgePanelTop');
+    const refPurgeConfig = document.getElementById('refPurgeConfig');
+    const refPurgeConfirmPhrase = refPurgeConfig ? refPurgeConfig.dataset.phrase : '';
+    const refPurgeMessageEl = document.getElementById('refPurgeMessage');
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+    async function parseJsonResponse(response) {
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+            return response.json();
+        }
+
+        await response.text();
+        throw new Error(`استجابة غير متوقعة من السيرفر (${response.status}). حدّث الصفحة ثم حاول مرة أخرى.`);
+    }
 
     function showInlineMessage(message, type) {
         inlineMessage.className = `alert alert-${type} d-flex align-items-center small`;
@@ -134,6 +233,104 @@
     function clearInlineMessage() {
         inlineMessage.className = 'alert d-flex align-items-center small d-none';
         inlineMessage.textContent = '';
+    }
+
+    function showRefPurgeMessage(message, type) {
+        if (!refPurgeMessageEl) return;
+        refPurgeMessageEl.className = `alert alert-${type} mt-2 small`;
+        refPurgeMessageEl.textContent = message;
+        refPurgeMessageEl.classList.remove('d-none');
+    }
+
+    function clearRefPurgeMessage() {
+        if (!refPurgeMessageEl) return;
+        refPurgeMessageEl.className = 'alert alert-danger d-none mt-2 small';
+        refPurgeMessageEl.textContent = '';
+    }
+
+    function createBatchRow() {
+        const row = document.createElement('tr');
+        row.className = 'reference-batch-row';
+        row.innerHTML = `
+            <td>
+                <input type="text" class="form-control form-control-sm input-code batch-code" placeholder="الكود">
+            </td>
+            <td>
+                <input type="text" class="form-control form-control-sm input-name batch-name" placeholder="اسم الصنف">
+            </td>
+            <td>
+                <input type="text" class="form-control form-control-sm input-size batch-size" placeholder="المقاس">
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-sm btn-outline-danger remove-batch-row" title="حذف الصف">
+                    <i class="fas fa-times"></i>
+                </button>
+            </td>
+        `;
+        return row;
+    }
+
+    function addBatchRows(count = 1, focusFirst = false) {
+        const safeCount = Math.min(Math.max(parseInt(count, 10) || 1, 1), 50);
+        let firstNewInput = null;
+        for (let index = 0; index < safeCount; index += 1) {
+            const row = createBatchRow();
+            referenceBatchBody.appendChild(row);
+            if (!firstNewInput) {
+                firstNewInput = row.querySelector('.batch-code');
+            }
+        }
+        if (focusFirst) {
+            firstNewInput?.focus();
+        }
+    }
+
+    function resetBatchRows(count = 3) {
+        referenceBatchBody.innerHTML = '';
+        addBatchRows(count, true);
+    }
+
+    function clearBatchRow(row) {
+        row?.querySelectorAll('input').forEach((input) => {
+            input.value = '';
+        });
+        row?.querySelector('.batch-code')?.focus();
+    }
+
+    function collectBatchItems() {
+        const rows = Array.from(referenceBatchBody.querySelectorAll('.reference-batch-row'));
+        const items = [];
+        const seenCodes = new Set();
+
+        for (const row of rows) {
+            const codeInput = row.querySelector('.batch-code');
+            const nameInput = row.querySelector('.batch-name');
+            const sizeInput = row.querySelector('.batch-size');
+            const code = (codeInput?.value || '').trim().toUpperCase();
+            const name = (nameInput?.value || '').trim();
+            const size = (sizeInput?.value || '').trim();
+            const hasAnyValue = Boolean(code || name || size);
+
+            if (!hasAnyValue) {
+                continue;
+            }
+
+            if (!code || !name || !size) {
+                row.classList.add('table-danger');
+                throw new Error('كل صف مكتوب فيه بيانات يجب أن يحتوي على الكود والاسم والمقاس.');
+            }
+
+            if (seenCodes.has(code)) {
+                row.classList.add('table-danger');
+                throw new Error(`الكود ${code} مكرر داخل الدفعة.`);
+            }
+
+            row.classList.remove('table-danger');
+            seenCodes.add(code);
+            items.push({ code, name, size });
+        }
+
+        return items;
     }
 
     function setRowEditing(row, editable) {
@@ -187,24 +384,12 @@
             `).join('');
 
         Array.from(referenceBody.querySelectorAll('tr[data-code]')).forEach((row) => setRowEditing(row, false));
-        applyReferenceSearch();
     }
 
     function applyReferenceSearch() {
-        const query = (referenceSearchInput?.value || '').trim().toLowerCase();
-        const rows = Array.from(referenceBody.querySelectorAll('tr[data-code]'));
-        
-        rows.forEach(row => {
-            const code = row.querySelector('.row-code')?.value.toLowerCase() || '';
-            const name = row.querySelector('.row-name')?.value.toLowerCase() || '';
-            const size = row.querySelector('.row-size')?.value.toLowerCase() || '';
-            
-            const match = code.includes(query) || name.includes(query) || size.includes(query);
-            row.classList.toggle('d-none', !match);
-        });
+        currentPage = 1;
+        refreshReferences();
     }
-
-    referenceSearchInput?.addEventListener('input', applyReferenceSearch);
     referenceSearchInput?.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -223,43 +408,93 @@
 
     async function refreshReferences() {
         try {
-            const res = await fetch('/manufacturing/api/reference-list');
-            const data = await res.json();
+            const offset = (currentPage - 1) * pageSize;
+            const searchVal = (referenceSearchInput?.value || '').trim();
+            const res = await fetch(`/manufacturing/api/reference-list?limit=${pageSize}&offset=${offset}&search=${encodeURIComponent(searchVal)}`);
+            const data = await parseJsonResponse(res);
+            totalItems = data.total || 0;
             renderRows(data.items || []);
+            updatePaginationControls();
         } catch (error) {
             referenceBody.innerHTML = '<tr><td colspan="4" class="text-center text-danger p-4">تعذر تحميل البيانات.</td></tr>';
         }
     }
 
+    function updatePaginationControls() {
+        const totalPages = Math.ceil(totalItems / pageSize) || 1;
+        if (currentPage > totalPages) {
+            currentPage = totalPages;
+        }
+
+        if (prevPageBtn) prevPageBtn.disabled = (currentPage === 1);
+        if (nextPageBtn) nextPageBtn.disabled = (currentPage === totalPages);
+
+        if (pageInfo) {
+            pageInfo.textContent = `الصفحة ${currentPage} من ${totalPages} (الإجمالي: ${totalItems} صنف)`;
+        }
+    }
+
+    // ربط أحداث التصفح (Pagination Events)
+    pageSizeSelect?.addEventListener('change', (e) => {
+        pageSize = parseInt(e.target.value) || 100;
+        currentPage = 1;
+        refreshReferences();
+    });
+
+    prevPageBtn?.addEventListener('click', () => {
+        if (currentPage > 1) {
+            currentPage--;
+            refreshReferences();
+        }
+    });
+
+    nextPageBtn?.addEventListener('click', () => {
+        const totalPages = Math.ceil(totalItems / pageSize) || 1;
+        if (currentPage < totalPages) {
+            currentPage++;
+            refreshReferences();
+        }
+    });
+
     async function addReference() {
-        const payload = {
-            code: refCode.value.trim().toUpperCase(),
-            name: refName.value.trim(),
-            size: refSize.value.trim(),
-        };
-        if (!payload.code || !payload.name || !payload.size) {
-            showInlineMessage('املأ الكود والاسم والمقاس قبل الإضافة.', 'warning');
+        let items = [];
+        try {
+            Array.from(referenceBatchBody.querySelectorAll('.reference-batch-row')).forEach((row) => {
+                row.classList.remove('table-danger');
+            });
+            items = collectBatchItems();
+        } catch (error) {
+            showInlineMessage(error.message, 'warning');
             return;
         }
+
+        if (!items.length) {
+            showInlineMessage('اكتب بيانات صنف واحد على الأقل قبل الحفظ.', 'warning');
+            return;
+        }
+
+        addReferenceBtn.disabled = true;
+        const initialHtml = addReferenceBtn.innerHTML;
+        addReferenceBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> جاري الحفظ';
 
         try {
             const res = await fetch('/manufacturing/api/reference/add', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload),
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+                body: JSON.stringify({items}),
             });
-            const data = await res.json();
+            const data = await parseJsonResponse(res);
             if (!res.ok || !data.ok) {
-                throw new Error(data.message || 'تعذر إضافة الصنف.');
+                throw new Error(data.message || 'تعذر حفظ الأصناف.');
             }
-            refCode.value = '';
-            refName.value = '';
-            refSize.value = '';
-            refCode.focus();
-            showInlineMessage('تمت إضافة الصنف في المرجع.', 'success');
+            resetBatchRows(3);
+            showInlineMessage(`تم حفظ ${data.inserted || items.length} صنف في المرجع.`, 'success');
             refreshReferences();
         } catch (error) {
             showInlineMessage(error.message, 'danger');
+        } finally {
+            addReferenceBtn.disabled = false;
+            addReferenceBtn.innerHTML = initialHtml;
         }
     }
 
@@ -280,10 +515,10 @@
         try {
             const res = await fetch('/manufacturing/api/reference/add', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
                 body: JSON.stringify(payload),
             });
-            const data = await res.json();
+            const data = await parseJsonResponse(res);
             if (!res.ok || !data.ok) {
                 throw new Error(data.message || 'تعذر حفظ التعديل.');
             }
@@ -309,18 +544,15 @@
         try {
             const res = await fetch('/manufacturing/api/reference/delete', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
                 body: JSON.stringify({code}),
             });
-            const data = await res.json();
+            const data = await parseJsonResponse(res);
             if (!res.ok || !data.ok) {
                 throw new Error(data.message || 'تعذر حذف الصنف.');
             }
-            row.remove();
             showInlineMessage(`تم حذف الصنف ${code}.`, 'success');
-            if (!referenceBody.querySelector('tr[data-code]')) {
-                referenceBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted p-4">لا توجد بيانات محفوظة حتى الآن.</td></tr>';
-            }
+            refreshReferences();
         } catch (error) {
             showInlineMessage(error.message, 'danger');
         }
@@ -331,8 +563,66 @@
         await addReference();
     });
 
-    refCode.addEventListener('input', () => {
-        refCode.value = refCode.value.toUpperCase();
+    generateReferenceRowsBtn?.addEventListener('click', () => {
+        resetBatchRows(referenceRowsCount?.value || 1);
+        clearInlineMessage();
+    });
+
+    appendReferenceRowBtn?.addEventListener('click', () => {
+        addBatchRows(1, true);
+        clearInlineMessage();
+    });
+
+    clearReferenceRowsBtn?.addEventListener('click', () => {
+        resetBatchRows(referenceRowsCount?.value || 3);
+        clearInlineMessage();
+    });
+
+    referenceBatchBody.addEventListener('input', (event) => {
+        const codeInput = event.target.closest('.batch-code');
+        if (codeInput) {
+            codeInput.value = codeInput.value.toUpperCase();
+        }
+        event.target.closest('.reference-batch-row')?.classList.remove('table-danger');
+    });
+
+    referenceBatchBody.addEventListener('click', (event) => {
+        const removeButton = event.target.closest('.remove-batch-row');
+        if (!removeButton) {
+            return;
+        }
+        const row = removeButton.closest('.reference-batch-row');
+        const rowsCount = referenceBatchBody.querySelectorAll('.reference-batch-row').length;
+        if (rowsCount <= 1) {
+            clearBatchRow(row);
+        } else {
+            row?.remove();
+        }
+        clearInlineMessage();
+    });
+
+    referenceBatchBody.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') {
+            return;
+        }
+        const input = event.target.closest('input');
+        if (!input) {
+            return;
+        }
+        event.preventDefault();
+        const row = input.closest('.reference-batch-row');
+        if (input.classList.contains('batch-code')) {
+            row?.querySelector('.batch-name')?.focus();
+        } else if (input.classList.contains('batch-name')) {
+            row?.querySelector('.batch-size')?.focus();
+        } else {
+            const nextRow = row?.nextElementSibling;
+            if (nextRow) {
+                nextRow.querySelector('.batch-code')?.focus();
+            } else {
+                addBatchRows(1, true);
+            }
+        }
     });
 
     referenceBody.addEventListener('click', async (event) => {
@@ -369,9 +659,10 @@
         try {
             const res = await fetch('/manufacturing/api/reference/import', {
                 method: 'POST',
+                headers: {'X-CSRFToken': csrfToken},
                 body: formData,
             });
-            const data = await res.json();
+            const data = await parseJsonResponse(res);
             if (!res.ok || !data.ok) {
                 throw new Error(data.message || 'تعذر استيراد ملف Excel.');
             }
@@ -384,6 +675,74 @@
         }
     });
 
+    function toggleRefPurgePanel(show) {
+        if (!refPurgeWarningPanel) return;
+        refPurgeWarningPanel.classList.toggle('d-none', !show);
+        clearRefPurgeMessage();
+        if (show) {
+            adminRefPurgePassword?.focus();
+        } else {
+            if (adminRefPurgePassword) adminRefPurgePassword.value = '';
+            if (adminRefPurgeConfirm) adminRefPurgeConfirm.value = '';
+        }
+    }
+
+    async function purgeAllReferences() {
+        const adminPassword = adminRefPurgePassword?.value.trim() || '';
+        const confirmation = adminRefPurgeConfirm?.value.trim() || '';
+
+        if (!adminPassword) {
+            showRefPurgeMessage('اكتب كلمة سر الأدمن أولًا.', 'warning');
+            adminRefPurgePassword?.focus();
+            return;
+        }
+        if (!confirmation) {
+            showRefPurgeMessage(`اكتب جملة التأكيد: ${refPurgeConfirmPhrase}`, 'warning');
+            adminRefPurgeConfirm?.focus();
+            return;
+        }
+        if (!confirm('تحذير نهائي: سيتم حذف كل الأصناف المرجعية نهائيًا. هل أنت متأكد تمامًا؟')) {
+            return;
+        }
+
+        confirmRefPurgeButton.disabled = true;
+        const initialHtml = confirmRefPurgeButton.innerHTML;
+        confirmRefPurgeButton.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        try {
+            const response = await fetch('/manufacturing/api/admin/purge-reference', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({
+                    admin_password: adminPassword,
+                    confirmation
+                })
+            });
+            const payload = await parseJsonResponse(response);
+            if (!response.ok || !payload.ok) {
+                throw new Error(payload.message || 'تعذر حذف الأصناف المرجعية.');
+            }
+
+            alert(payload.message || 'تم حذف الأصناف المرجعية بنجاح.');
+            toggleRefPurgePanel(false);
+            refreshReferences();
+        } catch (error) {
+            showRefPurgeMessage(error.message, 'danger');
+        } finally {
+            confirmRefPurgeButton.disabled = false;
+            confirmRefPurgeButton.innerHTML = initialHtml;
+        }
+    }
+
+    showRefPurgePanelButton?.addEventListener('click', () => {
+        toggleRefPurgePanel(true);
+        clearInlineMessage();
+    });
+    cancelRefPurgeButton?.addEventListener('click', () => toggleRefPurgePanel(false));
+    cancelRefPurgePanelTop?.addEventListener('click', () => toggleRefPurgePanel(false));
+    confirmRefPurgeButton?.addEventListener('click', purgeAllReferences);
+
+    resetBatchRows(3);
     refreshReferences();
     clearInlineMessage();
 </script>

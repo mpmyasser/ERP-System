@@ -266,8 +266,35 @@
     <script src="{{ url_for('static', filename='manufacturing/tables_manager.js') }}"></script>
     <script src="{{ url_for('static', filename='js/enter_navigation.js') }}"></script>
     <script src="{{ url_for('static', filename='js/delete_handler.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/filter_persistence.js') }}"></script>
 
     <script>
+        // Global Fetch Interceptor for CSRF Token
+        (function() {
+            const originalFetch = window.fetch;
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+            if (csrfToken) {
+                window.fetch = function() {
+                    let [resource, config] = arguments;
+                    if (config && config.method) {
+                        const method = config.method.toUpperCase();
+                        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+                            config.headers = config.headers || {};
+                            if (config.headers instanceof Headers) {
+                                if (!config.headers.has('X-CSRFToken')) {
+                                    config.headers.append('X-CSRFToken', csrfToken);
+                                }
+                            } else {
+                                config.headers['X-CSRFToken'] = csrfToken;
+                            }
+                            arguments[1] = config;
+                        }
+                    }
+                    return originalFetch.apply(this, arguments);
+                };
+            }
+        })();
+
         // Restored Manufacturing-Specific Date Utils
         window.OperationDateUtils = (() => {
             const currentYear = new Date().getFullYear();

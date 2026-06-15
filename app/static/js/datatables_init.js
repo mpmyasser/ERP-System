@@ -253,13 +253,13 @@ const defaultDataTableConfig = {
                     const marginTop = settings.marginTop !== undefined ? settings.marginTop : 1;
                     const marginBottom = settings.marginBottom !== undefined ? settings.marginBottom : 1;
                     const orientation = settings.orientation || 'portrait';
-                    
+
                     $printBody.css({ 'direction': 'rtl', 'padding': '15px', 'background-color': '#fff' });
-                    
-                    const pageStyle = `@page { 
-                        size: ${orientation}; 
-                        margin-top: ${marginTop}cm; 
-                        margin-bottom: ${marginBottom}cm; 
+
+                    const pageStyle = `@page {
+                        size: A4 ${orientation};
+                        margin-top: ${marginTop}cm;
+                        margin-bottom: ${marginBottom}cm;
                     }`;
                     $(win.document.head).append(`<style>${pageStyle} .print-footer-wrapper { position: fixed; bottom: 0; }</style>`);
 

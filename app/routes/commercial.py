@@ -109,8 +109,9 @@ def sync_products():
     """مزامنة المنتجات من حركة التشغيل إلى النظام المالي/التجاري"""
     import sqlite3
     import os
-    
-    op_db_path = r'e:\backoup\25-2-2026\حركة التشغيل\data\operation.db'
+    from app.routes import operation_storage as mfg_storage
+
+    op_db_path = str(mfg_storage.DB_PATH)
     if not os.path.exists(op_db_path):
         flash('قاعدة بيانات حركة التشغيل غير موجودة.', 'danger')
         return redirect(request.referrer or url_for('commercial.sales_dashboard'))

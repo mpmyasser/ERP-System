@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}قائمة الموظفين{% endblock %}
+{% block title %}قائمة الموظفين (معاينة الفلتر الجديد){% endblock %}
 
 {% block extra_js %}
 {% endblock %}
@@ -8,22 +8,78 @@
 {% block content %}
 
 <style>
+    /* توحيد أحجام الحقول والجداول لهذه الصفحة */
+    .filter-control {
+        min-width: 140px;
+    }
+
+    .filter-control-wide {
+        min-width: 200px;
+    }
+
     #employees-table th {
         vertical-align: middle;
         font-size: 0.9rem;
     }
-    #employees-table th.col-code   { min-width: 90px; }
-    #employees-table th.col-name   { min-width: 200px; }
-    #employees-table th.col-job    { min-width: 150px; }
-    #employees-table th.col-dept   { min-width: 150px; }
-    #employees-table th.col-date   { min-width: 140px; }
-    #employees-table th.col-salary { min-width: 140px; }
-    #employees-table th.col-actions{ min-width: 120px; }
+
+    #employees-table th.col-code {
+        min-width: 90px;
+    }
+
+    #employees-table th.col-name {
+        min-width: 200px;
+    }
+
+    #employees-table th.col-job {
+        min-width: 150px;
+    }
+
+    #employees-table th.col-dept {
+        min-width: 150px;
+    }
+
+    #employees-table th.col-date {
+        min-width: 140px;
+    }
+
+    #employees-table th.col-salary {
+        min-width: 140px;
+    }
+
+    #employees-table th.col-actions {
+        min-width: 120px;
+    }
+
+    /* Force high z-index and overflow for the filter card and dropdowns in this preview */
+    .custom-filter-card {
+        position: relative !important;
+        z-index: 2000 !important;
+        overflow: visible !important;
+    }
+    
+    .custom-checklist-dropdown .dropdown-menu {
+        position: absolute !important;
+        bottom: 100% !important;
+        top: auto !important;
+        right: 0 !important;
+        left: auto !important;
+        margin-bottom: 4px !important;
+        margin-top: 0 !important;
+        z-index: 2100 !important;
+        display: none;
+    }
+    
+    .custom-checklist-dropdown .dropdown-menu.show {
+        display: block !important;
+    }
 </style>
 
-<!-- Page Header -->
+<div class="alert alert-info py-2" role="alert">
+    <strong><i class="fas fa-info-circle"></i> وضع المعاينة:</strong> هذا الملف يعرض التصميم المحدث لشريط فلاتر البحث للمعاينة والتقييم قبل دمجه في الملف الأساسي.
+</div>
+
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2"><i class="fas fa-users me-2" aria-hidden="true"></i> قائمة الموظفين</h1>
+    <h1 class="h2"><i class="fas fa-users me-2" aria-hidden="true"></i> قائمة الموظفين (معاينة الفلتر)</h1>
     <div class="btn-toolbar mb-2 mb-md-0">
         <a href="{{ url_for('employees.create') }}" class="btn btn-primary">
             <i class="fas fa-plus" aria-hidden="true"></i> إضافة موظف فردي
@@ -40,8 +96,7 @@
     </div>
 </div>
 
-<!-- Export / Import toolbar -->
-<div class="d-flex justify-content-end flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+<div class="d-flex justify-content-end flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <div class="btn-toolbar mb-2 mb-md-0">
         <a href="{{ url_for('employees.export_excel', search=search, department_ids=selected_departments, dept_filter_mode=dept_filter_mode, status=status_filter, job_title=selected_job_title, date_from=hire_date_from, date_to=hire_date_to) }}"
             class="btn btn-warning me-2">
@@ -59,7 +114,8 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">استيراد موظفين من Excel</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" title="إغلاق"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
+                    title="إغلاق"></button>
             </div>
             <form action="{{ url_for('employees.import_excel') }}" method="post" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
@@ -86,7 +142,7 @@
     </div>
 </div>
 
-<!-- ===== Unified Filter Bar (New Design) ===== -->
+<!-- Unified Filter Bar Redesigned -->
 <div class="card custom-filter-card mb-4" id="unified-filter-bar">
     <div class="card-header card-header-navy">
         <h5 class="mb-0">
@@ -94,11 +150,10 @@
         </h5>
     </div>
     <div class="card-body">
-        <form method="get" action="{{ url_for('employees.list') }}" class="d-flex flex-column gap-2">
+        <form method="get" action="{{ url_for('employees.preview_filter') }}" class="d-flex flex-column gap-3">
             <!-- Row 1: 5 fields -->
-            <div class="row g-2 row-cols-1 row-cols-sm-2 row-cols-md-5">
-
-                <!-- من تاريخ التعيين -->
+            <div class="row g-3 row-cols-1 row-cols-sm-2 row-cols-md-5">
+                <!-- Field 1: من تاريخ التعيين -->
                 <div>
                     <label class="filter-label">من تاريخ التعيين</label>
                     <div class="filter-input-wrapper">
@@ -108,8 +163,7 @@
                             value="{{ hire_date_from or '' }}" aria-label="من تاريخ التعيين">
                     </div>
                 </div>
-
-                <!-- إلى تاريخ التعيين -->
+                <!-- Field 2: إلى تاريخ التعيين -->
                 <div>
                     <label class="filter-label">إلى تاريخ التعيين</label>
                     <div class="filter-input-wrapper">
@@ -119,8 +173,7 @@
                             value="{{ hire_date_to or '' }}" aria-label="إلى تاريخ التعيين">
                     </div>
                 </div>
-
-                <!-- الوظيفة (Checklist Dropdown) -->
+                <!-- Field 3: الوظيفة (Checklist Dropdown) -->
                 <div>
                     <label class="filter-label">الوظيفة</label>
                     <div class="filter-input-wrapper select-wrapper dropdown custom-checklist-dropdown">
@@ -128,14 +181,12 @@
                         <button class="filter-dropdown-btn" type="button" id="jobsDropdown" aria-expanded="false">
                             <span class="selected-items-text text-muted">الوظيفة</span>
                         </button>
-                        <div class="dropdown-menu p-3 shadow text-end" aria-labelledby="jobsDropdown"
-                            style="min-width: 250px; max-height: 280px; overflow-y: auto;">
+                        <div class="dropdown-menu p-3 shadow text-end" aria-labelledby="jobsDropdown" style="min-width: 250px; max-height: 280px; overflow-y: auto;">
                             <div class="d-flex flex-column gap-2 checklist-items">
                                 {% for title in job_titles %}
                                 <div class="form-check">
-                                    <input class="form-check-input job-checkbox" type="checkbox"
-                                        name="job_title" value="{{ title }}" id="job-{{ loop.index }}"
-                                        {% if title in selected_job_title %}checked{% endif %}>
+                                    <input class="form-check-input job-checkbox" type="checkbox" name="job_title" value="{{ title }}" id="job-{{ loop.index }}"
+                                        {% if title in selected_job_title or title|string in selected_job_title %}checked{% endif %}>
                                     <label class="form-check-label w-100 text-start" for="job-{{ loop.index }}">
                                         {{ title }}
                                     </label>
@@ -150,8 +201,7 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- يعمل / لا يعمل -->
+                <!-- Field 4: يعمل / لا يعمل -->
                 <div>
                     <label class="filter-label">يعمل / لا يعمل</label>
                     <div class="filter-input-wrapper select-wrapper">
@@ -163,8 +213,7 @@
                         </select>
                     </div>
                 </div>
-
-                <!-- بحث عام -->
+                <!-- Field 5: بحث عام -->
                 <div>
                     <label class="filter-label">بحث عام</label>
                     <div class="filter-input-wrapper">
@@ -174,8 +223,8 @@
                 </div>
             </div>
 
-            <!-- Row 2: Departments & Buttons -->
-            <div class="row g-2 align-items-end">
+            <!-- Row 2: Departments & Buttons (Checklist Dropdown) -->
+            <div class="row g-3 align-items-end">
                 <div class="col-md-9 col-sm-12">
                     <label class="filter-label">الأقسام</label>
                     <div class="filter-input-wrapper select-wrapper dropdown custom-checklist-dropdown">
@@ -183,13 +232,11 @@
                         <button class="filter-dropdown-btn" type="button" id="deptsDropdown" aria-expanded="false">
                             <span class="selected-items-text text-muted">الأقسام</span>
                         </button>
-                        <div class="dropdown-menu p-3 shadow text-end" aria-labelledby="deptsDropdown"
-                            style="min-width: 280px; max-height: 280px; overflow-y: auto;">
+                        <div class="dropdown-menu p-3 shadow text-end" aria-labelledby="deptsDropdown" style="min-width: 280px; max-height: 280px; overflow-y: auto;">
                             <div class="d-flex flex-column gap-2 checklist-items">
                                 {% for dept in departments %}
                                 <div class="form-check">
-                                    <input class="form-check-input dept-checkbox" type="checkbox"
-                                        name="department_ids" value="{{ dept.id }}" id="dept-{{ dept.id }}"
+                                    <input class="form-check-input dept-checkbox" type="checkbox" name="department_ids" value="{{ dept.id }}" id="dept-{{ dept.id }}"
                                         {% if dept.id|string in selected_departments or dept.id in selected_departments|map('int')|list %}checked{% endif %}>
                                     <label class="form-check-label w-100 text-start" for="dept-{{ dept.id }}">
                                         {{ dept.name }}
@@ -210,7 +257,7 @@
                         <button class="btn btn-search-purple flex-grow-1" type="submit">
                             <i class="fas fa-search"></i> بحث
                         </button>
-                        <a href="{{ url_for('employees.list') }}" class="btn btn-reset-outline flex-grow-1">
+                        <a href="{{ url_for('employees.preview_filter') }}" class="btn btn-reset-outline flex-grow-1">
                             <i class="fas fa-undo"></i> إعادة تعيين
                         </a>
                     </div>
@@ -245,9 +292,9 @@
     </div>
 </div>
 
-<!-- Employees Table -->
+<!-- Table -->
 <div class="card shadow-sm">
-    <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="fas fa-users me-2"></i>قائمة الموظفين</h5>
     </div>
     <div class="card-body">
@@ -255,18 +302,18 @@
             <table class="table table-hover table-bordered align-middle datatable" id="employees-table">
                 <thead class="table-light">
                     <tr class="text-center">
-                        <th class="col-code"    data-min-width="90">الكود</th>
-                        <th class="col-name"    data-min-width="200">الاسم</th>
-                        <th class="col-job"     data-min-width="150">الوظيفة</th>
-                        <th class="col-dept"    data-min-width="150">القسم</th>
-                        <th class="col-date"    data-min-width="140">تاريخ التعيين</th>
-                        <th                     data-min-width="90">التأمين</th>
-                        <th class="col-salary"  data-min-width="140">الراتب</th>
-                        <th                     data-min-width="120">حافز الانتظام</th>
-                        <th                     data-min-width="120">عدد ساعات العمل</th>
-                        <th                     data-min-width="80">إضافي</th>
-                        <th class="col-date"    data-min-width="140">تاريخ آخر تعديل</th>
-                        <th                     data-min-width="110">يعمل / لا يعمل</th>
+                        <th class="col-code" data-min-width="90">الكود</th>
+                        <th class="col-name" data-min-width="200">الاسم</th>
+                        <th class="col-job" data-min-width="150">الوظيفة</th>
+                        <th class="col-dept" data-min-width="150">القسم</th>
+                        <th class="col-date" data-min-width="140">تاريخ التعيين</th>
+                        <th data-min-width="90">التأمين</th>
+                        <th class="col-salary" data-min-width="140">الراتب</th>
+                        <th data-min-width="120">حافز الانتظام</th>
+                        <th data-min-width="120">عدد ساعات العمل</th>
+                        <th data-min-width="80">إضافي</th>
+                        <th class="col-date" data-min-width="140">تاريخ آخر تعديل</th>
+                        <th data-min-width="110">يعمل / لا يعمل</th>
                         <th class="no-sort col-actions all" data-priority="1" data-min-width="120">الإجراءات</th>
                     </tr>
                 </thead>
@@ -285,7 +332,8 @@
                             <span class="badge bg-light text-muted">غير مؤمن</span>
                             {% endif %}
                         </td>
-                        <td><strong>{{ emp.effective_salary if emp.effective_salary is not none else emp.basic_salary }} جنيه</strong></td>
+                        <td><strong>{{ emp.effective_salary if emp.effective_salary is not none else emp.basic_salary }}
+                                جنيه</strong></td>
                         <td>{{ emp.regularity_incentive or 0 }} جنيه</td>
                         <td>{{ emp.daily_work_hours or 8 }} ساعة</td>
                         <td>
@@ -308,10 +356,12 @@
                             {% endif %}
                         </td>
                         <td>
-                            <a href="{{ url_for('employees.view', id=emp.id) }}" class="btn btn-sm btn-info" title="عرض">
+                            <a href="{{ url_for('employees.view', id=emp.id) }}" class="btn btn-sm btn-info"
+                                title="عرض">
                                 <i class="fas fa-eye"></i>
                             </a>
-                            <a href="{{ url_for('employees.edit', id=emp.id) }}" class="btn btn-sm btn-warning" title="تعديل">
+                            <a href="{{ url_for('employees.edit', id=emp.id) }}" class="btn btn-sm btn-warning"
+                                title="تعديل">
                                 <i class="fas fa-edit"></i>
                             </a>
                             <button class="btn btn-sm btn-danger delete-record-btn" data-module="employees"
@@ -327,109 +377,148 @@
     </div>
 </div>
 
-<!-- Filter JS -->
+<!-- Department Filter Submit Script -->
 <script>
     function applyFilters() {
+        // Collect current selections from checkboxes
         const selectedDepts = Array.from(document.querySelectorAll('.dept-checkbox:checked')).map(cb => cb.value);
-        const selectedJobs  = Array.from(document.querySelectorAll('.job-checkbox:checked')).map(cb => cb.value);
-        const statusFilter  = document.getElementById('status-filter')?.value;
-        const dateFrom      = document.getElementById('date-from')?.value;
-        const dateTo        = document.getElementById('date-to')?.value;
-        const searchVal     = document.getElementById('search')?.value;
+        const selectedJobs = Array.from(document.querySelectorAll('.job-checkbox:checked')).map(cb => cb.value);
+        const statusFilter = document.getElementById('status-filter')?.value;
+        const dateFrom = document.getElementById('date-from')?.value;
+        const dateTo = document.getElementById('date-to')?.value;
+        const searchVal = document.getElementById('search')?.value;
 
-        let url = '{{ url_for("employees.list") }}';
+        // Build URL
+        let url = '{{ url_for("employees.preview_filter") }}';
         const params = new URLSearchParams();
 
+        // Add all selected departments
         selectedDepts.forEach(dept => params.append('department_ids', dept));
-        selectedJobs.forEach(job  => params.append('job_title', job));
+        // Add all selected job titles
+        selectedJobs.forEach(job => params.append('job_title', job));
+
+        // Add filters
         if (statusFilter) params.append('status', statusFilter);
-        if (dateFrom)     params.append('date_from', dateFrom);
-        if (dateTo)       params.append('date_to', dateTo);
-        if (searchVal)    params.append('search', searchVal);
+        if (dateFrom) params.append('date_from', dateFrom);
+        if (dateTo) params.append('date_to', dateTo);
+        if (searchVal) params.append('search', searchVal);
 
         const currentParams = new URLSearchParams(window.location.search);
-        params.sort(); currentParams.sort();
+
+        // Loop Protection: Don't redirect if params haven't changed
+        params.sort();
+        currentParams.sort();
         if (params.toString() === currentParams.toString()) return;
 
-        if (params.toString()) url += '?' + params.toString();
+        if (params.toString()) {
+            url += '?' + params.toString();
+        }
+
         window.location.href = url;
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-
-        // Instant triggers
-        ['status-filter', 'date-from', 'date-to'].forEach(id => {
+        // Triggers for instant updates
+        const triggers = ['status-filter', 'date-from', 'date-to'];
+        triggers.forEach(id => {
             const el = document.getElementById(id);
-            if (el) el.addEventListener('change', applyFilters);
+            if (el) {
+                el.addEventListener('change', applyFilters);
+            }
         });
 
-        // Search on Enter
+        // Search: Add Enter key listener
         const searchEl = document.getElementById('search');
         if (searchEl) {
             searchEl.addEventListener('keypress', function (e) {
-                if (e.key === 'Enter') { e.preventDefault(); applyFilters(); }
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    applyFilters();
+                }
             });
         }
-
-        // Update dropdown button display text
-        function updateDropdownText(btnId, checkboxClass, placeholder) {
-            const btn = document.getElementById(btnId);
+        
+        // Function to update dropdown button display text dynamically
+        function updateDropdownText(dropdownBtnId, checkboxClass, placeholder) {
+            const btn = document.getElementById(dropdownBtnId);
             if (!btn) return;
-            const span = btn.querySelector('.selected-items-text');
-            if (!span) return;
-            const checked = Array.from(document.querySelectorAll('.' + checkboxClass + ':checked'));
-            if (checked.length === 0) {
-                span.textContent = placeholder;
-                span.classList.add('text-muted');
+            const textSpan = btn.querySelector('.selected-items-text');
+            if (!textSpan) return;
+            
+            const checkedBoxes = Array.from(document.querySelectorAll('.' + checkboxClass + ':checked'));
+            if (checkedBoxes.length === 0) {
+                textSpan.textContent = placeholder;
+                textSpan.classList.add('text-muted');
             } else {
-                const names = checked.map(cb => {
-                    const lbl = document.querySelector(`label[for="${cb.id}"]`);
-                    return lbl ? lbl.textContent.trim() : '';
+                const names = checkedBoxes.map(cb => {
+                    const label = document.querySelector(`label[for="${cb.id}"]`);
+                    return label ? label.textContent.trim() : '';
                 }).filter(Boolean);
-                span.textContent = names.join('، ');
-                span.classList.remove('text-muted');
+                textSpan.textContent = names.join('، ');
+                textSpan.classList.remove('text-muted');
             }
         }
 
+        // Initialize displayed text on load
         updateDropdownText('deptsDropdown', 'dept-checkbox', 'الأقسام');
-        updateDropdownText('jobsDropdown',  'job-checkbox',  'الوظيفة');
+        updateDropdownText('jobsDropdown', 'job-checkbox', 'الوظيفة');
 
-        document.querySelectorAll('.dept-checkbox').forEach(cb =>
-            cb.addEventListener('change', () => updateDropdownText('deptsDropdown', 'dept-checkbox', 'الأقسام')));
-        document.querySelectorAll('.job-checkbox').forEach(cb =>
-            cb.addEventListener('change', () => updateDropdownText('jobsDropdown',  'job-checkbox',  'الوظيفة')));
+        // Add checkbox change event listeners
+        document.querySelectorAll('.dept-checkbox').forEach(cb => {
+            cb.addEventListener('change', () => updateDropdownText('deptsDropdown', 'dept-checkbox', 'الأقسام'));
+        });
+        document.querySelectorAll('.job-checkbox').forEach(cb => {
+            cb.addEventListener('change', () => updateDropdownText('jobsDropdown', 'job-checkbox', 'الوظيفة'));
+        });
 
-        // Manual dropdown toggle
+        // Manual dropdown toggle logic to avoid conflicts with Bootstrap/JQuery
         document.querySelectorAll('.custom-checklist-dropdown').forEach(dropdown => {
-            const btn  = dropdown.querySelector('.filter-dropdown-btn');
+            const btn = dropdown.querySelector('.filter-dropdown-btn');
             const menu = dropdown.querySelector('.dropdown-menu');
+
             if (!btn || !menu) return;
 
+            // Open/Close dropdown on button click
             btn.addEventListener('click', function (e) {
                 e.stopPropagation();
-                document.querySelectorAll('.custom-checklist-dropdown .dropdown-menu.show').forEach(m => {
-                    if (m !== menu) {
-                        m.classList.remove('show');
-                        m.previousElementSibling?.setAttribute('aria-expanded', 'false');
+                // Close other custom dropdowns first
+                document.querySelectorAll('.custom-checklist-dropdown .dropdown-menu.show').forEach(openMenu => {
+                    if (openMenu !== menu) {
+                        openMenu.classList.remove('show');
+                        const otherBtn = openMenu.previousElementSibling;
+                        if (otherBtn) otherBtn.setAttribute('aria-expanded', 'false');
                     }
                 });
+                
                 const isOpen = menu.classList.contains('show');
-                menu.classList.toggle('show', !isOpen);
-                btn.setAttribute('aria-expanded', String(!isOpen));
+                if (isOpen) {
+                    menu.classList.remove('show');
+                    btn.setAttribute('aria-expanded', 'false');
+                } else {
+                    menu.classList.add('show');
+                    btn.setAttribute('aria-expanded', 'true');
+                }
             });
 
+            // Prevent closing when clicking inside the dropdown menu (except apply button)
             menu.addEventListener('click', function (e) {
-                const isApply = e.target.classList.contains('apply-dropdown-btn') || e.target.closest('.apply-dropdown-btn');
-                if (!isApply) { e.stopPropagation(); }
-                else { menu.classList.remove('show'); btn.setAttribute('aria-expanded', 'false'); }
+                const isApplyBtn = e.target.classList.contains('apply-dropdown-btn') || 
+                                   e.target.closest('.apply-dropdown-btn');
+                if (!isApplyBtn) {
+                    e.stopPropagation();
+                } else {
+                    menu.classList.remove('show');
+                    btn.setAttribute('aria-expanded', 'false');
+                }
             });
         });
 
-        // Close dropdowns on outside click
+        // Close all dropdowns when clicking outside
         document.addEventListener('click', function () {
-            document.querySelectorAll('.custom-checklist-dropdown .dropdown-menu.show').forEach(m => {
-                m.classList.remove('show');
-                m.previousElementSibling?.setAttribute('aria-expanded', 'false');
+            document.querySelectorAll('.custom-checklist-dropdown .dropdown-menu.show').forEach(openMenu => {
+                openMenu.classList.remove('show');
+                const btn = openMenu.previousElementSibling;
+                if (btn) btn.setAttribute('aria-expanded', 'false');
             });
         });
 
@@ -437,19 +526,18 @@
         document.querySelectorAll('.clear-all-btn').forEach(btn => {
             btn.addEventListener('click', function (e) {
                 e.stopPropagation();
-                const t = this.dataset.target;
-                document.querySelectorAll('.' + t + '-checkbox').forEach(cb => cb.checked = false);
-                updateDropdownText(
-                    t === 'dept' ? 'deptsDropdown' : 'jobsDropdown',
-                    t + '-checkbox',
-                    t === 'dept' ? 'الأقسام' : 'الوظيفة'
-                );
+                const target = this.dataset.target;
+                document.querySelectorAll('.' + target + '-checkbox').forEach(cb => cb.checked = false);
+                updateDropdownText(target === 'dept' ? 'deptsDropdown' : 'jobsDropdown', target + '-checkbox', target === 'dept' ? 'الأقسام' : 'الوظيفة');
             });
         });
 
-        // Apply dropdown buttons
+        // Apply dropdown selection buttons
         document.querySelectorAll('.apply-dropdown-btn').forEach(btn => {
-            btn.addEventListener('click', function (e) { e.stopPropagation(); applyFilters(); });
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                applyFilters();
+            });
         });
     });
 </script>
@@ -457,14 +545,30 @@
 <!-- Print CSS -->
 <style>
     @media print {
-        .btn-toolbar, form, .d-flex.justify-content-between, .row.mb-3:first-child {
+
+        .btn-toolbar,
+        form,
+        .d-flex.justify-content-between,
+        .row.mb-3:first-child {
             display: none !important;
         }
-        .table-responsive { overflow: visible; }
-        @page { size: A4; margin: 10mm; }
-        body { font-size: 12pt; }
-        .table { page-break-inside: avoid; }
+
+        .table-responsive {
+            overflow: visible;
+        }
+
+        @page {
+            size: A4;
+            margin: 10mm;
+        }
+
+        body {
+            font-size: 12pt;
+        }
+
+        .table {
+            page-break-inside: avoid;
+        }
     }
 </style>
-
 {% endblock %}

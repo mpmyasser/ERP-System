@@ -135,6 +135,7 @@
                         <button type="button" class="btn btn-outline-secondary" id="cancelPricePurgeButton">إلغاء</button>
                     </div>
                 </div>
+                <div class="alert alert-danger d-none mt-2 small" id="pricePurgeMessage" role="alert"></div>
             </div>
 
             <div class="d-flex justify-content-end mb-2">
@@ -216,6 +217,20 @@
     const pricingProductNames = document.getElementById('pricingProductNames');
     const pricePurgeConfig = document.getElementById('pricePurgeConfig');
     const pricePurgeConfirmPhrase = pricePurgeConfig ? pricePurgeConfig.dataset.phrase : '';
+    const pricePurgeMessage = document.getElementById('pricePurgeMessage');
+
+    function showPurgeMessage(message, type) {
+        if (!pricePurgeMessage) return;
+        pricePurgeMessage.className = `alert alert-${type} mt-2 small`;
+        pricePurgeMessage.textContent = message;
+        pricePurgeMessage.classList.remove('d-none');
+    }
+
+    function clearPurgeMessage() {
+        if (!pricePurgeMessage) return;
+        pricePurgeMessage.className = 'alert alert-danger d-none mt-2 small';
+        pricePurgeMessage.textContent = '';
+    }
 
     function showInlineMessage(message, type) {
         inlineMessage.className = `alert alert-${type} d-flex align-items-center small`;
@@ -287,6 +302,7 @@
             return;
         }
         pricePurgeWarningPanel.classList.toggle('d-none', !show);
+        clearPurgeMessage();
         if (show) {
             adminPricePurgePassword?.focus();
         } else {
@@ -304,12 +320,12 @@
         const confirmation = adminPricePurgeConfirm?.value.trim() || '';
 
         if (!adminPassword) {
-            showInlineMessage('اكتب كلمة سر الأدمن أولًا.', 'warning');
+            showPurgeMessage('اكتب كلمة سر الأدمن أولًا.', 'warning');
             adminPricePurgePassword?.focus();
             return;
         }
-        if (confirmation !== pricePurgeConfirmPhrase) {
-            showInlineMessage(`اكتب جملة التأكيد كما هي: ${pricePurgeConfirmPhrase}`, 'warning');
+        if (!confirmation) {
+            showPurgeMessage(`اكتب جملة التأكيد: ${pricePurgeConfirmPhrase}`, 'warning');
             adminPricePurgeConfirm?.focus();
             return;
         }
@@ -335,11 +351,11 @@
                 throw new Error(payload.message || 'تعذر حذف أسعار المرجع.');
             }
 
-            showInlineMessage(payload.message || 'تم حذف أسعار المرجع بنجاح.', 'success');
+            alert(payload.message || 'تم حذف أسعار المرجع بنجاح.');
             togglePricePurgePanel(false);
             refreshPrices();
         } catch (error) {
-            showInlineMessage(error.message, 'danger');
+            showPurgeMessage(error.message, 'danger');
         } finally {
             confirmPricePurgeButton.disabled = false;
             confirmPricePurgeButton.innerHTML = initialHtml;
@@ -385,7 +401,7 @@
 
     async function refreshPrices() {
         try {
-            const response = await fetch('/manufacturing/api/prices/list');
+            const response = await fetch('/manufacturing/api/prices/list?limit=5000');
             const payload = await response.json();
             renderRows(payload.items || []);
             applyPriceSearch();

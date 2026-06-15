@@ -4,39 +4,39 @@ from app.routes.auth import permission_required
 import os
 import uuid
 
-# FACTORY_DIR needed for admin password file path only
-FACTORY_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-    'حركة التشغيل'
-)
-
-# Import via local IDE-friendly wrapper (app/routes/operation_storage.py)
+# Integrated manufacturing storage (independent from حركة التشغيل folder)
 import app.routes.operation_storage as storage
+
+MFG_DATA_DIR = os.path.dirname(str(storage.DB_PATH))
 
 import hmac
 import unicodedata
 
 PURGE_CONFIRM_PHRASE = "احذف جميع بيانات القص"
+PRICE_PURGE_CONFIRM_PHRASE = "احذف جميع أسعار المصنعين"
+REFERENCE_PURGE_CONFIRM_PHRASE = "احذف جميع الأصناف المرجعية"
 
 def _normalize_confirmation_text(value: str) -> str:
-    normalized = unicodedata.normalize("NFKC", (value or ""))
-    return " ".join(normalized.split())
+    if not value:
+        return ""
+    normalized = unicodedata.normalize("NFKC", value)
+    # Remove tashkeel/diacritics
+    tashkeel = ["َ", "ً", "ُ", "ٌ", "ِ", "ٍ", "ْ", "ّ"]
+    for t in tashkeel:
+        normalized = normalized.replace(t, "")
+    # Unify Alef, Teh Marbuta, Yeh
+    normalized = normalized.replace("أ", "ا").replace("إ", "ا").replace("آ", "ا")
+    normalized = normalized.replace("ة", "ه")
+    normalized = normalized.replace("ى", "ي")
+    return " ".join(normalized.split()).strip()
 
 manufacturing_bp = Blueprint('manufacturing', __name__)
 
 def _get_admin_password():
-    # Check inside 'data' directory first (where operation_app stores it)
-    path_data = os.path.join(FACTORY_DIR, 'data', 'operation_admin_password.txt')
+    path_data = os.path.join(MFG_DATA_DIR, 'operation_admin_password.txt')
     if os.path.exists(path_data):
         with open(path_data, 'r', encoding='utf-8') as f:
             return f.read().strip()
-            
-    # Fallback to direct factory dir
-    path_direct = os.path.join(FACTORY_DIR, 'operation_admin_password.txt')
-    if os.path.exists(path_direct):
-        with open(path_direct, 'r', encoding='utf-8') as f:
-            return f.read().strip()
-            
     return "admin123"
 
 @manufacturing_bp.route('/')
@@ -49,14 +49,18 @@ def index():
         recent_batches=storage.get_recent_batches(limit=100),
         recent_cut_items=storage.get_recent_cut_items(limit=300, delivered=False),
         dashboard_totals=storage.get_dashboard_totals(pending_only=True),
-        factories=storage.list_factories(),
+        factories=storage.list_factories(limit=5000),
         config={'PURGE_CONFIRM_PHRASE': PURGE_CONFIRM_PHRASE},
     )
 
 @manufacturing_bp.route('/reference')
 @permission_required('mfg_items_reference')
 def reference_page():
-    return render_template("manufacturing/reference.html", current_time=datetime.now())
+    return render_template(
+        "manufacturing/reference.html",
+        current_time=datetime.now(),
+        config={'REFERENCE_PURGE_CONFIRM_PHRASE': REFERENCE_PURGE_CONFIRM_PHRASE}
+    )
 
 @manufacturing_bp.route('/factories')
 @permission_required('mfg_manufacturers')
@@ -71,6 +75,7 @@ def pricing_page():
         current_time=datetime.now(),
         factories=storage.list_factories(),
         products=storage.get_reference_items(limit=500),
+        config={'PRICE_PURGE_CONFIRM_PHRASE': PRICE_PURGE_CONFIRM_PHRASE}
     )
 
 @manufacturing_bp.route('/factory-payments')
@@ -146,15 +151,48 @@ def print_accounting_statement(accounting_id):
 @manufacturing_bp.route('/api/reference-list')
 @permission_required('mfg_items_reference')
 def api_reference_list():
-    return jsonify({"items": storage.get_reference_items()})
+    limit = min(max(request.args.get('limit', 100, type=int), 1), 1000)
+    offset = max(request.args.get('offset', 0, type=int), 0)
+    search = request.args.get('search', '').strip()
+    items = storage.get_reference_items(limit=limit, offset=offset, search=search)
+    total = storage.count_reference_items(search=search)
+    return jsonify({"items": items, "total": total, "limit": limit, "offset": offset, "search": search})
 
 @manufacturing_bp.route('/api/reference/add', methods=['POST'])
 @permission_required('mfg_items_reference')
 def api_reference_add():
     payload = request.get_json() or {}
     try:
-        storage.add_reference_item(payload.get("code"), payload.get("name"), payload.get("size"))
-        return jsonify({"ok": True})
+        raw_items = payload.get("items")
+        if raw_items is None:
+            raw_items = [payload]
+        if not isinstance(raw_items, list):
+            return jsonify({"ok": False, "message": "صيغة بيانات الأصناف غير صحيحة."}), 400
+
+        rows = []
+        seen_codes = set()
+        for item in raw_items:
+            if not isinstance(item, dict):
+                return jsonify({"ok": False, "message": "كل صنف يجب أن يكون في صف بيانات صحيح."}), 400
+
+            code = str(item.get("code") or "").strip().upper()
+            name = str(item.get("name") or "").strip()
+            size = str(item.get("size") or "").strip()
+            if not any([code, name, size]):
+                continue
+            if not all([code, name, size]):
+                return jsonify({"ok": False, "message": "الكود والاسم والمقاس مطلوبة لكل صنف."}), 400
+            if code in seen_codes:
+                return jsonify({"ok": False, "message": f"الكود {code} مكرر داخل الدفعة."}), 400
+
+            seen_codes.add(code)
+            rows.append({"code": code, "name": name, "size": size})
+
+        if not rows:
+            return jsonify({"ok": False, "message": "لا توجد أصناف صالحة للحفظ."}), 400
+
+        inserted = storage.add_reference_items(rows)
+        return jsonify({"ok": True, "inserted": inserted, "count": len(rows)})
     except Exception as e:
         return jsonify({"ok": False, "message": str(e)}), 400
 
@@ -217,7 +255,7 @@ def api_factories_import():
 @manufacturing_bp.route('/api/prices/list')
 @permission_required('mfg_manufacturing_prices')
 def api_prices_list():
-    limit = min(max(request.args.get("limit", 300, type=int) or 300, 1), 1000)
+    limit = min(max(request.args.get("limit", 300, type=int) or 300, 1), 5000)
     offset = max(request.args.get("offset", 0, type=int) or 0, 0)
     search = request.args.get("q", "").strip()
     factory_name = request.args.get("factory", "").strip()
@@ -473,6 +511,32 @@ def api_cut_items_update():
         return jsonify({"ok": False, "message": "حدث خطأ غير متوقع: " + str(exc)}), 500
     return jsonify({"ok": True, "item": updated_item})
 
+@manufacturing_bp.route('/api/cut-items/bulk-dispatch', methods=['POST'])
+def api_cut_items_bulk_dispatch():
+    try:
+        payload = request.get_json(silent=True) or {}
+        rows = payload.get("rows", [])
+        if isinstance(rows, list):
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                item_id = row.get("id")
+                factory_code = str(row.get("factory_code") or "").strip()
+                dispatch_date = str(row.get("dispatch_date") or "").strip()
+                if not item_id or not factory_code or not dispatch_date:
+                    continue
+                storage.update_cut_item_dispatch(
+                    item_id=item_id,
+                    factory_code=factory_code,
+                    factory_name=row.get("factory_name"),
+                    dispatch_date=dispatch_date,
+                    manufacturing_price=row.get("manufacturing_price"),
+                )
+        updated_count = storage.bulk_dispatch_cut_items()
+        return jsonify({"ok": True, "updated": updated_count})
+    except Exception as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 400
+
 @manufacturing_bp.route('/api/admin/purge-cuts', methods=['POST'])
 def admin_purge_cuts():
     payload = request.get_json(silent=True) or {}
@@ -500,6 +564,62 @@ def admin_purge_cuts():
                 f"تم حذف {deleted['deleted_items']} صنف و"
                 f" {deleted['deleted_batches']} بيان قص نهائيًا."
             ),
+        }
+    )
+
+@manufacturing_bp.route('/api/admin/purge-prices', methods=['POST'])
+@permission_required('mfg_manufacturing_prices')
+def admin_purge_prices():
+    payload = request.get_json(silent=True) or {}
+    admin_password = str(payload.get("admin_password") or "").strip()
+    confirmation = _normalize_confirmation_text(payload.get("confirmation") or "")
+
+    if not admin_password:
+        return jsonify({"ok": False, "message": "اكتب كلمة سر الأدمن أولًا."}), 400
+    if confirmation != _normalize_confirmation_text(PRICE_PURGE_CONFIRM_PHRASE):
+        return jsonify(
+            {
+                "ok": False,
+                "message": f"اكتب جملة التأكيد كما هي: {PRICE_PURGE_CONFIRM_PHRASE}",
+            }
+        ), 400
+    if not hmac.compare_digest(admin_password, _get_admin_password()):
+        return jsonify({"ok": False, "message": "كلمة سر الأدمن غير صحيحة."}), 403
+
+    deleted = storage.purge_factory_prices()
+    return jsonify(
+        {
+            "ok": True,
+            "deleted": deleted,
+            "message": f"تم حذف {deleted['deleted_prices']} سعر من سجل الأسعار نهائيًا.",
+        }
+    )
+
+@manufacturing_bp.route('/api/admin/purge-reference', methods=['POST'])
+@permission_required('mfg_items_reference')
+def admin_purge_reference():
+    payload = request.get_json(silent=True) or {}
+    admin_password = str(payload.get("admin_password") or "").strip()
+    confirmation = _normalize_confirmation_text(payload.get("confirmation") or "")
+
+    if not admin_password:
+        return jsonify({"ok": False, "message": "اكتب كلمة سر الأدمن أولًا."}), 400
+    if confirmation != _normalize_confirmation_text(REFERENCE_PURGE_CONFIRM_PHRASE):
+        return jsonify(
+            {
+                "ok": False,
+                "message": f"اكتب جملة التأكيد كما هي: {REFERENCE_PURGE_CONFIRM_PHRASE}",
+            }
+        ), 400
+    if not hmac.compare_digest(admin_password, _get_admin_password()):
+        return jsonify({"ok": False, "message": "كلمة سر الأدمن غير صحيحة."}), 403
+
+    deleted = storage.purge_reference_items()
+    return jsonify(
+        {
+            "ok": True,
+            "deleted": deleted,
+            "message": f"تم حذف {deleted['deleted_products']} صنف من مرجع الأصناف نهائيًا.",
         }
     )
 
@@ -576,7 +696,8 @@ def api_factories_balance():
 
 @manufacturing_bp.route('/api/factories/list')
 def api_factories_list():
-    return jsonify({"items": storage.list_factories()})
+    limit = min(max(request.args.get("limit", 5000, type=int) or 5000, 1), 10000)
+    return jsonify({"items": storage.list_factories(limit=limit)})
 
 @manufacturing_bp.route('/api/settings', methods=['GET', 'POST'])
 def handle_settings():

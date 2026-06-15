@@ -77,6 +77,20 @@ const FILTER_CONFIG = {
             'dept-filter': 'department_ids',
             'dept-filter-mode': 'dept_filter_mode'
         }
+    },
+    'manufacturing': {
+        storageKey: 'manufacturing_filters',
+        elements: {
+            'messageFilterSelect': 'message_no_filter',
+            'recentCutsSearchInput': 'search'
+        }
+    },
+    'manufacturing_pricing': {
+        storageKey: 'manufacturing_pricing_filters',
+        elements: {
+            'factoryFilter': 'factory_id',
+            'priceSearchInput': 'search'
+        }
     }
 };
 
@@ -127,6 +141,12 @@ function getCurrentPage() {
     // Handle treasury sub-modules
     if (pathParts[0] === 'treasury' && pathParts.length > 1) {
         return pathParts[1];
+    }
+
+    // Handle manufacturing sub-modules
+    if (pathParts[0] === 'manufacturing') {
+        if (pathParts.length === 1) return 'manufacturing';
+        return 'manufacturing_' + pathParts[1];
     }
 
     return pathParts[0];
@@ -233,17 +253,23 @@ function restoreFilters() {
                     // Single select: restore single value
                     element.value = value;
                 }
+                // Dispatch change event to trigger page listeners
+                element.dispatchEvent(new Event('change', { bubbles: true }));
             } else if (element.tagName === 'INPUT') {
                 if (element.type === 'checkbox') {
                     element.checked = value === true || value === 'true';
+                    element.dispatchEvent(new Event('change', { bubbles: true }));
                 } else if (element.type === 'radio') {
                     const radio = document.querySelector(`input[name="${element.name}"][value="${value}"]`);
                     if (radio) {
                         radio.checked = true;
+                        radio.dispatchEvent(new Event('change', { bubbles: true }));
                     }
                 } else {
                     // Text, date, etc.
                     element.value = value;
+                    element.dispatchEvent(new Event('input', { bubbles: true }));
+                    element.dispatchEvent(new Event('change', { bubbles: true }));
                 }
             }
         }

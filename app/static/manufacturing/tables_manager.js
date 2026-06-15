@@ -63,6 +63,7 @@ window.TablesManager = (() => {
             const tbody = table.querySelector('tbody');
             if (tbody) {
                 const observer = new MutationObserver((mutations) => {
+                    if (table._hrTableManagerSorting) return;
                     let shouldResort = false;
                     for (let m of mutations) {
                         if (m.addedNodes.length > 0 && m.addedNodes[0].tagName === 'TR') {
@@ -80,55 +81,63 @@ window.TablesManager = (() => {
 
     // --- SORTING LOGIC ---
     function applySort(table, colIndex, direction, save = true) {
+        if (table._hrTableManagerSorting) return;
         const tableId = table.id;
         const tbody = table.querySelector('tbody');
         if (!tbody) return;
         const rows = Array.from(tbody.querySelectorAll('tr'));
         if (!rows.length) return; // Nothing to sort yet
 
-        const headers = table.querySelectorAll('thead th');
+        table._hrTableManagerSorting = true;
+        try {
+            const headers = table.querySelectorAll('thead th');
 
-        headers.forEach((th, idx) => {
-            const icon = th.querySelector('.sort-icon');
-            if (icon) {
-                icon.className = 'fas fa-sort ms-1 text-muted sort-icon small';
-                if (idx === colIndex) {
-                    icon.className = `fas fa-sort-${direction === 'asc' ? 'up' : 'down'} ms-1 text-primary sort-icon`;
+            headers.forEach((th, idx) => {
+                const icon = th.querySelector('.sort-icon');
+                if (icon) {
+                    icon.className = 'fas fa-sort ms-1 text-muted sort-icon small';
+                    if (idx === colIndex) {
+                        icon.className = `fas fa-sort-${direction === 'asc' ? 'up' : 'down'} ms-1 text-primary sort-icon`;
+                    }
                 }
-            }
-        });
+            });
 
-        const sortedRows = rows.sort((a, b) => {
-            const getVal = (row) => {
-                const cells = row.querySelectorAll('td');
-                if (!cells || !cells[colIndex]) return '';
-                const cell = cells[colIndex];
-                const input = cell.querySelector('input:not([type="hidden"]), select');
-                return (input ? input.value : cell.innerText).trim().toLowerCase();
-            };
-            const valA = getVal(a); const valB = getVal(b);
-            if (valA === valB) return 0;
-            
-            // Handle dates specifically if they match DD/MM/YYYY
-            const dateRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
-            const matchA = valA.match(dateRegex);
-            const matchB = valB.match(dateRegex);
-            if (matchA && matchB) {
-                const dateA = new Date(matchA[3], matchA[2]-1, matchA[1]).getTime();
-                const dateB = new Date(matchB[3], matchB[2]-1, matchB[1]).getTime();
-                return direction === 'asc' ? dateA - dateB : dateB - dateA;
-            }
+            const sortedRows = rows.sort((a, b) => {
+                const getVal = (row) => {
+                    const cells = row.querySelectorAll('td');
+                    if (!cells || !cells[colIndex]) return '';
+                    const cell = cells[colIndex];
+                    const input = cell.querySelector('input:not([type="hidden"]), select');
+                    return (input ? input.value : cell.innerText).trim().toLowerCase();
+                };
+                const valA = getVal(a); const valB = getVal(b);
+                if (valA === valB) return 0;
+                
+                // Handle dates specifically if they match DD/MM/YYYY
+                const dateRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+                const matchA = valA.match(dateRegex);
+                const matchB = valB.match(dateRegex);
+                if (matchA && matchB) {
+                    const dateA = new Date(matchA[3], matchA[2]-1, matchA[1]).getTime();
+                    const dateB = new Date(matchB[3], matchB[2]-1, matchB[1]).getTime();
+                    return direction === 'asc' ? dateA - dateB : dateB - dateA;
+                }
 
-            const numA = parseFloat(valA); const numB = parseFloat(valB);
-            if (!isNaN(numA) && !isNaN(numB)) {
-                return direction === 'asc' ? numA - numB : numB - numA;
-            }
-            return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-        });
+                const numA = parseFloat(valA); const numB = parseFloat(valB);
+                if (!isNaN(numA) && !isNaN(numB)) {
+                    return direction === 'asc' ? numA - numB : numB - numA;
+                }
+                return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            });
 
-        tbody.innerHTML = '';
-        sortedRows.forEach(row => tbody.appendChild(row));
-        if (save) localStorage.setItem(`sort_${tableId}`, JSON.stringify({ colIndex, direction }));
+            tbody.innerHTML = '';
+            sortedRows.forEach(row => tbody.appendChild(row));
+            if (save) localStorage.setItem(`sort_${tableId}`, JSON.stringify({ colIndex, direction }));
+        } finally {
+            setTimeout(() => {
+                table._hrTableManagerSorting = false;
+            }, 0);
+        }
     }
 
     function getSortState(tableId) {

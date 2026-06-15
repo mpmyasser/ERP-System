@@ -1,22 +1,30 @@
-
 # Offline Installation Guide
 
-This guide explains how to install the project dependencies without an internet connection.
+This project can run on a new Windows machine without internet, but the offline package must include:
 
-## Steps
+- the full project folder, not only `offline_packages`;
+- `install_offline.bat`;
+- `start_hr.bat`;
+- `offline_packages\requirements.txt`;
+- all wheel files in `offline_packages`;
+- `offline_packages\python-3.11.9-amd64.exe`.
 
-1. **Generate the offline installer:**
-   - Run the `create_offline_installer.py` script:
-     ```bash
-     python create_offline_installer.py
-     ```
-   - This will create a directory named `offline_packages` containing all the required packages.
-   - It will also create an installation script named `install_offline.bat`.
+Why Python 3.11.9? The included wheels are built for CPython 3.11 on 64-bit Windows (`cp311-win_amd64`). Python 3.11.9 is the last Python 3.11 release that provides the normal Windows installer.
 
-2. **Transfer the offline installer:**
-   - Copy the `offline_packages` directory and the `install_offline.bat` script to the target machine where you want to install the dependencies.
+## Build the offline package on an online machine
 
-3. **Install the dependencies offline:**
-   - On the target machine, run the `install_offline.bat` script. This will install all the dependencies from the `offline_packages` directory.
+Run:
 
-Now you have a complete offline installer for your project.
+```bat
+python create_offline_installer.py
+```
+
+The script downloads the required wheels and the Python 3.11.9 Windows x64 installer into `offline_packages`.
+
+## Install on the offline machine
+
+1. Copy the whole project folder to the offline machine.
+2. Run `install_offline.bat`.
+3. After it finishes successfully, run `start_hr.bat`.
+
+The installer creates a local `.venv` folder and installs packages from `offline_packages` only. It writes detailed errors to `offline_install.log`.
