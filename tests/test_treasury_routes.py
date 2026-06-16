@@ -1,7 +1,8 @@
 import unittest
 from datetime import datetime
 import sys
-sys.path.insert(0, 'd:\\H.R')
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from flask import Flask
 from core.db_manager import DBManager

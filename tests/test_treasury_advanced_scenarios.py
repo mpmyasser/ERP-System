@@ -1,8 +1,9 @@
 import unittest
 from datetime import datetime, date
 import sys
+import os
 import uuid
-sys.path.insert(0, 'd:\\H.R')
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.db_manager import DBManager
 from core.treasury_models import CashAccount, BankAccount, CashTransfer
