@@ -1,0 +1,36 @@
+# GitPod Configuration - Cloud Development Environment
+# =====================================================
+# يحاكي هذا الإعداد عمل ملف تشغيل_النظام_الموحد.bat
+# لكن في بيئة سحابية (VS Code في المتصفح)
+
+image:
+  file: .gitpod.Dockerfile
+
+# المهام التي تعمل عند فتح بيئة العمل
+tasks:
+  - name: Setup & Run HR System
+    # init: يعمل مرة واحدة عند بناء البيئة (تثبيت المكتبات)
+    init: |
+      echo "[1/2] Installing Python dependencies..."
+      pip install -r requirements.txt
+      echo "[OK] Dependencies installed!"
+    # command: يعمل في كل مرة تفتح فيها البيئة (تشغيل التطبيق)
+    command: |
+      echo "====================================================="
+      echo "Starting HR System on Port 5000..."
+      echo "====================================================="
+      python run.py
+
+# المنافذ التي يتم فتحها
+ports:
+  - port: 5000
+    onOpen: open-preview
+    visibility: public
+    description: HR System (Flask)
+
+# الإضافات الموصى بها لـ VS Code
+vscode:
+  extensions:
+    - ms-python.python
+    - ms-python.vscode-pylance
+    - njpwerner.autodocstring
