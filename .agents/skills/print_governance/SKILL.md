@@ -40,7 +40,54 @@ Any report or document requiring signatures (Receipts, Statements, Vouchers, etc
 9.  **Backend Connectivity Integrity (سلامة الاتصال بالخلفية)**: Core financial functions (especially `get_factory_balance`) are the heart of the system. NEVER remove or modify their imports in `operation_app.py` without verifying that all accounting modules (Summary Bar, Reports, Archives) still function.
 10. **Print Contrast & Formatting (جودة التباين والخطوط)**: All financial values in printed reports MUST be forced to deep black (`#000 !important`). NEVER use Bootstrap color classes (`text-success`, `text-warning`) in printed output as they appear faded. Signature lines MUST be solid (`1.5px solid #000`), never dotted or light gray.
 11. **Flexible Row Height (التحكم في ارتفاع الصفوف)**: Users can control vertical density for printing via a slider. This is implemented globally using the `global_print_row_padding_pt` key in `localStorage`, the `--table-row-padding-pt` CSS variable, and the `rowPadding` configuration in `printTable`. NEVER hardcode fixed vertical padding in table styles that might override this universal user preference.
+## ⚡ Token Efficiency Mode (وضع ترشيد التوكينات)
 
+When working on this project, prioritize token efficiency without sacrificing correctness.
+
+### Context Usage
+1. Read the minimum number of files required.
+2. Avoid scanning unrelated directories.
+3. Prefer targeted searches over full project analysis.
+4. Reuse already discovered context whenever possible.
+
+### Code Modification Strategy
+1. Modify the smallest possible code region.
+2. Prefer surgical edits over full-block replacements.
+3. Preserve existing architecture and naming conventions.
+4. Do not refactor unrelated code.
+
+### Response Policy
+1. Do not explain completed changes unless requested.
+2. Do not generate implementation plans unless the task is ambiguous.
+3. Do not repeat user requirements.
+4. Keep status updates under 30 words.
+5. Prefer action over discussion.
+
+### File Access Policy
+1. Open only files directly related to the requested task.
+2. Avoid reading backup files unless explicitly required.
+3. Avoid re-reading files already analyzed.
+
+### Print System Exception
+Token optimization MUST NEVER justify bypassing or simplifying:
+
+- Smart Grouping Detection
+- Sectional Printing
+- Subtotals / Grand Totals
+- Column Width Sync
+- Signature Standards
+- Financial Calculations
+- Backend Connectivity Integrity
+
+Protected print logic always takes priority over token savings.
+
+### Completion Format
+
+Success:
+DONE
+
+Blocked:
+BLOCKED: <reason>
 ## 🛠️ How to Add a Feature (كيفية إضافة ميزة جديدة)
 
 If you need to add a new print option:

@@ -3,17 +3,17 @@
 {% block title %}حالة المستندات لكل موظف{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
+<div class="container-fluid mt-2">
     <!-- Header -->
-    <div class="row mb-3">
-        <div class="col-md-8">
-            <h2><i class="fas fa-folder-open me-2"></i>حالة المستندات</h2>
-            <p class="text-muted">عرض المستندات التي أحضرها كل موظف والمستندات الناقصة</p>
+    <div class="d-flex justify-content-between align-items-center pt-2 pb-1 mb-2 border-bottom">
+        <div>
+            <h2 class="h4 mb-0"><i class="fas fa-folder-open me-2"></i>حالة المستندات</h2>
+            <p class="text-muted small mb-0">عرض المستندات التي أحضرها كل موظف والمستندات الناقصة</p>
         </div>
-        <div class="col-md-4 text-end">
+        <div>
             <a id="export-btn"
                 href="{{ url_for('reports.documents_status_export', department_id=department_id, only_missing=1 if only_missing else 0, only_expired=1 if only_expired else 0, exclude_optional=0 if include_optional else 1, search=search_query) }}"
-                class="btn btn-success">
+                class="btn btn-success btn-sm">
                 <i class="fas fa-file-excel"></i> تصدير Excel
             </a>
         </div>
@@ -90,55 +90,69 @@
         </div>
     </div>
 
-    <!-- Filters Card -->
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-white">
-            <h5 class="mb-0"><i class="fas fa-filter me-2"></i>فلاتر البحث</h5>
+    <!-- ===== Unified Filter Bar (New Design) ===== -->
+    <div class="card custom-filter-card mb-3" id="unified-filter-bar">
+        <div class="card-header card-header-navy">
+            <h5 class="mb-0">
+                فلتر البحث <i class="fas fa-filter"></i>
+            </h5>
         </div>
         <div class="card-body">
-            <form method="GET" class="row g-3" id="filters-form">
-                <div class="col-md-3">
-                    <label for="search" class="form-label">بحث بالاسم أو الكود</label>
-                    <input type="text" name="search" id="search" class="form-control"
-                        placeholder="اسم الموظف أو الكود..." value="{{ search_query }}">
+            <form method="GET" class="d-flex flex-column gap-2" id="filters-form">
+                <div class="row g-2">
+                    <!-- بحث بالاسم أو الكود -->
+                    <div class="col-md-3 col-sm-12">
+                        <label class="filter-label">بحث بالاسم أو الكود</label>
+                        <div class="filter-input-wrapper">
+                            <input type="text" name="search" id="search" class="form-control"
+                                placeholder="اسم الموظف أو الكود..." value="{{ search_query }}" aria-label="بحث بالاسم أو الكود">
+                        </div>
+                    </div>
+
+                    <!-- القسم -->
+                    <div class="col-md-3 col-sm-12">
+                        <label class="filter-label">القسم</label>
+                        <div class="filter-input-wrapper select-wrapper">
+                            <i class="fas fa-chevron-down input-icon"></i>
+                            <select name="department_id" id="department" class="form-select" aria-label="القسم">
+                                <option value="">--- كل الأقسام ---</option>
+                                {% for d in departments %}
+                                <option value="{{ d.id }}" {% if department_id and department_id==d.id %}selected{% endif %}>{{ d.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- خيارات -->
+                    <div class="col-md-6 col-sm-12 d-flex align-items-center gap-3 pt-3">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input" type="checkbox" id="only_missing" name="only_missing" {% if only_missing %}checked{% endif %}>
+                            <label class="form-check-label" for="only_missing">فقط الناقصة</label>
+                        </div>
+                        <div class="form-check mb-0">
+                            <input class="form-check-input" type="checkbox" id="only_expired" name="only_expired" {% if only_expired %}checked{% endif %}>
+                            <label class="form-check-label" for="only_expired">فقط المنتهية</label>
+                        </div>
+                        <div class="form-check mb-0">
+                            <input class="form-check-input" type="checkbox" id="exclude_optional" name="exclude_optional" {% if not include_optional %}checked{% endif %}>
+                            <label class="form-check-label" for="exclude_optional">استبعاد الاختيارية</label>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="col-md-3">
-                    <label for="department" class="form-label">القسم</label>
-                    <select name="department_id" id="department" class="form-select">
-                        <option value="">--- كل الأقسام ---</option>
-                        {% for d in departments %}
-                        <option value="{{ d.id }}" {% if department_id and department_id==d.id %}selected{% endif %}>{{
-                            d.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="col-md-3">
-                    <label class="form-label">خيارات</label>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="only_missing" name="only_missing" {% if
-                            only_missing %}checked{% endif %}>
-                        <label class="form-check-label" for="only_missing">فقط الناقصة</label>
+                <div class="row g-2 justify-content-end">
+                    <div class="col-md-3 col-sm-12">
+                        <div class="d-flex gap-2 w-100">
+                            <button type="submit" class="btn btn-search-purple flex-grow-1">
+                                <i class="fas fa-search"></i> تطبيق
+                            </button>
+                            {% if search_query or department_id or only_missing or only_expired or not include_optional %}
+                            <a href="{{ url_for('reports.documents_status') }}" class="btn btn-reset-outline flex-grow-1">
+                                <i class="fas fa-undo"></i> إعادة تعيين
+                            </a>
+                            {% endif %}
+                        </div>
                     </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="only_expired" name="only_expired" {% if
-                            only_expired %}checked{% endif %}>
-                        <label class="form-check-label" for="only_expired">فقط المنتهية</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="exclude_optional" name="exclude_optional" {%
-                            if not include_optional %}checked{% endif %}>
-                        <label class="form-check-label" for="exclude_optional">استبعاد الاختيارية</label>
-                    </div>
-                </div>
-
-                <div class="col-md-3 align-self-end">
-                    <button type="submit" class="btn btn-primary w-100"><i class="fas fa-search me-2"></i>تطبيق</button>
-                    {% if search_query or department_id or only_missing or only_expired or not include_optional %}
-                    <a href="{{ url_for('reports.documents_status') }}" class="btn btn-outline-secondary w-100 mt-2"><i
-                            class="fas fa-undo me-2"></i>إعادة تعيين</a>
-                    {% endif %}
                 </div>
             </form>
         </div>
@@ -212,57 +226,64 @@
                             </td>
                         </tr>
                         <!-- Details Row (Expandable) -->
-                        <tr class="{{ row_class }}" style="display: none;" id="details-{{ loop.index }}">
-                            <td colspan="9">
-                                <div class="row">
+                        <tr class="{{ row_class }}" style="display: none; cursor: pointer;" id="details-{{ loop.index }}" onclick="toggleDetails({{ loop.index }})">
+                            <td colspan="9" class="p-2 bg-white text-end">
+                                <div class="row g-2">
+                                    <!-- كرت المستندات المقدمة -->
                                     <div class="col-md-6">
-                                        <strong class="text-success">المستندات المقدمة:</strong>
-                                        {% if row.provided %}
-                                        <ul class="mb-0 mt-2">
-                                            {% for p in row.provided %}
-                                            <li>
-                                                <strong>{{ p.type_name }}</strong>
-                                                {% if p.expiry_date %}
-                                                <small class="text-muted"> ({{ p.expiry_date }})</small>
-                                                {% if p.is_expired %}
-                                                <span class="badge bg-danger ms-2">منتهي</span>
+                                        <div class="card m-0 border border-success-subtle h-100 shadow-none" style="background-color: rgba(40, 167, 69, 0.03) !important;">
+                                            <div class="card-body p-2">
+                                                <span class="d-block mb-2"><strong class="text-success small"><i class="fas fa-check-circle me-1"></i> المستندات المقدمة:</strong></span>
+                                                {% if row.provided %}
+                                                <div class="d-flex flex-wrap gap-1">
+                                                    {% for p in row.provided %}
+                                                    <div class="d-inline-flex align-items-center bg-white border border-success-subtle rounded px-2 py-0.5" style="font-size: 0.8rem; margin: 2px;">
+                                                        <i class="fas fa-check text-success me-1"></i>
+                                                        <strong>{{ p.type_name }}</strong>
+                                                        {% if p.expiry_date %}
+                                                        <span class="text-muted ms-1" style="font-size: 0.72rem;">({{ p.expiry_date }})</span>
+                                                        {% if p.is_expired %}
+                                                        <span class="badge bg-danger ms-1" style="font-size: 0.68rem; padding: 2px 4px;">منتهي</span>
+                                                        {% else %}
+                                                        <span class="badge bg-success ms-1" style="font-size: 0.68rem; padding: 2px 4px;">ساري</span>
+                                                        {% endif %}
+                                                        {% endif %}
+                                                    </div>
+                                                    {% endfor %}
+                                                </div>
                                                 {% else %}
-                                                <span class="badge bg-success ms-2">ساري</span>
+                                                <span class="text-muted small">لا توجد مستندات مقدمة</span>
                                                 {% endif %}
-                                                {% endif %}
-                                                {% if p.filename %}
-                                                <div><small class="text-muted">{{ p.filename }}</small></div>
-                                                {% endif %}
-                                            </li>
-                                            {% endfor %}
-                                        </ul>
-                                        {% else %}
-                                        <p class="text-muted">-</p>
-                                        {% endif %}
+                                            </div>
+                                        </div>
                                     </div>
+
+                                    <!-- كرت المستندات الناقصة -->
                                     <div class="col-md-6">
-                                        <strong class="text-danger">المستندات الناقصة:</strong>
-                                        {% if row.missing %}
-                                        <ul class="mb-0 mt-2">
-                                            {% for m in row.missing %}
-                                            <li>
-                                                {{ m.name if m is mapping else m }}
-                                                {% if m is mapping and not m.is_required %}
-                                                <span class="badge bg-secondary ms-2">اختياري</span>
+                                        <div class="card m-0 border border-danger-subtle h-100 shadow-none" style="background-color: rgba(220, 53, 69, 0.03) !important;">
+                                            <div class="card-body p-2">
+                                                <span class="d-block mb-2"><strong class="text-danger small"><i class="fas fa-exclamation-triangle me-1"></i> المستندات الناقصة:</strong></span>
+                                                {% if row.missing %}
+                                                <div class="d-flex flex-wrap gap-1">
+                                                    {% for m in row.missing %}
+                                                    <div class="d-inline-flex align-items-center bg-white border border-danger-subtle rounded px-2 py-0.5" style="font-size: 0.8rem; margin: 2px;">
+                                                        <i class="fas fa-times text-danger me-1"></i>
+                                                        <span>{{ m.name if m is mapping else m }}</span>
+                                                        {% if m is mapping and not m.is_required %}
+                                                        <span class="badge bg-secondary ms-1" style="font-size: 0.68rem; padding: 2px 4px;">اختياري</span>
+                                                        {% else %}
+                                                        <span class="badge bg-danger ms-1" style="font-size: 0.68rem; padding: 2px 4px;">مطلوب</span>
+                                                        {% endif %}
+                                                    </div>
+                                                    {% endfor %}
+                                                </div>
                                                 {% else %}
-                                                <span class="badge bg-danger ms-2">مطلوب</span>
+                                                <span class="text-muted small">لا توجد مستندات ناقصة</span>
                                                 {% endif %}
-                                            </li>
-                                            {% endfor %}
-                                        </ul>
-                                        {% else %}
-                                        <p class="text-muted">-</p>
-                                        {% endif %}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <button class="btn btn-sm btn-secondary mt-2" onclick="toggleDetails({{ loop.index }})">
-                                    <i class="fas fa-chevron-up"></i> إخفاء التفاصيل
-                                </button>
                             </td>
                         </tr>
                         {% else %}

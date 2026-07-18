@@ -28,7 +28,7 @@
 {% block content %}
 <div lang="ar" dir="rtl">
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2"><i class="fas fa-clock me-2"></i> الحضور والانصراف اليومي</h1>
+    <h1 class="h2"><i class="fas fa-clock me-2"></i> الحضور والانصراف اليومي <span class="badge bg-dark ms-2" style="font-size: 0.95rem; vertical-align: middle;">{{ records|length if records else 0 }} حركة</span></h1>
     <div class="btn-toolbar mb-2 mb-md-0 gap-2">
         <a href="{{ url_for('attendance.bulk_entry') }}" class="btn btn-info">
             <i class="fas fa-layer-group"></i> الإدخال الجماعي
@@ -51,49 +51,74 @@
     </div>
 </div>
 
-<!-- Unified Filter Bar -->
-<div class="card shadow-sm mb-4" id="unified-filter-bar">
-    <div class="card-header bg-white py-3">
-        <h5 class="mb-0"><i class="fas fa-filter me-2"></i> فلاتر البحث</h5>
+<!-- ===== Unified Filter Bar (New Design) ===== -->
+<div class="card custom-filter-card mb-4" id="unified-filter-bar">
+    <div class="card-header card-header-navy">
+        <h5 class="mb-0">
+            فلتر البحث <i class="fas fa-filter"></i>
+        </h5>
     </div>
     <div class="card-body">
-        <form action="{{ url_for('attendance.daily') }}" method="get" id="attendanceFilterForm" class="row g-3 align-items-end">
-            <div class="col-md-2">
-                <label class="form-label">من تاريخ</label>
-                <input type="text" name="date_from" class="form-control form-control-sm date-string text-center" value="{{ date_from_value }}">
-            </div>
-            <div class="col-md-2">
-                <label class="form-label">إلى تاريخ</label>
-                <input type="text" name="date_to" class="form-control form-control-sm date-string text-center" value="{{ date_to_value }}">
-            </div>
-            <div class="col-md-5">
-                <label class="form-label">الأقسام</label>
-                <select name="department_ids" id="dept-filter" class="form-select" multiple size="1">
-                    {% for dept in departments %}
-                    <option value="{{ dept.id }}" {% if selected_department_ids and dept.id in selected_department_ids %}selected{% endif %}>{{ dept.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3 text-end">
-                <div class="btn-group w-100">
-                    <button class="btn btn-primary btn-sm" type="submit">
-                        <i class="fas fa-search me-1"></i> بحث
-                    </button>
-                    {% if request.args.get('search') or selected_department_ids %}
-                    <a href="{{ url_for('attendance.daily') }}" class="btn btn-outline-secondary btn-sm">
-                        <i class="fas fa-undo me-1"></i> إعادة تعيين
-                    </a>
-                    {% endif %}
-                    <span class="btn btn-dark disabled">
-                        {{ records|length if records else 0 }} حركة
-                    </span>
+        <form action="{{ url_for('attendance.daily') }}" method="get" id="attendanceFilterForm" class="d-flex flex-column gap-2">
+            <!-- Row 1 -->
+            <div class="row g-2">
+                <!-- من تاريخ -->
+                <div class="col-md-2 col-sm-6">
+                    <label class="filter-label">من تاريخ</label>
+                    <div class="filter-input-wrapper">
+                        <i class="far fa-calendar-alt input-icon"></i>
+                        <input type="text" name="date_from" class="form-control date-string text-center"
+                            placeholder="DD/MM/YYYY" value="{{ date_from_value }}" aria-label="من تاريخ">
+                    </div>
+                </div>
+
+                <!-- إلى تاريخ -->
+                <div class="col-md-2 col-sm-6">
+                    <label class="filter-label">إلى تاريخ</label>
+                    <div class="filter-input-wrapper">
+                        <i class="far fa-calendar-alt input-icon"></i>
+                        <input type="text" name="date_to" class="form-control date-string text-center"
+                            placeholder="DD/MM/YYYY" value="{{ date_to_value }}" aria-label="إلى تاريخ">
+                    </div>
+                </div>
+
+                <!-- الأقسام -->
+                <div class="col-md-5 col-sm-12">
+                    <label class="filter-label">الأقسام</label>
+                    <div class="filter-input-wrapper select-wrapper">
+                        <i class="fas fa-chevron-down input-icon"></i>
+                        <select name="department_ids" id="dept-filter" class="form-select" multiple size="1" aria-label="الأقسام">
+                            {% for dept in departments %}
+                            <option value="{{ dept.id }}" {% if selected_department_ids and dept.id in selected_department_ids %}selected{% endif %}>
+                                {{ dept.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- البحث بالاسم أو الكود -->
+                <div class="col-md-3 col-sm-12">
+                    <label class="filter-label">البحث بالاسم أو الكود</label>
+                    <div class="filter-input-wrapper">
+                        <input type="text" name="search" id="search" class="form-control"
+                            placeholder="الاسم أو الكود..." value="{{ request.args.get('search','') }}" aria-label="البحث بالاسم أو الكود">
+                    </div>
                 </div>
             </div>
 
-            <!-- Second row: unified search field like employees page -->
-            <div class="col-md-3">
-                <label class="form-label">البحث بالاسم أو الكود</label>
-                <input type="text" name="search" id="search" class="form-control form-control-sm" placeholder="الاسم أو الكود..." value="{{ request.args.get('search','') }}">
+            <!-- Row 2 -->
+            <div class="row g-2 justify-content-end">
+                <div class="col-md-3 col-sm-12">
+                    <div class="d-flex gap-2 w-100">
+                        <button class="btn btn-search-purple flex-grow-1" type="submit">
+                            <i class="fas fa-search"></i> بحث
+                        </button>
+                        <a href="{{ url_for('attendance.daily') }}" class="btn btn-reset-outline flex-grow-1">
+                            <i class="fas fa-undo"></i> إعادة تعيين
+                        </a>
+                    </div>
+                </div>
             </div>
         </form>
     </div>

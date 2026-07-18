@@ -694,45 +694,49 @@ function initDataTableOnce(target, config) {
 $(document).ready(function () {
     const specificTables = ['employees-table', 'departments-table', 'loans-table', 'penalties-table', 'permissions-table', 'attendance-table'];
 
+    // ===== Top Scrollbar (deferred to avoid layout shift) =====
+    function initTopScrollbars() {
+        // Wrap in rAF so DOM insertion happens AFTER first paint — no visible reflow
+        requestAnimationFrame(function() {
+            $('.table-responsive').each(function () {
+                var $this = $(this);
+                var $table = $this.find('table');
+                $this.prev('.top-scrollbar-wrapper').remove();
+                var $wrapper = $('<div class="top-scrollbar-wrapper d-print-none" style="display:none"><div></div></div>');
+                $this.before($wrapper);
+                var $inner = $wrapper.find('div');
+                function update() {
+                    var tw = $table.prop('scrollWidth') || $table.outerWidth();
+                    $inner.width(tw);
+                    if (tw > $this.width() + 5) { $wrapper.show(); $wrapper.scrollLeft($this.scrollLeft()); } else { $wrapper.hide(); }
+                }
+                $wrapper.on('scroll', function () {
+                    if ($this.data('scrolling')) return;
+                    $wrapper.data('scrolling', true);
+                    $this.scrollLeft($wrapper.scrollLeft());
+                    requestAnimationFrame(function () { $wrapper.data('scrolling', false); });
+                });
+                $this.on('scroll', function () {
+                    if ($wrapper.data('scrolling')) return;
+                    $this.data('scrolling', true);
+                    $wrapper.scrollLeft($this.scrollLeft());
+                    requestAnimationFrame(function () { $this.data('scrolling', false); });
+                });
+                // Defer first size calculation until after layout is stable
+                setTimeout(update, 50);
+                $(window).on('resize', update);
+                $table.on('draw.dt', update);
+            });
+        });
+    }
+
+    // ===== Generic datatable init =====
     $('.datatable').each(function () {
         if (specificTables.includes(this.id)) return;
         initDataTableOnce(this, defaultDataTableConfig);
     });
 
-    function initTopScrollbars() {
-        $('.table-responsive').each(function () {
-            var $this = $(this);
-            var $table = $this.find('table');
-            $this.prev('.top-scrollbar-wrapper').remove();
-            var $wrapper = $('<div class="top-scrollbar-wrapper d-print-none"><div></div></div>');
-            $this.before($wrapper);
-            var $inner = $wrapper.find('div');
-            function update() {
-                var tw = $table.prop('scrollWidth') || $table.outerWidth();
-                $inner.width(tw);
-                if (tw > $this.width() + 5) { $wrapper.show(); $wrapper.scrollLeft($this.scrollLeft()); } else { $wrapper.hide(); }
-            }
-            $wrapper.on('scroll', function () {
-                if ($this.data('scrolling')) return;
-                $wrapper.data('scrolling', true);
-                $this.scrollLeft($wrapper.scrollLeft());
-                requestAnimationFrame(function () { $wrapper.data('scrolling', false); });
-            });
-            $this.on('scroll', function () {
-                if ($wrapper.data('scrolling')) return;
-                $this.data('scrolling', true);
-                $wrapper.scrollLeft($this.scrollLeft());
-                requestAnimationFrame(function () { $this.data('scrolling', false); });
-            });
-            update();
-            requestAnimationFrame(update);
-            $(window).on('resize', update);
-            $(window).on('load', update);
-            $table.on('draw.dt', update);
-        });
-    }
-    initTopScrollbars();
-
+    // ===== Employees Table =====
     initDataTableOnce('#employees-table', {
         ...defaultDataTableConfig,
         columns: [
@@ -752,9 +756,10 @@ $(document).ready(function () {
         ],
         order: [[1, 'asc']],
         initComplete: function(settings, json) {
-            // Force Actions column to always be visible
             const api = this.api();
             api.column('.col-actions').visible(true);
+            // Init scrollbars AFTER this table is fully ready
+            initTopScrollbars();
         }
     });
 
@@ -776,6 +781,11 @@ $(document).ready(function () {
     initDataTableOnce('#permissions-table', {
         ...defaultDataTableConfig
     });
+
+    // For pages without employees-table, still init scrollbars after a safe delay
+    if (!document.getElementById('employees-table')) {
+        setTimeout(initTopScrollbars, 100);
+    }
 });
 
 // Export function for custom use

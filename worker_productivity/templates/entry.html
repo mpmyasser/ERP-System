@@ -1,0 +1,374 @@
+{% extends 'base.html' %}
+{% block title %}إدخال إنتاج - تتبع الإنتاج{% endblock %}
+
+{% block content %}
+<div class="card shadow mb-4">
+    <div class="card-header bg-primary text-white">
+        <h4 class="mb-0"><i class="bi bi-plus-circle"></i> إدخال بيانات الإنتاج</h4>
+    </div>
+    <div class="card-body">
+        <!-- اختيار التاريخ والعامل -->
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <label class="form-label fw-bold">التاريخ</label>
+                <input type="date" id="recordDate" class="form-control" value="{{ today }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-bold">العامل</label>
+                <select id="workerSelect" class="form-select select2">
+                    <option value="">-- اختر العامل --</option>
+                    {% for w in workers %}
+                    <option value="{{ w.code }}">{{ w.code }} - {{ w.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button class="btn btn-outline-primary w-100" onclick="showManageWorkers()">
+                    <i class="bi bi-plus"></i> إضافة عامل
+                </button>
+            </div>
+        </div>
+
+        <hr>
+
+        <!-- شبكة الإدخال -->
+        <div class="table-responsive">
+            <table class="table table-bordered" id="entryTable">
+                <thead class="table-primary">
+                    <tr>
+                        <th style="width:40px;">#</th>
+                        <th>المرحلة</th>
+                        <th>الصنف</th>
+                        <th style="width:100px;">المقاس</th>
+                        <th style="width:100px;">من</th>
+                        <th style="width:100px;">إلى</th>
+                        <th style="width:90px;">الساعات</th>
+                        <th style="width:100px;">الكمية</th>
+                        <th>ملاحظات</th>
+                        <th style="width:50px;"></th>
+                    </tr>
+                </thead>
+                <tbody id="entryTableBody">
+                    <!-- الصف الأول -->
+                    <tr class="entry-row">
+                        <td class="text-center row-num">1</td>
+                        <td>
+                            <select class="form-select form-select-sm stage-select">
+                                <option value="">-- اختر --</option>
+                                {% for s in stages %}
+                                <option value="{{ s.code }}">{{ s.code }} - {{ s.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td>
+                            <select class="form-select form-select-sm product-select">
+                                <option value="">-- اختر --</option>
+                                {% for p in products %}
+                                <option value="{{ p.code }}" data-size="{{ p.size }}">{{ p.code }} - {{ p.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm size-input" placeholder="المقاس" readonly>
+                        </td>
+                        <td>
+                            <input type="time" class="form-control form-control-sm time-from" value="08:00">
+                        </td>
+                        <td>
+                            <input type="time" class="form-control form-control-sm time-to" value="16:00">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm hours-calc" readonly placeholder="0.00">
+                        </td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm quantity-input" min="1" step="1" placeholder="الكمية">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm notes-input" placeholder="اختياري">
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-danger btn-sm" onclick="removeRow(this)"><i class="bi bi-x"></i></button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between mt-2">
+            <button class="btn btn-success" onclick="addRow()">
+                <i class="bi bi-plus-lg"></i> إضافة صف
+            </button>
+            <div>
+                <span class="fw-bold me-3">إجمالي الكمية: <span id="totalQty">0</span></span>
+                <button class="btn btn-primary btn-lg" onclick="saveRecords()">
+                    <i class="bi bi-save"></i> حفظ الكل
+                </button>
+            </div>
+        </div>
+
+        <div id="saveResult" class="mt-3" style="display:none;"></div>
+    </div>
+</div>
+
+<!-- آخر السجلات المضافة -->
+<div class="card shadow">
+    <div class="card-header bg-secondary text-white d-flex justify-content-between">
+        <h5 class="mb-0"><i class="bi bi-clock-history"></i> سجلات اليوم</h5>
+        <select id="filterWorker" class="form-select form-select-sm w-auto" onchange="loadTodayRecords()" style="direction:ltr;">
+            <option value="">كل العمال</option>
+            {% for w in workers %}
+            <option value="{{ w.code }}">{{ w.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>التاريخ</th>
+                        <th>العامل</th>
+                        <th>المرحلة</th>
+                        <th>الصنف</th>
+                        <th>المقاس</th>
+                        <th>الوقت</th>
+                        <th>الساعات</th>
+                        <th>الكمية</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="todayRecordsBody">
+                    <tr><td colspan="9" class="text-center text-muted">جاري التحميل...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let rowCounter = 1;
+
+// إضافة صف جديد
+function addRow() {
+    rowCounter++;
+    const tbody = document.getElementById('entryTableBody');
+    const firstRow = tbody.querySelector('.entry-row');
+    const newRow = firstRow.cloneNode(true);
+    
+    newRow.querySelector('.row-num').textContent = rowCounter;
+    newRow.querySelector('.stage-select').value = '';
+    newRow.querySelector('.product-select').value = '';
+    newRow.querySelector('.size-input').value = '';
+    newRow.querySelector('.time-from').value = '08:00';
+    newRow.querySelector('.time-to').value = '16:00';
+    newRow.querySelector('.hours-calc').value = '';
+    newRow.querySelector('.quantity-input').value = '';
+    newRow.querySelector('.notes-input').value = '';
+    
+    // ربط الأحداث
+    newRow.querySelector('.product-select').addEventListener('change', function() {
+        const opt = this.options[this.selectedIndex];
+        const sizeInput = this.closest('tr').querySelector('.size-input');
+        sizeInput.value = opt ? (opt.dataset.size || '') : '';
+    });
+    
+    newRow.querySelector('.time-from').addEventListener('change', calcHours);
+    newRow.querySelector('.time-to').addEventListener('change', calcHours);
+    newRow.querySelector('.quantity-input').addEventListener('input', updateTotalQty);
+    
+    tbody.appendChild(newRow);
+}
+
+// حذف صف
+function removeRow(btn) {
+    const rows = document.querySelectorAll('.entry-row');
+    if (rows.length <= 1) {
+        alert('يجب أن يبقى صف واحد على الأقل');
+        return;
+    }
+    btn.closest('tr').remove();
+    renumberRows();
+    updateTotalQty();
+}
+
+// إعادة ترقيم الصفوف
+function renumberRows() {
+    document.querySelectorAll('.row-num').forEach((el, i) => {
+        el.textContent = i + 1;
+    });
+    rowCounter = document.querySelectorAll('.entry-row').length;
+}
+
+// حساب ساعات العمل
+function calcHours() {
+    const row = this.closest('tr');
+    const fromInput = row.querySelector('.time-from');
+    const toInput = row.querySelector('.time-to');
+    const hoursInput = row.querySelector('.hours-calc');
+    
+    if (fromInput.value && toInput.value) {
+        const [fh, fm] = fromInput.value.split(':').map(Number);
+        const [th, tm] = toInput.value.split(':').map(Number);
+        const fromMinutes = fh * 60 + fm;
+        const toMinutes = th * 60 + tm;
+        let diff = toMinutes - fromMinutes;
+        if (diff < 0) diff += 24 * 60;
+        hoursInput.value = (diff / 60).toFixed(2);
+    }
+}
+
+// تحديث إجمالي الكمية
+function updateTotalQty() {
+    let total = 0;
+    document.querySelectorAll('.quantity-input').forEach(inp => {
+        total += parseFloat(inp.value) || 0;
+    });
+    document.getElementById('totalQty').textContent = total.toLocaleString();
+}
+
+// ربط الأحداث للصف الأول
+document.addEventListener('DOMContentLoaded', function() {
+    const firstRow = document.querySelector('.entry-row');
+    firstRow.querySelector('.product-select').addEventListener('change', function() {
+        const opt = this.options[this.selectedIndex];
+        const sizeInput = this.closest('tr').querySelector('.size-input');
+        sizeInput.value = opt ? (opt.dataset.size || '') : '';
+    });
+    firstRow.querySelector('.time-from').addEventListener('change', calcHours);
+    firstRow.querySelector('.time-to').addEventListener('change', calcHours);
+    firstRow.querySelector('.quantity-input').addEventListener('input', updateTotalQty);
+    loadTodayRecords();
+});
+
+// حفظ السجلات
+function saveRecords() {
+    const date = document.getElementById('recordDate').value;
+    const workerCode = document.getElementById('workerSelect').value;
+    
+    if (!workerCode) {
+        alert('اختر العامل أولاً');
+        return;
+    }
+    
+    const rows = document.querySelectorAll('.entry-row');
+    const records = [];
+    let hasData = false;
+    
+    rows.forEach(row => {
+        const stageCode = row.querySelector('.stage-select').value;
+        const productCode = row.querySelector('.product-select').value;
+        const quantity = row.querySelector('.quantity-input').value;
+        const timeFrom = row.querySelector('.time-from').value;
+        const timeTo = row.querySelector('.time-to').value;
+        const notes = row.querySelector('.notes-input').value;
+        
+        if (!stageCode || !productCode || !quantity) return;
+        
+        hasData = true;
+        records.push({
+            record_date: date,
+            worker_code: workerCode,
+            stage_code: stageCode,
+            product_code: productCode,
+            time_from: timeFrom,
+            time_to: timeTo,
+            quantity: parseFloat(quantity),
+            notes: notes
+        });
+    });
+    
+    if (!hasData) {
+        alert('أضف بيانات في الصفوف أولاً');
+        return;
+    }
+    
+    const btn = document.querySelector('button[onclick="saveRecords()"]');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> جاري الحفظ...';
+    
+    fetch('/api/records/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({records: records, date: date})
+    })
+    .then(r => r.json())
+    .then(data => {
+        const resultDiv = document.getElementById('saveResult');
+        if (data.ok) {
+            resultDiv.className = 'alert alert-success mt-3';
+            resultDiv.innerHTML = `<i class="bi bi-check-circle"></i> تم حفظ ${data.added} سجل بنجاح`;
+            if (data.errors && data.errors.length > 0) {
+                resultDiv.innerHTML += '<br><small class="text-danger">' + data.errors.slice(0, 3).join('<br>') + '</small>';
+            }
+            // تفريغ الحقول
+            document.querySelectorAll('.quantity-input').forEach(inp => inp.value = '');
+            document.querySelectorAll('.notes-input').forEach(inp => inp.value = '');
+            updateTotalQty();
+            loadTodayRecords();
+        } else {
+            resultDiv.className = 'alert alert-danger mt-3';
+            resultDiv.innerHTML = 'خطأ: ' + data.message;
+        }
+        resultDiv.style.display = 'block';
+        setTimeout(() => resultDiv.style.display = 'none', 5000);
+    })
+    .catch(err => {
+        document.getElementById('saveResult').className = 'alert alert-danger mt-3';
+        document.getElementById('saveResult').innerHTML = 'خطأ في الاتصال: ' + err;
+        document.getElementById('saveResult').style.display = 'block';
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-save"></i> حفظ الكل';
+    });
+}
+
+// تحميل سجلات اليوم
+function loadTodayRecords() {
+    const date = document.getElementById('recordDate').value || new Date().toISOString().split('T')[0];
+    const workerCode = document.getElementById('filterWorker').value;
+    let url = `/api/records/list?date_from=${date}&date_to=${date}&per_page=50`;
+    if (workerCode) url += `&worker_code=${workerCode}`;
+    
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            const tbody = document.getElementById('todayRecordsBody');
+            if (!data.records || data.records.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">لا توجد سجلات لهذا اليوم</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.records.map(r => `
+                <tr>
+                    <td>${r.record_date}</td>
+                    <td>${r.worker_code}</td>
+                    <td>${r.stage_code}</td>
+                    <td>${r.product_code}</td>
+                    <td>--</td>
+                    <td>${r.time_from} - ${r.time_to}</td>
+                    <td>${r.hours_worked}</td>
+                    <td>${r.quantity.toLocaleString()}</td>
+                    <td><button class="btn btn-danger btn-sm" onclick="deleteRecord(${r.id})"><i class="bi bi-trash"></i></button></td>
+                </tr>
+            `).join('');
+        });
+}
+
+// حذف سجل
+function deleteRecord(id) {
+    if (!confirm('هل تريد حذف هذا السجل؟')) return;
+    fetch('/api/records/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: id})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) loadTodayRecords();
+        else alert('خطأ: ' + data.message);
+    });
+}
+</script>
+{% endblock %}

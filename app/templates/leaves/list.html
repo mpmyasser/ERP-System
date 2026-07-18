@@ -21,52 +21,78 @@
     </div>
 </div>
 
-<!-- Unified Filter Bar -->
-<div class="card shadow-sm mb-4" id="unified-filter-bar">
-    <div class="card-header bg-white py-3">
-        <h5 class="mb-0"><i class="fas fa-filter me-2"></i> فلاتر البحث</h5>
+<!-- ===== Unified Filter Bar (New Design) ===== -->
+<div class="card custom-filter-card mb-4" id="unified-filter-bar">
+    <div class="card-header card-header-navy">
+        <h5 class="mb-0">
+            فلتر البحث <i class="fas fa-filter"></i>
+        </h5>
     </div>
     <div class="card-body">
-        <form method="get" action="{{ url_for('leaves.list') }}" class="row g-3 align-items-end">
-            <div class="col-md-2">
-                <label class="form-label">من تاريخ</label>
-                <input type="text" name="date_from" id="date-from" class="form-control date-string allow-month-end"
-                    placeholder="DD/MM/YYYY" value="{{ date_from or '' }}">
+        <form method="get" action="{{ url_for('leaves.list') }}" class="d-flex flex-column gap-2">
+            <!-- Row 1 -->
+            <div class="row g-2">
+                <!-- من تاريخ -->
+                <div class="col-md-2 col-sm-6">
+                    <label class="filter-label">من تاريخ</label>
+                    <div class="filter-input-wrapper">
+                        <i class="far fa-calendar-alt input-icon"></i>
+                        <input type="text" name="date_from" id="date-from" class="form-control date-string allow-month-end"
+                            placeholder="DD/MM/YYYY" value="{{ date_from or '' }}" aria-label="من تاريخ">
+                    </div>
+                </div>
+
+                <!-- إلى تاريخ -->
+                <div class="col-md-2 col-sm-6">
+                    <label class="filter-label">إلى تاريخ</label>
+                    <div class="filter-input-wrapper">
+                        <i class="far fa-calendar-alt input-icon"></i>
+                        <input type="text" name="date_to" id="date-to" class="form-control date-string allow-month-end"
+                            placeholder="DD/MM/YYYY" value="{{ date_to or '' }}" aria-label="إلى تاريخ">
+                    </div>
+                </div>
+
+                <!-- الأقسام -->
+                <div class="col-md-5 col-sm-12">
+                    <label class="filter-label">الأقسام</label>
+                    <div class="filter-input-wrapper select-wrapper">
+                        <i class="fas fa-chevron-down input-icon"></i>
+                        <select name="department_ids" id="dept-filter" class="form-select" multiple size="1" aria-label="الأقسام">
+                            {% for dept in departments %}
+                            <option value="{{ dept.id }}" {% if department_ids and dept.id in department_ids %}selected{% endif %}>
+                                {{ dept.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- نوع الإجازة -->
+                <div class="col-md-3 col-sm-12">
+                    <label class="filter-label">نوع الإجازة</label>
+                    <div class="filter-input-wrapper select-wrapper">
+                        <i class="fas fa-chevron-down input-icon"></i>
+                        <select name="leave_type" class="form-select" aria-label="نوع الإجازة">
+                            <option value="">الكل</option>
+                            {% for lt in leave_types %}
+                            <option value="{{ lt.value }}" {% if leave_type==lt.value %}selected{% endif %}>{{ lt.value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
             </div>
-            <div class="col-md-2">
-                <label class="form-label">إلى تاريخ</label>
-                <input type="text" name="date_to" id="date-to" class="form-control date-string allow-month-end"
-                    placeholder="DD/MM/YYYY" value="{{ date_to or '' }}">
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">الأقسام</label>
-                <select name="department_ids" id="dept-filter" class="form-select" multiple size="1">
-                    {% for dept in departments %}
-                    <option value="{{ dept.id }}" {% if department_ids and dept.id in department_ids %}selected{% endif %}>
-                        {{ dept.name }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label">نوع الإجازة</label>
-                <select name="leave_type" class="form-select">
-                    <option value="">الكل</option>
-                    {% for lt in leave_types %}
-                    <option value="{{ lt.value }}" {% if leave_type==lt.value %}selected{% endif %}>{{ lt.value }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3 text-end">
-                <div class="btn-group w-100">
-                    <button class="btn btn-primary" type="submit">
-                        <i class="fas fa-search me-1"></i> بحث
-                    </button>
-                    {% if date_from or date_to or department_ids or leave_type %}
-                    <a href="{{ url_for('leaves.list') }}" class="btn btn-outline-secondary">
-                        <i class="fas fa-undo me-1"></i> إعادة تعيين
-                    </a>
-                    {% endif %}
+
+            <!-- Row 2 -->
+            <div class="row g-2 justify-content-end">
+                <div class="col-md-3 col-sm-12">
+                    <div class="d-flex gap-2 w-100">
+                        <button class="btn btn-search-purple flex-grow-1" type="submit">
+                            <i class="fas fa-search"></i> بحث
+                        </button>
+                        <a href="{{ url_for('leaves.list') }}" class="btn btn-reset-outline flex-grow-1">
+                            <i class="fas fa-undo"></i> إعادة تعيين
+                        </a>
+                    </div>
                 </div>
             </div>
         </form>

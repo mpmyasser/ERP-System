@@ -105,49 +105,74 @@
 </div>
 
 <!-- Unified Filter Bar -->
-<div class="card shadow-sm mb-4" id="unified-filter-bar">
-    <div class="card-header bg-white py-3">
-        <h5 class="mb-0"><i class="fas fa-filter me-2" aria-hidden="true"></i> فلاتر البحث</h5>
+<!-- ===== Unified Filter Bar (New Design) ===== -->
+<div class="card custom-filter-card mb-4" id="unified-filter-bar">
+    <div class="card-header card-header-navy">
+        <h5 class="mb-0">
+            فلتر البحث <i class="fas fa-filter"></i>
+        </h5>
     </div>
     <div class="card-body">
-        <form method="get" action="{{ url_for('loans.list') }}" class="row g-3 align-items-end">
-            <div class="col-md-2">
-                <label for="date-from" class="form-label">من تاريخ</label>
-                <input type="text" name="date_from" id="date-from" class="form-control date-string allow-month-end"
-                    placeholder="DD/MM/YYYY" value="{{ date_from or '' }}">
+        <form method="get" action="{{ url_for('loans.list') }}" class="d-flex flex-column gap-2">
+            <!-- Row 1 -->
+            <div class="row g-2">
+                <!-- من تاريخ -->
+                <div class="col-md-2 col-sm-6">
+                    <label class="filter-label">من تاريخ</label>
+                    <div class="filter-input-wrapper">
+                        <i class="far fa-calendar-alt input-icon"></i>
+                        <input type="text" name="date_from" id="date-from" class="form-control date-string allow-month-end"
+                            placeholder="DD/MM/YYYY" value="{{ date_from or '' }}" aria-label="من تاريخ">
+                    </div>
+                </div>
+
+                <!-- إلى تاريخ -->
+                <div class="col-md-2 col-sm-6">
+                    <label class="filter-label">إلى تاريخ</label>
+                    <div class="filter-input-wrapper">
+                        <i class="far fa-calendar-alt input-icon"></i>
+                        <input type="text" name="date_to" id="date-to" class="form-control date-string allow-month-end"
+                            placeholder="DD/MM/YYYY" value="{{ date_to or '' }}" aria-label="إلى تاريخ">
+                    </div>
+                </div>
+
+                <!-- الأقسام -->
+                <div class="col-md-5 col-sm-12">
+                    <label class="filter-label">الأقسام</label>
+                    <div class="filter-input-wrapper select-wrapper">
+                        <i class="fas fa-chevron-down input-icon"></i>
+                        <select name="department_ids" id="dept-filter" class="form-select" multiple size="1"
+                            title="اختر الأقسام" aria-label="الأقسام">
+                            {% for dept in departments %}
+                            <option value="{{ dept.id }}" {% if department_ids and dept.id in department_ids %}selected{% endif %}>
+                                {{ dept.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- بحث الموظف -->
+                <div class="col-md-3 col-sm-12">
+                    <label class="filter-label">بحث الموظف</label>
+                    <div class="filter-input-wrapper">
+                        <input type="text" name="search_code" id="search-code" class="form-control"
+                            placeholder="بحث بالكود أو الاسم..." value="{{ search_code }}" aria-label="بحث الموظف">
+                    </div>
+                </div>
             </div>
-            <div class="col-md-2">
-                <label for="date-to" class="form-label">إلى تاريخ</label>
-                <input type="text" name="date_to" id="date-to" class="form-control date-string allow-month-end"
-                    placeholder="DD/MM/YYYY" value="{{ date_to or '' }}">
-            </div>
-            <div class="col-md-3">
-                <label for="dept-filter" class="form-label">الأقسام</label>
-                <select name="department_ids" id="dept-filter" class="form-select" multiple size="1"
-                    title="اختر الأقسام">
-                    {% for dept in departments %}
-                    <option value="{{ dept.id }}" {% if department_ids and dept.id in department_ids %}selected{% endif
-                        %}>
-                        {{ dept.name }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label for="search-code" class="form-label">بحث الموظف</label>
-                <input type="text" name="search_code" id="search-code" class="form-control"
-                    placeholder="بحث بالكود أو الاسم..." value="{{ search_code }}">
-            </div>
-            <div class="col-md-3 text-end">
-                <div class="btn-group w-100">
-                    <button class="btn btn-primary" type="submit">
-                        <i class="fas fa-search me-1" aria-hidden="true"></i> بحث
-                    </button>
-                    {% if date_from or date_to or department_ids or search_code %}
-                    <a href="{{ url_for('loans.list') }}" class="btn btn-outline-secondary">
-                        <i class="fas fa-undo me-1" aria-hidden="true"></i> إعادة تعيين
-                    </a>
-                    {% endif %}
+
+            <!-- Row 2 -->
+            <div class="row g-2 justify-content-end">
+                <div class="col-md-3 col-sm-12">
+                    <div class="d-flex gap-2 w-100">
+                        <button class="btn btn-search-purple flex-grow-1" type="submit">
+                            <i class="fas fa-search"></i> بحث
+                        </button>
+                        <a href="{{ url_for('loans.list') }}" class="btn btn-reset-outline flex-grow-1">
+                            <i class="fas fa-undo"></i> إعادة تعيين
+                        </a>
+                    </div>
                 </div>
             </div>
         </form>

@@ -226,9 +226,25 @@ main {
 
 .table-responsive {
     overflow-x: auto;
-    max-height: 80vh;
-    /* For sticky header support */
+    /* No max-height here — prevents layout jump on load */
     position: relative;
+}
+
+/* ===== Anti-Jitter: hide table before DataTables init ===== */
+table.datatable:not(.dataTable) {
+    opacity: 0;
+    transition: none;
+}
+
+table.dataTable {
+    opacity: 1;
+    transition: opacity 0.2s ease;
+}
+
+/* Prevent top-scrollbar from causing layout shift before table is ready */
+.top-scrollbar-wrapper {
+    will-change: auto;
+    contain: layout;
 }
 
 /* Sticky Header - z-index MUST be lower than buttons toolbar */
@@ -1434,3 +1450,76 @@ tfoot.table-light th,
     user-select: none;
     margin-right: 8px;
 }
+
+/* === PAGE HEIGHT OPTIMIZATION (COMPACT DESIGN) === */
+/* Reduce page header padding and margin */
+.border-bottom.pt-3.pb-2.mb-3,
+.border-bottom.pt-3.pb-2.mb-3 + .d-flex {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.25rem !important;
+    margin-bottom: 0.75rem !important;
+}
+
+/* Reduce card margin and body padding */
+.card {
+    margin-bottom: 1rem !important;
+}
+.card-body {
+    padding: 1rem !important;
+}
+.custom-filter-card {
+    margin-bottom: 0.75rem !important;
+}
+.custom-filter-card .card-body {
+    padding: 0.75rem 1rem !important;
+}
+
+/* Reduce filter label margins */
+.filter-label {
+    margin-bottom: 4px !important;
+    font-size: 0.82rem !important;
+}
+
+/* Compact filter inputs and buttons (Height 36px instead of 42px) */
+.filter-input-wrapper .form-control,
+.filter-input-wrapper .form-select,
+.custom-checklist-dropdown .filter-dropdown-btn,
+.btn-search-purple,
+.btn-reset-outline {
+    height: 36px !important;
+    min-height: 36px !important;
+    font-size: 0.85rem !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+/* Adjust wrapper icon size/position for smaller height */
+.filter-input-wrapper i.input-icon {
+    font-size: 0.85rem !important;
+}
+
+/* Adjust Select2 styling inside filter cards to match 36px height */
+.custom-filter-card .select2-container--bootstrap-5 .select2-selection--multiple,
+.custom-filter-card .select2-container--default .select2-selection--multiple {
+    height: 36px !important;
+    min-height: 36px !important;
+    padding-right: 28px !important;
+}
+.custom-filter-card .select2-selection__choice {
+    height: 24px !important;
+    font-size: 0.8rem !important;
+    padding: 0px 6px !important;
+}
+.custom-filter-card .select2-search__field {
+    height: 24px !important;
+}
+
+/* Compact DataTables & general tables */
+.table td, 
+.table th,
+.table > thead > tr > th,
+.table > tbody > tr > td {
+    padding: 6px 10px !important;
+    font-size: 0.85rem !important;
+}
+

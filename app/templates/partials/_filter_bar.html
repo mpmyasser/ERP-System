@@ -1,5 +1,5 @@
 {#
-شريط البحث والفلترة الموحد
+شريط البحث والفلترة الموحد المطور
 ==============================
 يجب استخدام هذا المكون في جميع صفحات القوائم بدون استثناء.
 
@@ -14,51 +14,59 @@
 - show_reset_button: إظهار زر إعادة التعيين (default: true)
 - reset_url: رابط إعادة التعيين
 #}
-<div class="card shadow-sm mb-4" id="unified-filter-bar">
-    <div class="card-header bg-white py-3">
-        <h5 class="mb-0"><i class="fas fa-filter me-2"></i> فلاتر البحث</h5>
+<div class="card custom-filter-card mb-4" id="unified-filter-bar">
+    <div class="card-header card-header-navy">
+        <h5 class="mb-0">
+            فلتر البحث <i class="fas fa-filter"></i>
+        </h5>
     </div>
     <div class="card-body">
-        <form method="get" action="{{ form_action }}" class="row g-3 align-items-end">
+        <form method="get" action="{{ form_action }}" class="row g-2 align-items-end">
             {# عمود 1: من تاريخ #}
             <div class="col-md-2">
-                <label class="form-label">من تاريخ</label>
-                <input type="text" name="date_from" id="date-from" class="form-control date-string"
-                    placeholder="DD/MM/YYYY" value="{{ date_from or '' }}">
+                <label class="filter-label">من تاريخ</label>
+                <div class="filter-input-wrapper">
+                    <i class="far fa-calendar-alt input-icon"></i>
+                    <input type="text" name="date_from" id="date-from" class="form-control date-string"
+                        placeholder="DD/MM/YYYY" value="{{ date_from or '' }}" aria-label="من تاريخ">
+                </div>
             </div>
 
             {# عمود 2: إلى تاريخ #}
             <div class="col-md-2">
-                <label class="form-label">إلى تاريخ</label>
-                <input type="text" name="date_to" id="date-to" class="form-control date-string" placeholder="DD/MM/YYYY"
-                    value="{{ date_to or '' }}">
+                <label class="filter-label">إلى تاريخ</label>
+                <div class="filter-input-wrapper">
+                    <i class="far fa-calendar-alt input-icon"></i>
+                    <input type="text" name="date_to" id="date-to" class="form-control date-string" 
+                        placeholder="DD/MM/YYYY" value="{{ date_to or '' }}" aria-label="إلى تاريخ">
+                </div>
             </div>
 
             {# عمود 3: فلتر الأقسام #}
             <div class="col-md-5">
-                <label class="form-label">الأقسام</label>
-                <select name="department_ids" id="dept-filter" class="form-select" multiple size="1">
-                    {% for dept in departments %}
-                    <option value="{{ dept.id }}" {% if selected_department_ids and dept.id in selected_department_ids
-                        %}selected{% endif %}>
-                        {{ dept.name }}
-                    </option>
-                    {% endfor %}
-                </select>
+                <label class="filter-label">الأقسام</label>
+                <div class="filter-input-wrapper select-wrapper">
+                    <i class="fas fa-chevron-down input-icon"></i>
+                    <select name="department_ids" id="dept-filter" class="form-select" multiple size="1" aria-label="الأقسام">
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}" {% if selected_department_ids and dept.id in selected_department_ids %}selected{% endif %}>
+                            {{ dept.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
             </div>
 
             {# عمود 4: زر البحث وإعادة التعيين #}
-            <div class="col-md-3 text-end">
-                <div class="btn-group w-100">
-                    <button class="btn btn-primary" type="submit">
-                        <i class="fas fa-search me-1"></i> بحث
+            <div class="col-md-3">
+                <div class="d-flex gap-2 w-100">
+                    <button class="btn btn-search-purple flex-grow-1" type="submit">
+                        <i class="fas fa-search"></i> بحث
                     </button>
                     {% if show_reset_button is not defined or show_reset_button %}
-                    {% if date_from or date_to or selected_department_ids %}
-                    <a href="{{ reset_url or form_action }}" class="btn btn-outline-secondary">
-                        <i class="fas fa-undo me-1"></i> إعادة تعيين
+                    <a href="{{ reset_url or form_action }}" class="btn btn-reset-outline flex-grow-1">
+                        <i class="fas fa-undo"></i> إعادة تعيين
                     </a>
-                    {% endif %}
                     {% endif %}
                 </div>
             </div>

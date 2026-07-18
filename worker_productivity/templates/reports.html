@@ -1,0 +1,383 @@
+{% extends 'base.html' %}
+{% block title %}التقارير - تتبع الإنتاج{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h3><i class="bi bi-file-earmark-bar-graph"></i> التقارير والتحليلات</h3>
+    </div>
+</div>
+
+<!-- أزرار التنقل بين التقارير -->
+<ul class="nav nav-tabs mb-4" id="reportTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="ranking-tab" data-bs-toggle="tab" data-bs-target="#ranking" type="button">
+            <i class="bi bi-trophy"></i> ترتيب العمال
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="worker-detail-tab" data-bs-toggle="tab" data-bs-target="#workerDetail" type="button">
+            <i class="bi bi-person-badge"></i> تحليل عامل
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="stage-tab" data-bs-toggle="tab" data-bs-target="#stageReport" type="button">
+            <i class="bi bi-diagram-3"></i> تحليل المراحل
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="records-tab" data-bs-toggle="tab" data-bs-target="#recordsReport" type="button">
+            <i class="bi bi-list-ul"></i> كل السجلات
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content">
+    <!-- ========== ترتيب العمال ========== -->
+    <div class="tab-pane fade show active" id="ranking">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-trophy"></i> ترتيب العمال</h5>
+                <div class="d-flex gap-2">
+                    <select class="form-select form-select-sm" onchange="loadFullRanking()" id="rankSortBy" style="direction:ltr;">
+                        <option value="speed">حسب السرعة (نسبة)</option>
+                        <option value="productivity">حسب الإنتاجية (وحدة/ساعة)</option>
+                        <option value="quantity">حسب الكمية</option>
+                    </select>
+                    <select class="form-select form-select-sm" onchange="loadFullRanking()" id="rankPeriod" style="direction:ltr;">
+                        <option value="all">كل الفترات</option>
+                        <option value="month">هذا الشهر</option>
+                        <option value="week">هذا الأسبوع</option>
+                    </select>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="rankingTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>الترتيب</th>
+                                <th>العامل</th>
+                                <th>الكود</th>
+                                <th>إجمالي الكمية</th>
+                                <th>إجمالي الساعات</th>
+                                <th>السرعة (وحدة/ساعة)</th>
+                                <th>نسبة السرعة</th>
+                                <th>عدد السجلات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rankingBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== تحليل عامل ========== -->
+    <div class="tab-pane fade" id="workerDetail">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-person-badge"></i> تحليل أداء عامل</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <select id="detailWorkerSelect" class="form-select">
+                            <option value="">-- اختر العامل --</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-primary w-100" onclick="loadWorkerDetail()">
+                            <i class="bi bi-search"></i> عرض
+                        </button>
+                    </div>
+                </div>
+                <div id="workerDetailResult" style="display:none;">
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6>إجمالي الكمية</h6>
+                                    <h3 id="detailTotalQty">0</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6>إجمالي الساعات</h6>
+                                    <h3 id="detailTotalHours">0</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6>السرعة الإجمالية</h6>
+                                    <h3 id="detailOverallSpeed">0</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6>عدد السجلات</h6>
+                                    <h3 id="detailRecordCount">0</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <h5>تحليل حسب المرحلة</h5>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>المرحلة</th>
+                                    <th>الكمية</th>
+                                    <th>الساعات</th>
+                                    <th>السرعة</th>
+                                    <th>المعيار</th>
+                                    <th>النسبة</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detailStageBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== تحليل المراحل ========== -->
+    <div class="tab-pane fade" id="stageReport">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="bi bi-diagram-3"></i> تحليل المراحل</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>رقم</th>
+                                <th>المرحلة</th>
+                                <th>الماكينة</th>
+                                <th>عدد العمال</th>
+                                <th>إجمالي السجلات</th>
+                                <th>أفضل عامل</th>
+                                <th>سرعة الأفضل</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fullStageBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== كل السجلات ========== -->
+    <div class="tab-pane fade" id="recordsReport">
+        <div class="card shadow">
+            <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-list-ul"></i> كل السجلات</h5>
+                <button class="btn btn-light btn-sm" onclick="loadAllRecords()"><i class="bi bi-arrow-clockwise"></i> تحديث</button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>التاريخ</th>
+                                <th>العامل</th>
+                                <th>المرحلة</th>
+                                <th>الصنف</th>
+                                <th>الوقت</th>
+                                <th>الساعات</th>
+                                <th>الكمية</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="allRecordsBody"></tbody>
+                    </table>
+                </div>
+                <div class="p-3 d-flex justify-content-between align-items-center">
+                    <span id="recordPaginationInfo"></span>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary" id="prevPageBtn" onclick="changePage(-1)">السابق</button>
+                        <button class="btn btn-sm btn-outline-primary" id="nextPageBtn" onclick="changePage(1)">التالي</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let currentPage = 1;
+
+// تحميل قائمة العمال لتحليل العامل
+fetch('/api/workers')
+    .then(r => r.json())
+    .then(data => {
+        const select = document.getElementById('detailWorkerSelect');
+        data.workers.forEach(w => {
+            select.innerHTML += `<option value="${w.code}">${w.code} - ${w.name}</option>`;
+        });
+    });
+
+// ترتيب العمال
+function loadFullRanking() {
+    const sortBy = document.getElementById('rankSortBy').value;
+    const period = document.getElementById('rankPeriod').value;
+    fetch(`/api/reports/worker-ranking?sort_by=${sortBy}&period=${period}&limit=100`)
+        .then(r => r.json())
+        .then(data => {
+            const tbody = document.getElementById('rankingBody');
+            if (!data.ranking || data.ranking.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">لا توجد بيانات</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.ranking.map(w => `
+                <tr class="${w.rank <= 3 ? 'table-success fw-bold' : ''}">
+                    <td>${w.rank}</td>
+                    <td><a href="#" onclick="showWorkerDetail('${w.worker_code}')">${w.worker_name}</a></td>
+                    <td>${w.worker_code}</td>
+                    <td>${w.total_quantity.toLocaleString()}</td>
+                    <td>${w.total_hours}</td>
+                    <td>${w.overall_speed}</td>
+                    <td>${w.speed_ratio}%</td>
+                    <td>${w.record_count}</td>
+                </tr>
+            `).join('');
+        });
+}
+
+// تحليل عامل
+function loadWorkerDetail() {
+    const code = document.getElementById('detailWorkerSelect').value;
+    if (!code) return;
+    showWorkerDetail(code);
+}
+
+function showWorkerDetail(code) {
+    document.getElementById('detailWorkerSelect').value = code;
+    fetch(`/api/reports/worker-detail?worker_code=${code}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.ok) return;
+            document.getElementById('workerDetailResult').style.display = 'block';
+            document.getElementById('detailTotalQty').textContent = data.worker.total_quantity.toLocaleString();
+            document.getElementById('detailTotalHours').textContent = data.worker.total_hours;
+            document.getElementById('detailOverallSpeed').textContent = data.worker.overall_speed;
+            document.getElementById('detailRecordCount').textContent = data.worker.record_count;
+
+            const tbody = document.getElementById('detailStageBody');
+            if (!data.stage_analysis || data.stage_analysis.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">لا توجد بيانات</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.stage_analysis.map(s => `
+                <tr>
+                    <td>${s.stage_name} (${s.stage_code})</td>
+                    <td>${s.total_quantity.toLocaleString()}</td>
+                    <td>${s.total_hours}</td>
+                    <td>${s.speed}</td>
+                    <td>${s.benchmark_unit_time}</td>
+                    <td>${s.speed_ratio}%</td>
+                </tr>
+            `).join('');
+            
+            // التمرير إلى النتيجة
+            document.getElementById('workerDetailResult').scrollIntoView({behavior: 'smooth'});
+        });
+}
+
+// تحليل المراحل
+function loadFullStageAnalysis() {
+    fetch('/api/reports/stage-analysis')
+        .then(r => r.json())
+        .then(data => {
+            const tbody = document.getElementById('fullStageBody');
+            if (!data.stages || data.stages.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">لا توجد بيانات</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.stages.map(s => `
+                <tr>
+                    <td>${s.stage_code}</td>
+                    <td>${s.stage_name}</td>
+                    <td>${s.machine_type}</td>
+                    <td>${s.worker_count}</td>
+                    <td>${s.total_records}</td>
+                    <td>${s.workers[0] ? s.workers[0].worker_name : '--'}</td>
+                    <td>${s.workers[0] ? s.workers[0].speed : '--'}</td>
+                </tr>
+            `).join('');
+        });
+}
+
+// كل السجلات
+function loadAllRecords() {
+    fetch(`/api/records/list?page=${currentPage}&per_page=30`)
+        .then(r => r.json())
+        .then(data => {
+            const tbody = document.getElementById('allRecordsBody');
+            if (!data.records || data.records.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">لا توجد سجلات</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.records.map(r => `
+                <tr>
+                    <td>${r.record_date}</td>
+                    <td>${r.worker_code}</td>
+                    <td>${r.stage_code}</td>
+                    <td>${r.product_code}</td>
+                    <td>${r.time_from} - ${r.time_to}</td>
+                    <td>${r.hours_worked}</td>
+                    <td>${r.quantity.toLocaleString()}</td>
+                    <td><button class="btn btn-danger btn-sm" onclick="deleteRecordAll(${r.id})"><i class="bi bi-trash"></i></button></td>
+                </tr>
+            `).join('');
+            document.getElementById('recordPaginationInfo').textContent = `صفحة ${data.page} من ${data.total_pages} (إجمالي ${data.total} سجل)`;
+            document.getElementById('prevPageBtn').disabled = data.page <= 1;
+            document.getElementById('nextPageBtn').disabled = data.page >= data.total_pages;
+        });
+}
+
+function changePage(delta) {
+    currentPage += delta;
+    if (currentPage < 1) currentPage = 1;
+    loadAllRecords();
+}
+
+function deleteRecordAll(id) {
+    if (!confirm('هل تريد حذف هذا السجل؟')) return;
+    fetch('/api/records/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: id})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) loadAllRecords();
+        else alert('خطأ: ' + data.message);
+    });
+}
+
+// تحميل كل التقارير عند فتح الصفحة
+loadFullRanking();
+loadFullStageAnalysis();
+loadAllRecords();
+
+// ربط حدث تغيير التبويب لإعادة تحميل
+document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(btn => {
+    btn.addEventListener('shown.bs.tab', function(e) {
+        if (e.target.id === 'ranking-tab') loadFullRanking();
+        if (e.target.id === 'stage-tab') loadFullStageAnalysis();
+        if (e.target.id === 'records-tab') loadAllRecords();
+    });
+});
+</script>
+{% endblock %}

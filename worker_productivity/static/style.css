@@ -1,0 +1,156 @@
+/* ========== نظام تتبع إنتاج العمال ========== */
+
+body {
+    background-color: #f5f7fa;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.3rem;
+}
+
+.card {
+    border: none;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+}
+
+.card-header {
+    border-radius: 10px 10px 0 0 !important;
+    font-weight: 600;
+}
+
+.shadow {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08) !important;
+}
+
+.table th {
+    font-weight: 600;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.table td {
+    vertical-align: middle;
+    font-size: 0.9rem;
+}
+
+.table-hover tbody tr:hover {
+    background-color: #e8f4fd;
+}
+
+/* بطاقات الإحصائيات */
+.card.bg-primary, .card.bg-success, .card.bg-warning, .card.bg-info {
+    transition: transform 0.2s;
+}
+
+.card.bg-primary:hover, .card.bg-success:hover, .card.bg-warning:hover, .card.bg-info:hover {
+    transform: translateY(-3px);
+}
+
+/* شريط التبويبات */
+.nav-tabs .nav-link {
+    font-weight: 500;
+    color: #495057;
+    border: none;
+    padding: 0.75rem 1.25rem;
+}
+
+.nav-tabs .nav-link.active {
+    color: #0d6efd;
+    border-bottom: 3px solid #0d6efd;
+    background: transparent;
+}
+
+/* حقول الإدخال */
+.form-control:focus, .form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+/* جدول الإدخال */
+#entryTable .form-control-sm, #entryTable .form-select-sm {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.4rem;
+}
+
+#entryTable th {
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
+/* أزرار */
+.btn {
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.btn-lg {
+    padding: 0.5rem 1.5rem;
+}
+
+/* شريط التقدم */
+.progress {
+    height: 1.5rem;
+    border-radius: 10px;
+}
+
+/* التجاوب مع الشاشات الصغيرة */
+@media (max-width: 768px) {
+    .display-6 {
+        font-size: 1.5rem;
+    }
+    .table {
+        font-size: 0.8rem;
+    }
+}
+
+/* تخصيص scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1;
+}
+
+/* أنيميشن للتحميل */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.loading {
+    animation: pulse 1.5s infinite;
+}
+
+/* تنسيق النوافذ المنبثقة */
+.modal-header {
+    border-bottom: none;
+    padding: 1rem 1.5rem;
+}
+
+.modal-footer {
+    border-top: none;
+}
+
+/* تنسيق الجداول داخل النوافذ */
+.modal-body .table th {
+    position: sticky;
+    top: 0;
+    background: #f8f9fa;
+    z-index: 1;
+}
