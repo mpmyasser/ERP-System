@@ -33,11 +33,28 @@ def _normalize_confirmation_text(value: str) -> str:
 manufacturing_bp = Blueprint('manufacturing', __name__)
 
 def _get_admin_password():
+    """Read the manufacturing admin password from the gitignored secret file.
+
+    Returns None when the file is missing or empty. Callers must treat a None
+    (or empty) result as "not configured" and refuse the privileged action
+    rather than falling back to any default password.
+    """
     path_data = os.path.join(MFG_DATA_DIR, 'operation_admin_password.txt')
     if os.path.exists(path_data):
         with open(path_data, 'r', encoding='utf-8') as f:
-            return f.read().strip()
-    return "admin123"
+            return f.read().strip() or None
+    return None
+
+
+def _verify_admin_password(candidate: str) -> bool:
+    """Constant-time check of a supplied admin password against the configured one.
+
+    Denies access when no password is configured on the server.
+    """
+    configured = _get_admin_password()
+    if not configured or not candidate:
+        return False
+    return hmac.compare_digest(candidate, configured)
 
 @manufacturing_bp.route('/')
 @permission_required('mfg_cutting_department')
@@ -552,7 +569,7 @@ def admin_purge_cuts():
                 "message": f"اكتب جملة التأكيد كما هي: {PURGE_CONFIRM_PHRASE}",
             }
         ), 400
-    if not hmac.compare_digest(admin_password, _get_admin_password()):
+    if not _verify_admin_password(admin_password):
         return jsonify({"ok": False, "message": "كلمة سر الأدمن غير صحيحة."}), 403
 
     deleted = storage.purge_cut_data()
@@ -583,7 +600,7 @@ def admin_purge_prices():
                 "message": f"اكتب جملة التأكيد كما هي: {PRICE_PURGE_CONFIRM_PHRASE}",
             }
         ), 400
-    if not hmac.compare_digest(admin_password, _get_admin_password()):
+    if not _verify_admin_password(admin_password):
         return jsonify({"ok": False, "message": "كلمة سر الأدمن غير صحيحة."}), 403
 
     deleted = storage.purge_factory_prices()
@@ -611,7 +628,7 @@ def admin_purge_reference():
                 "message": f"اكتب جملة التأكيد كما هي: {REFERENCE_PURGE_CONFIRM_PHRASE}",
             }
         ), 400
-    if not hmac.compare_digest(admin_password, _get_admin_password()):
+    if not _verify_admin_password(admin_password):
         return jsonify({"ok": False, "message": "كلمة سر الأدمن غير صحيحة."}), 403
 
     deleted = storage.purge_reference_items()

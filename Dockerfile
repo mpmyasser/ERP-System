@@ -41,7 +41,9 @@ ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     FLASK_APP=run.py \
-    FLASK_ENV=production
+    FLASK_ENV=production \
+    FLASK_DEBUG=0 \
+    SERVER_HOST=0.0.0.0
 
 # Copy application code
 COPY . .
