@@ -859,7 +859,7 @@ def api_import_excel_data():
                                 else:
                                     dt = datetime.fromisoformat(hire_str)
                                     hire_date = dt.date() if hasattr(dt, 'date') else dt
-                            except:
+                            except (ValueError, TypeError):
                                 pass
                         worker = Worker(
                             code=code,

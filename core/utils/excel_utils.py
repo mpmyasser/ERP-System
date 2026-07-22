@@ -50,8 +50,9 @@ def apply_professional_style(sheet, df):
                      val_len = len(str(cell.value)) if cell.value else 0
                      if val_len > max_length:
                          max_length = val_len
-                 except: pass
+                 except (TypeError, ValueError):
+                     pass
                  
              sheet.column_dimensions[column].width = max_length + 3
-        except:
+        except (AttributeError, IndexError, TypeError, ValueError):
             pass

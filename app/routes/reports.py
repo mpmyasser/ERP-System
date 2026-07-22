@@ -317,8 +317,8 @@ def attendance():
             db.process_attendance_for_date(current)
             current += timedelta(days=1)
             
-    except Exception as e:
-        print(f"Error processing attendance: {e}")
+    except Exception:
+        current_app.logger.exception("Error processing attendance for range %s to %s", date_from, date_to)
     
     attendance_data = db.get_attendance_report(date_from, date_to)
     
@@ -408,8 +408,8 @@ def payroll_sheet():
                     
                     dept_record['total_wages'] += salary_info.get('Net Salary', 0.0)
                     dept_record['count'] += 1
-                except Exception as e:
-                    print(f"Error calculating payroll for {emp.name}: {e}")
+                except Exception:
+                    current_app.logger.exception("Error calculating payroll for employee %s", emp.name)
                     
             if dept_record['employees']:
                 report_data.append(dept_record)
@@ -473,8 +473,8 @@ def payroll_signature():
                 dept_record['total_wages'] += salary_info.get('Net Salary', 0)
                 dept_record['count'] += 1
                 
-            except Exception as e:
-                print(f"Error in signature sheet for {emp.name}: {e}")
+            except Exception:
+                current_app.logger.exception("Error in signature sheet for employee %s", emp.name)
         
         if dept_record['employees']:
             report_data.append(dept_record)
@@ -515,8 +515,8 @@ def payroll():
                 'total_deductions': salary_data.get('Total Deductions', 0),
                 'net_salary': salary_data.get('Net Salary', 0)
             })
-        except Exception as e:
-            print(f"Skipping {emp.name} in flat payroll: {e}")
+        except Exception:
+            current_app.logger.exception("Skipping employee %s in flat payroll", emp.name)
 
     return render_template('reports/payroll.html', 
                          salaries=salaries,
@@ -973,7 +973,8 @@ def export_detailed_salary_excel(emp_id):
                     try:
                         if len(str(cell.value)) > max_length:
                             max_length = len(str(cell.value))
-                    except: pass
+                    except (TypeError, ValueError):
+                        pass
                 sheet.column_dimensions[column].width = max_length + 2
 
         output.seek(0)
@@ -1037,7 +1038,8 @@ def export_payroll_sheet_excel():
                         'صافي الراتب': float(salary_info.get('Net Salary', 0))
                     }
                     excel_data.append(record)
-                except:
+                except Exception:
+                    current_app.logger.exception("Skipping employee %s in payroll excel export", emp.name)
                     continue
 
         if not excel_data:
@@ -1144,13 +1146,13 @@ def salary_history():
     if from_date:
         try:
             date_from = parse_date_compact(from_date) if from_date else None
-        except:
+        except (ValueError, TypeError):
             date_from = None
     
     if to_date:
         try:
             date_to = parse_date_compact(to_date) if to_date else None
-        except:
+        except (ValueError, TypeError):
             date_to = None
     
     # Get salary history records
@@ -1229,13 +1231,13 @@ def export_salary_history_excel():
     if from_date:
         try:
             date_from = parse_date_compact(from_date)
-        except:
+        except (ValueError, TypeError):
             date_from = None
     
     if to_date:
         try:
             date_to = parse_date_compact(to_date)
-        except:
+        except (ValueError, TypeError):
             date_to = None
     
     # Get salary history

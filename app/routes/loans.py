@@ -367,7 +367,7 @@ def bulk_edit_save():
                     try:
                         from datetime import datetime
                         date_val = datetime.strptime(date_str, '%Y-%m-%d').date()
-                    except:
+                    except (ValueError, TypeError):
                         pass
             
             # Update loan
@@ -383,7 +383,7 @@ def bulk_edit_save():
             if 'remaining_balance' in item and item['remaining_balance'] is not None:
                 try:
                     update_data['remaining_balance'] = float(item['remaining_balance'])
-                except:
+                except (ValueError, TypeError):
                     pass
             
             db.update_loan(**update_data)

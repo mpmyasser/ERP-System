@@ -725,8 +725,8 @@ def delete_document(id, doc_id):
         if os.path.exists(full_path):
             try:
                 os.remove(full_path)
-            except:
-                pass # Ignore if file not found
+            except OSError:
+                current_app.logger.warning("Could not delete document file at %s", full_path, exc_info=True)
         flash('تم حذف المستند بنجاح', 'center')
         query_parts.append(('departments', dept))
     if filter_status:

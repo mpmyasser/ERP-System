@@ -376,7 +376,7 @@ def bulk_edit_save():
                     if not date_val:
                         try:
                             date_val = datetime.strptime(date_str, '%Y-%m-%d').date()
-                        except:
+                        except (ValueError, TypeError):
                             pass
                 
                 penalty.amount = float(item.get('amount', 0))
