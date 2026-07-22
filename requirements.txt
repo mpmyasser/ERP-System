@@ -14,7 +14,7 @@ pandas==2.1.4
 openpyxl==3.1.2
 
 # File & Image Processing
-Pillow==10.1.0
+Pillow==10.4.0
 qrcode==7.4.2
 
 # Optional: For better development experience

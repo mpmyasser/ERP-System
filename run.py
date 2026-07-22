@@ -40,5 +40,12 @@ if __name__ == '__main__':
     print("=" * 80)
     print("URL: http://127.0.0.1:5000")
     print("=" * 80 + "\n")
-    
-    app.run(debug=True, host='0.0.0.0', port=5000)
+
+    # Debug must be explicitly opted into. The Werkzeug debugger allows
+    # arbitrary code execution, so it must never be on by default in
+    # production-like deployments.
+    debug_enabled = os.environ.get('FLASK_DEBUG', '').strip().lower() in ('1', 'true', 'yes', 'on')
+    host = os.environ.get('SERVER_HOST', '127.0.0.1')
+    port = int(os.environ.get('SERVER_PORT', '5000'))
+
+    app.run(debug=debug_enabled, host=host, port=port)
