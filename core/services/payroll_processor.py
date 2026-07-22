@@ -15,12 +15,16 @@ This module handles all payroll-related calculations including:
 All calculations are based on the official HR policy (policy/hr_policy.py)
 """
 
+import logging
 from datetime import datetime, date, timedelta
 from sqlalchemy import or_
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from typing import Dict, List, Optional
 from policy.hr_policy import HRPolicy
 from database_models import Employee, DailyRecord, Loan, PenaltyBonus, Bonus, Permission, PublicHoliday, Leave, LeaveStatus, LeaveTypeEnum
+
+logger = logging.getLogger(__name__)
 
 
 class PayrollCalculator:
@@ -187,7 +191,12 @@ class PayrollCalculator:
                 PenaltyBonus.date <= end_date
             ).all()
             bonuses_with_salary += sum(b.amount for b in legacy_bonuses) if legacy_bonuses else 0.0
-        except: pass
+        except SQLAlchemyError:
+            self.session.rollback()
+            logger.exception(
+                "Failed to load bonuses-with-salary for employee_id=%s (%s to %s); treating as 0.0",
+                employee_id, start_date, end_date
+            )
         
         bonuses_paid_during_month = 0.0
         try:
@@ -198,7 +207,12 @@ class PayrollCalculator:
                 Bonus.date_awarded <= end_date
             ).all()
             bonuses_paid_during_month = sum(b.amount for b in bonuses_false) if bonuses_false else 0.0
-        except: pass
+        except SQLAlchemyError:
+            self.session.rollback()
+            logger.exception(
+                "Failed to load bonuses-paid-during-month for employee_id=%s (%s to %s); treating as 0.0",
+                employee_id, start_date, end_date
+            )
         
         # إجمالي المستحقات
         total_additions = overtime_value + incentive_value + employee.transport_allowance + regularity_incentive_value + bonuses_with_salary

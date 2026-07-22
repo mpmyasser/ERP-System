@@ -49,13 +49,13 @@ def parse_excel_date(val):
     # Fallback to pandas
     try:
         return pd.to_datetime(val_str).date()
-    except:
+    except (ValueError, TypeError):
         try:
              # Try Parsing DD/MM/YYYY
              if '/' in val_str:
                  return pd.to_datetime(val_str, format='%d/%m/%Y').date()
              return pd.to_datetime(val_str).date()
-        except:
+        except (ValueError, TypeError):
              return None
 
 def import_attendance_from_file(file_path):
@@ -67,10 +67,10 @@ def import_attendance_from_file(file_path):
         # Mimicking the retry logic is safer.
         try:
             df = pd.read_excel(file_path)
-        except:
+        except Exception:
             try:
                 df = pd.read_excel(file_path, engine='xlrd')
-            except:
+            except Exception:
                 df = pd.read_excel(file_path, engine='openpyxl')
                 
     except Exception as e:
@@ -160,7 +160,7 @@ def import_attendance_from_file(file_path):
                     # Try simple concat first
                     ts = pd.to_datetime(f"{date_obj.strftime('%Y-%m-%d')} {val_str}")
                     return ts
-                except:
+                except (ValueError, TypeError):
                     return None
 
             check_in_ts = parse_time_val(row.get(col_in), parsed_date) if col_in else None
@@ -206,11 +206,11 @@ def import_attendance_from_file(file_path):
                 pending_commits = 0
                 
         except Exception as e:
-            # stats['errors'].append(f"Row {index+2}: {str(e)}")
-            # Don't fail the whole batch for one row error?
-            # Rollback only if integrity error?
-            # For bulk speed, we often ignore individual row errors or catch them.
-            pass
+            # Roll back so a poisoned session doesn't cascade into every
+            # subsequent row, and surface the error instead of hiding it.
+            session.rollback()
+            pending_commits = 0
+            stats['errors'].append(f"Row {index+2}: {str(e)}")
             
     # Final Commit
     try:
