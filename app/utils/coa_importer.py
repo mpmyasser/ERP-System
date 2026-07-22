@@ -1,7 +1,6 @@
-import pandas as pd
 from core.accounting_models import Account, AccountType
 from typing import Dict, List, Tuple
-import traceback
+from app.utils.import_helpers import load_excel, clean_str, handle_import_error
 
 def import_coa_from_excel(db_session, file_path: str) -> Tuple[bool, str]:
     """
@@ -15,13 +14,10 @@ def import_coa_from_excel(db_session, file_path: str) -> Tuple[bool, str]:
     - balance_type (Debit/Credit)
     """
     try:
-        df = pd.read_excel(file_path)
-        
-        # Validate columns
-        required_cols = ['code', 'name', 'type']
-        for col in required_cols:
-            if col not in df.columns:
-                return False, f"العمود المطلوب غير موجود: {col}"
+        df, error = load_excel(file_path, ['code', 'name', 'type'])
+        if error:
+            return False, error
+        assert df is not None
         
         # Ensure codes are strings to handle leading zeros
         df['code'] = df['code'].astype(str).str.strip()
@@ -57,11 +53,9 @@ def import_coa_from_excel(db_session, file_path: str) -> Tuple[bool, str]:
             }
             acc_type = TYPE_MAP.get(acc_type_raw.lower(), 'Asset')
             
-            acc_class = str(row.get('account_class', '')).strip()
-            if acc_class == 'nan': acc_class = ''
+            acc_class = clean_str(row.get('account_class', ''))
             
-            balance_type = str(row.get('balance_type', 'Debit')).strip()
-            if balance_type == 'nan': balance_type = 'Debit'
+            balance_type = clean_str(row.get('balance_type', 'Debit'), 'Debit')
             
             if code in existing_accounts:
                 acc = existing_accounts[code]
@@ -107,7 +101,4 @@ def import_coa_from_excel(db_session, file_path: str) -> Tuple[bool, str]:
         return True, "تم استيراد شجرة الحسابات بنجاح"
         
     except Exception as e:
-        db_session.rollback()
-        error_msg = f"خطأ أثناء الاستيراد: {str(e)}\n{traceback.format_exc()}"
-        print(error_msg)
-        return False, str(e)
+        return False, handle_import_error(db_session, e)

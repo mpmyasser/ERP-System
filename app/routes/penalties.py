@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
 
 from db_manager import DBManager
 from app.forms import PenaltyForm
+from app.utils.form_helpers import employee_choices
 from utils.helpers import parse_date_compact, format_date_ar
 
 penalties_bp = Blueprint('penalties', __name__)
@@ -99,7 +100,7 @@ def create():
     form = PenaltyForm()
     db = current_app.db
     
-    form.employee_id.choices = [(e.id, f"{e.name} ({e.code})") for e in db.get_all_employees() if e.is_active]
+    form.employee_id.choices = employee_choices(db)
     
     if form.validate_on_submit():
         try:
@@ -130,7 +131,7 @@ def edit(id):
     form = PenaltyForm()
     
     # Get employees for dropdown
-    form.employee_id.choices = [(e.id, f"{e.name} ({e.code})") for e in db.get_all_employees()]
+    form.employee_id.choices = employee_choices(db, active_only=False)
     
     session = db.get_session()
     from database_models import PenaltyBonus

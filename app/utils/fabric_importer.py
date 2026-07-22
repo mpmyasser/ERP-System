@@ -1,8 +1,7 @@
-import pandas as pd
 from core.fabric_models import FabricRoll, FabricDesign
 from core.commercial_models import Partner, Warehouse
 from typing import Tuple
-import traceback
+from app.utils.import_helpers import load_excel, clean_str, safe_float, handle_import_error
 
 def import_fabric_rolls_from_excel(db_session, file_path: str) -> Tuple[bool, str]:
     """
@@ -20,13 +19,11 @@ def import_fabric_rolls_from_excel(db_session, file_path: str) -> Tuple[bool, st
     - design_name (String, optional)
     """
     try:
-        df = pd.read_excel(file_path)
-        
-        required_cols = ['serial_number', 'fabric_type', 'gross_weight']
-        for col in required_cols:
-            if col not in df.columns:
-                return False, f"العمود المطلوب غير موجود: {col}"
-                
+        df, error = load_excel(file_path, ['serial_number', 'fabric_type', 'gross_weight'])
+        if error:
+            return False, error
+        assert df is not None
+
         existing_rolls = {r.serial_number: r for r in db_session.query(FabricRoll).all()}
         
         # Cache related entities to avoid repeated queries
@@ -35,35 +32,22 @@ def import_fabric_rolls_from_excel(db_session, file_path: str) -> Tuple[bool, st
         designs_cache = {d.name: d.id for d in db_session.query(FabricDesign).all()}
         
         for index, row in df.iterrows():
-            serial = str(row['serial_number']).strip()
-            if not serial or serial == 'nan':
+            serial = clean_str(row['serial_number'])
+            if not serial:
                 continue
                 
-            fabric_type = str(row['fabric_type']).strip()
-            color = str(row.get('color', '')).strip()
-            if color == 'nan': color = ''
+            fabric_type = clean_str(row['fabric_type'])
+            color = clean_str(row.get('color', ''))
             
-            try:
-                gross_weight = float(row['gross_weight'])
-            except:
-                gross_weight = 0.0
+            gross_weight = safe_float(row.get('gross_weight'), 0.0)
+            net_weight = safe_float(row.get('net_weight'))
+            meters = safe_float(row.get('meters'))
                 
-            try:
-                net_weight = float(row['net_weight'])
-            except:
-                net_weight = None
-                
-            try:
-                meters = float(row['meters'])
-            except:
-                meters = None
-                
-            status = str(row.get('status', 'Raw')).strip()
-            if status == 'nan': status = 'Raw'
+            status = clean_str(row.get('status', 'Raw'), 'Raw')
             
-            supplier_name = str(row.get('supplier_name', '')).strip()
-            warehouse_name = str(row.get('warehouse_name', '')).strip()
-            design_name = str(row.get('design_name', '')).strip()
+            supplier_name = clean_str(row.get('supplier_name', ''))
+            warehouse_name = clean_str(row.get('warehouse_name', ''))
+            design_name = clean_str(row.get('design_name', ''))
             
             supplier_id = partners_cache.get(supplier_name)
             warehouse_id = warehouses_cache.get(warehouse_name)
@@ -107,7 +91,4 @@ def import_fabric_rolls_from_excel(db_session, file_path: str) -> Tuple[bool, st
         return True, "تم استيراد أرصدة الأتواب بنجاح"
         
     except Exception as e:
-        db_session.rollback()
-        error_msg = f"خطأ أثناء الاستيراد: {str(e)}\n{traceback.format_exc()}"
-        print(error_msg)
-        return False, str(e)
+        return False, handle_import_error(db_session, e)

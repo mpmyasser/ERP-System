@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
 
 from db_manager import DBManager
 from app.forms import LoanForm
+from app.utils.form_helpers import employee_choices
 import pandas as pd
 import io
 from flask import send_file
@@ -136,7 +137,7 @@ def create():
     form = LoanForm()
     db = current_app.db
     
-    form.employee_id.choices = [(e.id, f"{e.name} ({e.code})") for e in db.get_all_employees() if e.is_active]
+    form.employee_id.choices = employee_choices(db)
     
     if form.validate_on_submit():
         try:
@@ -182,7 +183,7 @@ def edit(id):
         return redirect(url_for('loans.list'))
     
     form = LoanForm(obj=loan)
-    form.employee_id.choices = [(e.id, f"{e.name} ({e.code})") for e in db.get_all_employees() if e.is_active]
+    form.employee_id.choices = employee_choices(db)
     
     if form.validate_on_submit():
         try:
