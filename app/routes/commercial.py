@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for,
 from core.db_manager import DBManager
 from core.commercial_models import Partner, Invoice, InvoiceItem, Warehouse, Product, InventoryTransaction
 from core.accounting_models import Account, JournalEntry, JournalItem
-from app.routes.auth import permission_required, login_required
+from app.routes.auth import permission_required, login_required, safe_referrer
 from datetime import datetime
 
 commercial_bp = Blueprint('commercial', __name__)
@@ -114,7 +114,7 @@ def sync_products():
     op_db_path = str(mfg_storage.DB_PATH)
     if not os.path.exists(op_db_path):
         flash('قاعدة بيانات حركة التشغيل غير موجودة.', 'danger')
-        return redirect(request.referrer or url_for('commercial.sales_dashboard'))
+        return redirect(safe_referrer('commercial.sales_dashboard'))
         
     try:
         op_conn = sqlite3.connect(op_db_path)
@@ -169,7 +169,7 @@ def sync_products():
         if 'op_conn' in locals(): op_conn.close()
         if 'session' in locals(): session.close()
         
-    return redirect(request.referrer or url_for('commercial.sales_dashboard'))
+    return redirect(safe_referrer('commercial.sales_dashboard'))
 
 @commercial_bp.route('/delete-all-products', methods=['POST'])
 @login_required

@@ -15,10 +15,9 @@ This module handles all payroll-related calculations including:
 All calculations are based on the official HR policy (policy/hr_policy.py)
 """
 
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, time, timedelta
 from sqlalchemy import or_
-from sqlalchemy.orm import Session
-from typing import Dict, List, Optional
+from typing import Dict, List
 from policy.hr_policy import HRPolicy
 from database_models import Employee, DailyRecord, Loan, PenaltyBonus, Bonus, Permission, PublicHoliday, Leave, LeaveStatus, LeaveTypeEnum
 
@@ -60,7 +59,6 @@ class PayrollCalculator:
         البحث عن الراتب الذي كان فعالاً في تاريخ معين بناءً على سجل التاريخ.
         إذا لم يوجد سجل، يتم استخدام الراتب الحالي للموظف.
         """
-        from datetime import datetime, time
         # تحويل target_date إلى datetime في نهاية اليوم لضمان شمولية التعديلات في نفس اليوم
         target_dt = datetime.combine(target_date, time.max)
 
@@ -187,7 +185,12 @@ class PayrollCalculator:
                 PenaltyBonus.date <= end_date
             ).all()
             bonuses_with_salary += sum(b.amount for b in legacy_bonuses) if legacy_bonuses else 0.0
-        except: pass
+        except Exception:
+            from flask import current_app
+            current_app.logger.exception(
+                "Failed to calculate bonuses_with_salary for employee_id=%s (period %s to %s); defaulting to 0.0",
+                employee_id, start_date, end_date
+            )
         
         bonuses_paid_during_month = 0.0
         try:
@@ -198,7 +201,12 @@ class PayrollCalculator:
                 Bonus.date_awarded <= end_date
             ).all()
             bonuses_paid_during_month = sum(b.amount for b in bonuses_false) if bonuses_false else 0.0
-        except: pass
+        except Exception:
+            from flask import current_app
+            current_app.logger.exception(
+                "Failed to calculate bonuses_paid_during_month for employee_id=%s (period %s to %s); defaulting to 0.0",
+                employee_id, start_date, end_date
+            )
         
         # إجمالي المستحقات
         total_additions = overtime_value + incentive_value + employee.transport_allowance + regularity_incentive_value + bonuses_with_salary

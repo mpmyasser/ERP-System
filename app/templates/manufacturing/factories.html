@@ -179,20 +179,19 @@
                         <option value="داخلي" ${item.type === 'داخلي' ? 'selected' : ''}>داخلي</option>
                     </select>
                 </td>
-                <td class="text-center d-flex gap-1 justify-content-center">
-                        <a href="/manufacturing/factory-payments?code=${encodeURIComponent(item.code)}" class="btn btn-sm btn-outline-info" title="سجل الدفعات">
+                <td class="text-center d-flex gap-1 justify-content-center align-items-center">
+                        <a href="/manufacturing/factory-payments?code=${encodeURIComponent(item.code)}" class="btn btn-sm btn-outline-info factory-row-action" title="سجل الدفعات">
                             <i class="fas fa-wallet"></i>
                         </a>
-                        <button type="button" class="btn btn-sm btn-outline-primary factory-row-edit" title="تعديل">
+                        <button type="button" class="btn btn-sm btn-outline-primary factory-row-action factory-row-edit" title="تعديل">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline-success factory-row-save" title="حفظ">
+                        <button type="button" class="btn btn-sm btn-outline-success factory-row-action factory-row-save" title="حفظ">
                             <i class="fas fa-save"></i>
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline-danger factory-row-delete" title="حذف">
+                        <button type="button" class="btn btn-sm btn-outline-danger factory-row-action factory-row-delete" title="حذف">
                             <i class="fas fa-trash"></i>
                         </button>
-                    </div>
                 </td>
             </tr>
         `).join('');

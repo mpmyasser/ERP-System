@@ -452,6 +452,11 @@
                     return;
                 }
 
+                // منع الإرسال المزدوج عبر تعطيل الزر فور بدء الطلب الفعلي
+                const originalBtnHTML = saveBtn.innerHTML;
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = 'جارٍ الحفظ...';
+
                 // Direct fetch with explicit CSRF token from Meta or Template
                 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || "{{ csrf_token() }}";
 
@@ -481,11 +486,15 @@
                                 .then(() => location.reload());
                         }
                     } else {
+                        saveBtn.disabled = false;
+                        saveBtn.innerHTML = originalBtnHTML;
                         Swal.fire({ icon: 'error', text: data.message || 'حدث خطأ' });
                     }
                 })
                 .catch(error => {
                     console.error("Save Error:", error);
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = originalBtnHTML;
                     Swal.fire({ icon: 'error', text: 'حدث خطأ في الاتصال أو البيانات' });
                 });
             });

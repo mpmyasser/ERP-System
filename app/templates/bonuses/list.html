@@ -102,6 +102,7 @@
                                 <i class="fas fa-edit"></i>
                             </a>
                             <button class="btn btn-sm btn-danger delete-record-btn" data-module="bonuses"
+                                data-delete-url="{{ url_for('bonuses.delete', id=bonus.id) }}"
                                 data-id="{{ bonus.id }}" data-confirm="هل أنت متأكد من حذف هذه المكافأة؟" title="حذف">
                                 <i class="fas fa-trash"></i>
                             </button>

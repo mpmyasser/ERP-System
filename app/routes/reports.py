@@ -9,7 +9,7 @@ import sys
 import os
 from datetime import datetime, date, timedelta
 from utils.helpers import parse_date_compact, format_date_ar
-from app.routes.auth import login_required, permission_required
+from app.routes.auth import login_required, permission_required, safe_referrer
 import pandas as pd
 import io
 from flask import send_file
@@ -588,7 +588,7 @@ def detailed_salary(emp_id):
         
     except Exception as e:
         flash(f"حدث خطأ أثناء إنشاء التقرير: {str(e)}", "danger")
-        return redirect(request.referrer or url_for('reports.index'))
+        return redirect(safe_referrer('reports.index'))
     finally:
         if session is not None:
             session.close()
@@ -982,7 +982,7 @@ def export_detailed_salary_excel(emp_id):
                         as_attachment=True, download_name=filename)
     except Exception as e:
         flash(f"حدث خطأ أثناء تصدير ملف Excel: {str(e)}", "danger")
-        return redirect(request.referrer or url_for('reports.index'))
+        return redirect(safe_referrer('reports.index'))
 
 @reports_bp.route('/payroll_sheet/export_excel')
 def export_payroll_sheet_excel():
@@ -1004,7 +1004,7 @@ def export_payroll_sheet_excel():
 
         if not departments_to_process:
             flash("يرجى اختيار الأقسام المراد تصديرها أولاً", "warning")
-            return redirect(request.referrer or url_for('reports.payroll_sheet'))
+            return redirect(safe_referrer('reports.payroll_sheet'))
 
         calculator = PayrollCalculator(db)
         excel_data = []
@@ -1042,7 +1042,7 @@ def export_payroll_sheet_excel():
 
         if not excel_data:
             flash("لا توجد بيانات لتصديرها", "warning")
-            return redirect(request.referrer or url_for('reports.payroll_sheet'))
+            return redirect(safe_referrer('reports.payroll_sheet'))
 
         # Create Excel in memory
         df = pd.DataFrame(excel_data)
@@ -1063,7 +1063,7 @@ def export_payroll_sheet_excel():
         
     except Exception as e:
         flash(f"حدث خطأ أثناء تصدير ملف Excel: {str(e)}", "danger")
-        return redirect(request.referrer or url_for('reports.payroll_sheet'))
+        return redirect(safe_referrer('reports.payroll_sheet'))
 
 @reports_bp.route('/insurance_costs/export_excel')
 def export_insurance_costs_excel():

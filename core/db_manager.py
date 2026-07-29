@@ -734,19 +734,18 @@ class DBManager:
         """
         session = self.get_session()
         try:
-            # Fetch all codes
-            codes = session.query(Employee.code).all()
-            if not codes:
+            from sqlalchemy import cast, Integer
+            # فلترة الأكواد الرقمية بالكامل فقط (مطابق لسلوك c.isdigit() السابق)،
+            # وحساب الأكبر عبر SQL MAX بدل تحميل كل الأكواد إلى الذاكرة
+            max_code = session.query(func.max(cast(Employee.code, Integer))).filter(
+                Employee.code.isnot(None),
+                Employee.code != '',
+                ~Employee.code.op('GLOB')('*[^0-9]*')
+            ).scalar()
+
+            if max_code is None:
                 return "1"
-            
-            # Extract numeric codes
-            max_code = 0
-            for (c,) in codes:
-                if c and c.isdigit():
-                    val = int(c)
-                    if val > max_code:
-                        max_code = val
-            
+
             return str(max_code + 1)
         except Exception:
             return ""

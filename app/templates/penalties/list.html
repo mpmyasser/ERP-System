@@ -124,6 +124,7 @@
                                 <i class="fas fa-edit"></i>
                             </a>
                             <button class="btn btn-sm btn-danger delete-record-btn" data-module="penalties"
+                                data-delete-url="{{ url_for('penalties.delete', id=penalty.id) }}"
                                 data-id="{{ penalty.id }}" data-confirm="هل أنت متأكد من حذف هذا الجزاء؟" title="حذف">
                                 <i class="fas fa-trash"></i>
                             </button>

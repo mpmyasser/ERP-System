@@ -113,6 +113,7 @@
                                 <i class="fas fa-edit" aria-hidden="true"></i>
                             </a>
                             <button class="btn btn-sm btn-danger delete-record-btn" data-module="permissions"
+                                data-delete-url="{{ url_for('permissions.delete', id=perm.id) }}"
                                 data-id="{{ perm.id }}" data-confirm="هل أنت متأكد من حذف هذا التصريح؟" title="حذف" aria-label="حذف التصريح">
                                 <i class="fas fa-trash" aria-hidden="true"></i>
                             </button>

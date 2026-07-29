@@ -133,7 +133,7 @@ def new_journal():
 def view_journal(id):
     db_session = db.get_session()
     try:
-        entry = db_session.query(JournalEntry).options(joinedload(JournalEntry.items)).get(id)
+        entry = db_session.query(JournalEntry).options(joinedload(JournalEntry.items)).filter_by(id=id).first()
         if not entry:
             flash('القيد غير موجود', 'danger')
             return redirect(url_for('accounting.list_journals'))
@@ -158,7 +158,7 @@ def view_journal(id):
 def edit_journal(id):
     db_session = db.get_session()
     try:
-        entry = db_session.query(JournalEntry).options(joinedload(JournalEntry.items)).get(id)
+        entry = db_session.query(JournalEntry).options(joinedload(JournalEntry.items)).filter_by(id=id).first()
         if not entry:
             flash('القيد غير موجود', 'danger')
             return redirect(url_for('accounting.list_journals'))

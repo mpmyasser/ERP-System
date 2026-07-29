@@ -66,6 +66,20 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def safe_referrer(fallback_endpoint, **fallback_kwargs):
+    """
+    يُعيد request.referrer فقط إذا كان يُشير لنفس نطاق التطبيق (لمنع Open Redirect
+    عبر تزوير Referer header)، وإلا يُعيد url_for(fallback_endpoint) كبديل آمن.
+    """
+    from urllib.parse import urlparse
+    referrer = request.referrer
+    if referrer:
+        ref_host = urlparse(referrer).netloc
+        req_host = urlparse(request.host_url).netloc
+        if ref_host == req_host:
+            return referrer
+    return url_for(fallback_endpoint, **fallback_kwargs)
+
 # Decorator for Admin Only
 def admin_required(f):
     @wraps(f)
@@ -164,6 +178,7 @@ def forgot_password():
             session['reset_otp_expires'] = int(time.time()) + 600
             session['reset_phone_masked'] = _mask_phone(mobile_number)
             session['reset_using_national_id'] = False
+            session['reset_otp_attempts'] = 0
 
             flash('تم إرسال كود التحقق إلى واتساب الموظف', 'info')
             return redirect(url_for('auth.reset_password'))
@@ -219,7 +234,19 @@ def reset_password():
 
         otp_hash = session.get('reset_otp_hash')
         if not using_national_id:
+            attempts = session.get('reset_otp_attempts', 0)
+            if attempts >= 5:
+                session.pop('reset_user_id', None)
+                session.pop('reset_otp_hash', None)
+                session.pop('reset_otp_expires', None)
+                session.pop('reset_phone_masked', None)
+                session.pop('reset_using_national_id', None)
+                session.pop('reset_otp_attempts', None)
+                flash('تم تجاوز الحد المسموح من المحاولات، يرجى إعادة المحاولة من البداية', 'warning')
+                return redirect(url_for('auth.forgot_password'))
+
             if not otp_hash or not otp or not check_password_hash(otp_hash, otp):
+                session['reset_otp_attempts'] = attempts + 1
                 flash('كود التحقق غير صحيح', 'warning')
                 return render_template('auth/reset_password.html', masked_phone=masked_phone, using_national_id=using_national_id)
 
@@ -243,6 +270,7 @@ def reset_password():
         session.pop('reset_otp_expires', None)
         session.pop('reset_phone_masked', None)
         session.pop('reset_using_national_id', None)
+        session.pop('reset_otp_attempts', None)
 
         flash('تم تغيير كلمة المرور بنجاح', 'center')
         return redirect(url_for('auth.login'))

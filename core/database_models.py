@@ -56,7 +56,7 @@ class WeeklyHoliday(enum.Enum):
     MONDAY = "الإثنين"
     TUESDAY = "الثلاثاء"
     WEDNESDAY = "الأربعاء"
-Thursday = "الخميس"
+    THURSDAY = "الخميس"
 
 class SalaryType(enum.Enum):
     FIXED = "ثابت"

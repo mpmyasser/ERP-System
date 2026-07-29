@@ -3,6 +3,7 @@ from datetime import datetime, date
 import sys
 import os
 import uuid
+import tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.db_manager import DBManager
@@ -17,11 +18,9 @@ class TestTreasuryRouteQueries(unittest.TestCase):
     اختبار الاستعلامات المستخدمة في routes/treasury.py للتحقق من eager loading الصحيح
     """
     
-    @classmethod
-    def setUpClass(cls):
-        cls.db_manager = DBManager()
-    
     def setUp(self):
+        self._temp_db_fd, self._temp_db_path = tempfile.mkstemp(suffix='.db')
+        self.db_manager = DBManager(db_path=self._temp_db_path)
         self.session = self.db_manager.get_session()
     
     def tearDown(self):
@@ -29,6 +28,12 @@ class TestTreasuryRouteQueries(unittest.TestCase):
             self.session.rollback()
         finally:
             self.session.close()
+        self.db_manager.engine.dispose()
+        os.close(self._temp_db_fd)
+        try:
+            os.remove(self._temp_db_path)
+        except OSError:
+            pass
     
     def _generate_unique_code(self):
         return str(uuid.uuid4())[:8]
@@ -357,11 +362,9 @@ class TestQueryRegressions(unittest.TestCase):
     اختبار السيناريوهات التي كانت تسبب DetachedInstanceError قبل الإصلاح
     """
     
-    @classmethod
-    def setUpClass(cls):
-        cls.db_manager = DBManager()
-    
     def setUp(self):
+        self._temp_db_fd, self._temp_db_path = tempfile.mkstemp(suffix='.db')
+        self.db_manager = DBManager(db_path=self._temp_db_path)
         self.session = self.db_manager.get_session()
     
     def tearDown(self):
@@ -369,6 +372,12 @@ class TestQueryRegressions(unittest.TestCase):
             self.session.rollback()
         finally:
             self.session.close()
+        self.db_manager.engine.dispose()
+        os.close(self._temp_db_fd)
+        try:
+            os.remove(self._temp_db_path)
+        except OSError:
+            pass
     
     def _generate_unique_code(self):
         return str(uuid.uuid4())[:8]
@@ -389,25 +398,38 @@ class TestQueryRegressions(unittest.TestCase):
         اختبار Regression: الوصول إلى c.account.code في dashboard.html (المشكلة الأصلية)
         كان يسبب: DetachedInstanceError at app/templates/treasury/dashboard.html line 104
         """
-        # إنشاء بيانات
-        account = self._create_test_account('regression')
-        cash = CashAccount(
-            name='اختبار انحدار',
-            account_id=account.id,
+        # إنشاء صفَّين منفصلين فعليًا (وليس صفًا واحدًا يُستعلَم عنه مرتين) لضمان
+        # أن كائنَي Python مختلفان فعلًا، ولا يتشاركان Identity Map في نفس الجلسة
+        account1 = self._create_test_account('regression_no_eager')
+        cash_no_eager_row = CashAccount(
+            name='اختبار انحدار بدون eager',
+            account_id=account1.id,
             type='General',
             is_active=True,
             display_order=1
         )
-        self.session.add(cash)
+        self.session.add(cash_no_eager_row)
+
+        account2 = self._create_test_account('regression_with_eager')
+        cash_with_eager_row = CashAccount(
+            name='اختبار انحدار مع eager',
+            account_id=account2.id,
+            type='General',
+            is_active=True,
+            display_order=2
+        )
+        self.session.add(cash_with_eager_row)
         self.session.commit()
+        cash_no_eager_id = cash_no_eager_row.id
+        cash_with_eager_id = cash_with_eager_row.id
         
         # محاكاة dashboard query (بدون joinedload - هذا كان يسبب الخطأ)
-        cash_without_eager = self.session.query(CashAccount).filter_by(is_active=True).first()
+        cash_without_eager = self.session.query(CashAccount).filter_by(id=cash_no_eager_id).first()
         
-        # محاكاة dashboard query (مع joinedload - الحل)
+        # محاكاة dashboard query (مع joinedload - الحل)، على صف مختلف تمامًا
         cash_with_eager = self.session.query(CashAccount).options(
             joinedload(CashAccount.account)
-        ).filter_by(is_active=True).first()
+        ).filter_by(id=cash_with_eager_id).first()
         
         # إغلاق الجلسة (كما في treasury.py finally block)
         self.session.close()
@@ -441,27 +463,40 @@ class TestQueryRegressions(unittest.TestCase):
         self.session.add(general_cash)
         self.session.flush()
         
-        sub_account = self._create_test_account('subsidiary')
-        sub_cash = CashAccount(
-            name='subsidiary',
-            account_id=sub_account.id,
+        sub_account1 = self._create_test_account('subsidiary_no_eager')
+        sub_cash_no_eager_row = CashAccount(
+            name='subsidiary_no_eager',
+            account_id=sub_account1.id,
             type='Subsidiary',
             parent_cash_id=general_cash.id,
             is_active=True,
             display_order=2
         )
-        self.session.add(sub_cash)
+        self.session.add(sub_cash_no_eager_row)
+
+        sub_account2 = self._create_test_account('subsidiary_with_eager')
+        sub_cash_with_eager_row = CashAccount(
+            name='subsidiary_with_eager',
+            account_id=sub_account2.id,
+            type='Subsidiary',
+            parent_cash_id=general_cash.id,
+            is_active=True,
+            display_order=3
+        )
+        self.session.add(sub_cash_with_eager_row)
         self.session.commit()
+        sub_cash_no_eager_id = sub_cash_no_eager_row.id
+        sub_cash_with_eager_id = sub_cash_with_eager_row.id
         
-        # بدون nested eager loading
+        # بدون nested eager loading (صف مختلف تمامًا عن صف الحالة الثانية)
         sub_cash_no_eager = self.session.query(CashAccount).filter_by(
-            parent_cash_id=general_cash.id
+            id=sub_cash_no_eager_id
         ).first()
         
         # مع nested eager loading
         sub_cash_with_eager = self.session.query(CashAccount).options(
             joinedload(CashAccount.account)
-        ).filter_by(parent_cash_id=general_cash.id).first()
+        ).filter_by(id=sub_cash_with_eager_id).first()
         
         # إغلاق الجلسة
         self.session.close()

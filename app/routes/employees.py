@@ -728,6 +728,11 @@ def delete_document(id, doc_id):
             except:
                 pass # Ignore if file not found
         flash('تم حذف المستند بنجاح', 'center')
+    
+    query_parts = []
+    if filter_search:
+        query_parts.append(('search', filter_search))
+    for dept in filter_departments:
         query_parts.append(('departments', dept))
     if filter_status:
         query_parts.append(('status', filter_status))
@@ -859,7 +864,6 @@ def export_excel():
         employees = filtered
 
     # 5. Apply Search Query
-    employees = date_filtered_emps
     if search:
         search_lower = search.lower()
         employees = [e for e in employees if

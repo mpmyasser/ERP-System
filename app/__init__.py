@@ -124,7 +124,7 @@ def create_app():
         from flask import request, session, redirect, url_for
         
         # Static files and login/logout are exceptions
-        if request.endpoint in ['auth.login', 'static'] or not request.endpoint:
+        if request.endpoint in ['auth.login', 'auth.forgot_password', 'auth.reset_password', 'static'] or not request.endpoint:
             return
             
         if 'user_id' not in session:

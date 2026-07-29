@@ -28,7 +28,10 @@ class TreasuryRoutesTestCase(unittest.TestCase):
         
         # إنشاء جلسة اختبار
         self.client = self.app.test_client()
-        self.db_manager = DBManager()
+        # قاعدة بيانات مؤقتة معزولة لكل اختبار (تمنع تسرّب البيانات بين الاختبارات
+        # عبر تشارك ملف SQLite واحد، وهي المشكلة الجذرية لعدم استقرار هذه الاختبارات)
+        self._temp_db_fd, self._temp_db_path = tempfile.mkstemp(suffix='.db')
+        self.db_manager = DBManager(db_path=self._temp_db_path)
         self.session = self.db_manager.get_session()
     
     def tearDown(self):
@@ -37,6 +40,12 @@ class TreasuryRoutesTestCase(unittest.TestCase):
             self.session.rollback()
         finally:
             self.session.close()
+        self.db_manager.engine.dispose()
+        os.close(self._temp_db_fd)
+        try:
+            os.remove(self._temp_db_path)
+        except OSError:
+            pass
     
     def _create_test_user(self):
         """إنشاء مستخدم اختبار"""
@@ -291,7 +300,8 @@ class TreasuryDataIntegrityTests(unittest.TestCase):
     """
     
     def setUp(self):
-        self.db_manager = DBManager()
+        self._temp_db_fd, self._temp_db_path = tempfile.mkstemp(suffix='.db')
+        self.db_manager = DBManager(db_path=self._temp_db_path)
         self.session = self.db_manager.get_session()
     
     def tearDown(self):
@@ -299,6 +309,12 @@ class TreasuryDataIntegrityTests(unittest.TestCase):
             self.session.rollback()
         finally:
             self.session.close()
+        self.db_manager.engine.dispose()
+        os.close(self._temp_db_fd)
+        try:
+            os.remove(self._temp_db_path)
+        except OSError:
+            pass
     
     def test_cash_account_code_accessibility(self):
         """
@@ -325,7 +341,7 @@ class TreasuryDataIntegrityTests(unittest.TestCase):
         # استعلام مع joinedload
         fetched = self.session.query(CashAccount).options(
             joinedload(CashAccount.account)
-        ).get(cash.id)
+        ).filter_by(id=cash.id).first()
         
         # إغلاق الجلسة
         self.session.close()
@@ -359,7 +375,7 @@ class TreasuryDataIntegrityTests(unittest.TestCase):
         # استعلام مع joinedload
         fetched = self.session.query(BankAccount).options(
             joinedload(BankAccount.account)
-        ).get(bank.id)
+        ).filter_by(id=bank.id).first()
         
         # إغلاق الجلسة
         self.session.close()

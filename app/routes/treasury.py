@@ -396,7 +396,7 @@ def new_voucher(type):
         
         selected_cash = None
         if cash_id:
-            selected_cash = db_session.query(CashAccount).options(joinedload(CashAccount.account)).get(cash_id)
+            selected_cash = db_session.query(CashAccount).options(joinedload(CashAccount.account)).filter_by(id=cash_id).first()
         
         bank_accounts = db_session.query(BankAccount).options(joinedload(BankAccount.account)).all()
         accounts = db_session.query(Account).filter_by(is_active=1).all()

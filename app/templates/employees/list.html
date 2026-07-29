@@ -315,6 +315,7 @@
                                 <i class="fas fa-edit"></i>
                             </a>
                             <button class="btn btn-sm btn-danger delete-record-btn" data-module="employees"
+                                data-delete-url="{{ url_for('employees.delete', id=emp.id) }}"
                                 data-id="{{ emp.id }}" data-confirm="هل أنت متأكد من حذف هذا الموظف؟" title="حذف">
                                 <i class="fas fa-trash"></i>
                             </button>
