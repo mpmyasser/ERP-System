@@ -913,7 +913,6 @@ class DBManager:
         session = self.get_session()
         try:
             from utils.helpers import parse_date_compact
-            from datetime import date as date_type
             
             query = session.query(Loan).join(Employee).options(joinedload(Loan.employee).joinedload(Employee.department))
             
@@ -1664,7 +1663,6 @@ class DBManager:
         - True ط¥ط°ط§ ظ†ط¬ط­ ط§ظ„طھطµط¯ظٹط±
         """
         import csv
-        from datetime import datetime
         
         session = self.get_session()
         try:

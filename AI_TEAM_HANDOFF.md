@@ -120,4 +120,121 @@ P2-H14/P3-M15 (التزام جزئي في تحديث الرواتب — الكو
 انظر قائمة "ملخص ما تم إنجازه حتى الآن" أعلاه لكل التفاصيل. آخر حالة: 15 مهمة مُنفَّذة ومُتحقَّق
 منها، `36/36` اختبار ناجح، لا شيء تم عمل `commit` له بعد.
 
+### 2026-07-22 — Claude — الدفعة الأولى من P4-L05 (core/db_manager.py)
+
+**⚠️ درس حرج لأي عضو يكمل باقي دفعات P4-L05:** حاولت حذف كل استيرادات النماذج
+
+(ORM models)
+
+التي أظهرها
+
+flake8 --select=F401
+
+كغير مستخدمة في رأس `core/db_manager.py`
+
+(User, SystemPermission, CashAccount, BankAccount, CheckRecord, Account, CostCenter,
+
+JournalEntry, JournalItem, Partner, Invoice, InvoiceItem, Warehouse, Product, FabricRoll,
+
+ProductionMessage, FabricDesign)، فتعطَّل بناء التطبيق فورًا بخطأ:
+
+```
+sqlalchemy.exc.NoReferencedTableError: Foreign key associated with column
+'loans.disbursed_by' could not find table 'users' with which to generate
+a foreign key to target column 'id'
+```
+
+**السبب:** `DBManager.__init__` يستدعي `Base.metadata.create_all(self.engine)`. لكي تُنشَأ كل الجداول بنجاح، يجب أن تكون كل موديلات
+
+SQLAlchemy
+
+قد استُوردت (فسُجِّلت في
+
+Base
+
+metadata) **في مكان ما قبل هذا الاستدعاء**، حتى لو لم يُستخدَم الاسم مباشرة في كود
+
+Python
+
+بعد الاستيراد. استيراد النموذج نفسه له **أثر جانبي ضروري**
+
+(side effect)
+
+، وهذا ما لا يستطيع
+
+flake8
+
+اكتشافه — هو يفحص فقط استخدام الاسم في الكود، لا الأثر الجانبي للتسجيل.
+
+**القاعدة المُستخلَصة لأي دفعة قادمة من P4-L05:** لا تحذف أبدًا استيراد أي صنف يرث من
+
+Base
+
+(أي موديل
+
+SQLAlchemy)
+
+حتى لو ظهر "غير مستخدَم"، إلا إذا تأكَّدت أن الملف الذي يحذفه **ليس** الملف الذي يستدعي
+
+create_all()
+
+، أو تحققت فعليًا ببناء التطبيق كامل بعد كل حذف (وليس فقط `flake8`/`compileall`).
+
+### ما تم تنفيذه فعليًا في هذه الدفعة (بعد التراجع عن الجزء الخطير)
+
+**Files changed:** `core/db_manager.py` (سطران فقط)
+
+**Summary:** حذف استيرادين محليين
+
+(local, function-scope)
+
+من مكتبة
+
+datetime
+
+القياسية فقط (`date as date_type` في `search_loans`, و`datetime` في `export_audit_logs_csv`) — هذان آمنان لأنهما ليسا موديلات
+
+ORM
+
+ولا أثر جانبي لهما.
+
+**لم يُحذَف** أي استيراد موديل من رأس الملف (تراجعت عن كل المحاولة الأولى للأسباب أعلاه).
+
+**Verification performed:**
+- `compileall` + `flake8 --select=F401,F821` ✅ (تأكدت أن السطرين المحذوفين فقط غير مُشار إليهما بعد الآن)
+- بناء التطبيق الكامل (`create_app()`) ✅ 257 مسارًا — **هذا هو الفحص الذي كشف الخطأ في المحاولة الأولى**
+- محاكاة فعلية: طلب `HTTP` حقيقي لـ`/loans/api/data` (يستدعي `search_loans` داخليًا) → `200 OK`
+- محاكاة فعلية: استدعاء `export_audit_logs_csv()` ضمن `app_context()` حقيقي → أنشأ ملف `CSV` صحيحًا بترويسات عربية
+- `pytest tests/` كاملة → `36 passed`، لا انحدار
+
+**Suggested git commit message:**
+```
+refactor(db_manager): remove 2 genuinely-unused local datetime imports
+
+Removed `from datetime import date as date_type` (search_loans) and
+`from datetime import datetime` (export_audit_logs_csv) — both were
+local function-scope imports never referenced in the function body.
+
+Did NOT remove the ~18 module-level "unused" ORM model imports
+(User, CashAccount, Account, etc.) that flake8 also flagged — these
+turned out to be load-bearing: DBManager.__init__ calls
+Base.metadata.create_all(), which requires every SQLAlchemy model to
+have been imported somewhere first so it's registered in Base's
+metadata, even if the class name is never referenced directly in
+db_manager.py. Removing them broke app startup with
+NoReferencedTableError (loans.disbursed_by -> users.id).
+
+Verified via full create_app() build + real HTTP request + direct
+function call, not just static analysis.
+
+Refs: TECHNICAL_DEBT.md P4-L05 (partial — see AI_TEAM_HANDOFF.md for
+remaining safe/unsafe batches)
+```
+
+**بقية دفعات P4-L05 المتبقية** (حوالي 78 حالة أخرى عبر ~34 ملفًا): أغلبها في ملفات
+
+routes/
+
+تستورد `DBManager` فقط بدون استخدامه في نطاق الاستيراد نفسه (مختلف عن حالة db_manager.py) — هذه على الأرجح آمنة، **لكن طبِّق نفس الفحص الإلزامي: بناء التطبيق الكامل بعد كل حذف، لا تكتفِ بـ`flake8`/`compileall` فقط.**
+
 <!-- العضو التالي: أضف قسمك هنا فوق هذا التعليق -->
