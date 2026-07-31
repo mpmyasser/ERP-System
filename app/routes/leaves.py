@@ -17,6 +17,7 @@ from services.leave_service import LeaveService
 from utils.helpers import parse_date_compact
 
 leaves_bp = Blueprint('leaves', __name__)
+_list_type = list
 
 
 def _parse_leave_date(value):
@@ -158,8 +159,8 @@ def bulk():
     db = current_app.db
     from database_models import Employee, Leave, LeaveTypeEnum, LeaveStatus
     from datetime import date
-
     if request.method == 'POST':
+        session = None
         try:
             data = request.get_json()
             entries = data.get('entries', [])
@@ -234,11 +235,13 @@ def bulk():
                     message += f" | {len(errors)} أخطاء"
                 return jsonify({'success': True, 'message': message, 'errors': errors})
             else:
-                session.rollback()
+                if session:
+                    session.rollback()
                 return jsonify({'success': False, 'message': 'فشل الحفظ', 'errors': errors}), 400
                 
         except Exception as e:
-            session.rollback()
+            if session:
+                session.rollback()
             return jsonify({'success': False, 'message': f'خطأ: {str(e)}'}), 500
     
     # GET request
@@ -420,7 +423,7 @@ def bulk_edit_save():
         data = request.get_json(silent=True) or {}
         rows = data.get('rows', [])
 
-        if not isinstance(rows, list) or not rows:
+        if not isinstance(rows, _list_type) or not rows:
             return jsonify({'success': False, 'message': 'يجب اختيار إجازة واحدة على الأقل'}), 400
 
         valid_leave_types = {lt.value for lt in LeaveTypeEnum}
@@ -452,11 +455,14 @@ def bulk_edit_save():
             if not status or status not in valid_statuses:
                 return jsonify({'success': False, 'message': f'الصف {index}: حالة الإجازة غير صالحة'}), 400
 
-            if not str(start_raw or '').strip() or not str(end_raw or '').strip():
-                return jsonify({'success': False, 'message': f'الصف {index}: تاريخ البداية والنهاية مطلوبان'}), 400
+            try:
+                parsed_start = _parse_leave_date(start_raw)
+                parsed_end = _parse_leave_date(end_raw)
+            except ValueError as ve:
+                return jsonify({'success': False, 'message': f'الصف {index}: {str(ve)}'}), 400
 
-            parsed_start = _parse_leave_date(start_raw)
-            parsed_end = _parse_leave_date(end_raw)
+            if parsed_start is None or parsed_end is None:
+                return jsonify({'success': False, 'message': f'الصف {index}: تاريخ البداية والنهاية مطلوبان وتنسيقهما يجب أن يكون صالحاً'}), 400
 
             if parsed_end < parsed_start:
                 return jsonify({
