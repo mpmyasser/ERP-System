@@ -3,6 +3,7 @@ from datetime import datetime, date
 import sys
 import os
 import uuid
+import tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.db_manager import DBManager
@@ -17,11 +18,9 @@ class TestCashAccountHierarchies(unittest.TestCase):
     اختبار الخزائن الهرمية (عمومية وفرعية) مع eager loading
     """
     
-    @classmethod
-    def setUpClass(cls):
-        cls.db_manager = DBManager()
-    
     def setUp(self):
+        self._temp_db_fd, self._temp_db_path = tempfile.mkstemp(suffix='.db')
+        self.db_manager = DBManager(db_path=self._temp_db_path)
         self.session = self.db_manager.get_session()
     
     def tearDown(self):
@@ -29,6 +28,12 @@ class TestCashAccountHierarchies(unittest.TestCase):
             self.session.rollback()
         finally:
             self.session.close()
+        self.db_manager.engine.dispose()
+        os.close(self._temp_db_fd)
+        try:
+            os.remove(self._temp_db_path)
+        except OSError:
+            pass
     
     def _generate_unique_code(self):
         return str(uuid.uuid4())[:8]
@@ -467,11 +472,9 @@ class TestTemplateAccessPatterns(unittest.TestCase):
     اختبار أنماط الوصول التي تحدث في templates (مثل dashboard.html)
     """
     
-    @classmethod
-    def setUpClass(cls):
-        cls.db_manager = DBManager()
-    
     def setUp(self):
+        self._temp_db_fd, self._temp_db_path = tempfile.mkstemp(suffix='.db')
+        self.db_manager = DBManager(db_path=self._temp_db_path)
         self.session = self.db_manager.get_session()
     
     def tearDown(self):
@@ -479,6 +482,12 @@ class TestTemplateAccessPatterns(unittest.TestCase):
             self.session.rollback()
         finally:
             self.session.close()
+        self.db_manager.engine.dispose()
+        os.close(self._temp_db_fd)
+        try:
+            os.remove(self._temp_db_path)
+        except OSError:
+            pass
     
     def _generate_unique_code(self):
         return str(uuid.uuid4())[:8]

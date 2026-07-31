@@ -4,7 +4,7 @@ Permissions Routes
 Permissions management
 """
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify
 import sys
 import os
 from datetime import datetime
@@ -187,7 +187,6 @@ def bulk_save():
     session = db.get_session()
     
     try:
-        from flask import jsonify
         from database_models import Permission
         from datetime import time as time_type
         
@@ -241,7 +240,6 @@ def bulk_edit_load():
     session = db.get_session()
     
     try:
-        from flask import jsonify
         from database_models import Permission, Employee
         
         date_from_str = request.args.get('date_from')
@@ -293,7 +291,6 @@ def bulk_edit_save():
     session = db.get_session()
     
     try:
-        from flask import jsonify
         from database_models import Permission
         from datetime import time as time_type
         

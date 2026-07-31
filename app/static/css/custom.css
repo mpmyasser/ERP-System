@@ -1165,13 +1165,29 @@ tfoot.table-light th,
 /* Custom Styled Filter Card */
 .custom-filter-card {
     position: relative !important;
-    z-index: 1060 !important;
+    z-index: 15 !important; /* Fixed: Changed from 1060 to 15 so Bootstrap modals (1050+) render above the filter card */
     border: 1px solid #e2e8f0 !important;
     border-radius: 12px !important;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
     overflow: visible !important;
     background-color: #f8fafc !important; /* light slate bg */
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem !important;
+}
+
+/* Ensure filter dropdowns float above page elements but below modals */
+.custom-filter-card .dropdown-menu {
+    z-index: 1040 !important;
+}
+
+/* Bootstrap Modal Z-Index Safety */
+.modal-backdrop {
+    z-index: 1050 !important;
+}
+.modal {
+    z-index: 1055 !important;
+}
+.modal-dialog {
+    z-index: 1056 !important;
 }
 
 .custom-filter-card .card-body {

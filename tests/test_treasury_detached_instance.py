@@ -3,6 +3,7 @@ from datetime import datetime
 import sys
 import os
 import uuid
+import tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.db_manager import DBManager
@@ -17,21 +18,22 @@ class TestTreasuryDetachedInstance(unittest.TestCase):
     اختبار للتأكد من عدم حدوث DetachedInstanceError عند الوصول للعلاقات بعد إغلاق الجلسة
     """
 
-    @classmethod
-    def setUpClass(cls):
-        """إنشاء قاعدة بيانات اختبار"""
-        cls.db_manager = DBManager()
-        
     def setUp(self):
-        """إنشاء جلسة جديدة لكل اختبار"""
+        self._temp_db_fd, self._temp_db_path = tempfile.mkstemp(suffix='.db')
+        self.db_manager = DBManager(db_path=self._temp_db_path)
         self.session = self.db_manager.get_session()
         
     def tearDown(self):
-        """إغلاق الجلسة بعد كل اختبار"""
         try:
             self.session.rollback()
         finally:
             self.session.close()
+        self.db_manager.engine.dispose()
+        os.close(self._temp_db_fd)
+        try:
+            os.remove(self._temp_db_path)
+        except OSError:
+            pass
     
     def _generate_unique_code(self):
         """إنشاء كود فريد"""

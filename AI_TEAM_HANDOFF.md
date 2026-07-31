@@ -297,7 +297,25 @@ Verified: full create_app() build → 257 routes before and after (no regression
 Refs: TECHNICAL_DEBT.md P4-L05
 ```
 
-**دفعات P4-L05 المتبقية:** تحقق من الملفات خارج `app/routes/` (core/, utils/, worker_productivity/) التي لم تُفحَص بعد.
+**إصلاح إضافي (تنبيهات IDE المضللة - TD-007 وتصحيح NameError في reports.py):**
+- إصلاح أخطاء `jsonify is uninitialized` بإعادة الاستيراد في `bonuses.py`, `penalties.py`, `permissions.py`.
+- إعادة استيراد الأصناف المستعملة داخل دالات `reports.py` (`Employee`, `Department`, `PayrollCalculator`) بعد اكتشاف أنها تُستدعى محلياً في المسارات الفرعية.
+- إجراء فحص آلي كامل عبر شجرة الـ AST لجميع ملفات `app/routes/` والتأكد 100% من عدم وجود أي رمز غير مستورد.
+- ضبط تكوين [pyrightconfig.json](file:///e:/backoup/25-2-2026/pyrightconfig.json) و[.vscode/settings.json](file:///e:/backoup/25-2-2026/.vscode/settings.json) لمنع تنبيهات Pylance المضللة وحلها نهائياً.
+
+### 2026-07-31 — Antigravity — استكمال عزل قاعدة بيانات الاختبارات بالكامل
+
+**الملفات المُعدَّلة:**
+- `tests/test_treasury_advanced_scenarios.py`
+- `tests/test_treasury_detached_instance.py`
+
+**الملخص:**
+- استكمال عزل قاعدة بيانات بقية ملفات اختبار الخزينة (`test_treasury_advanced_scenarios.py` و`test_treasury_detached_instance.py`) بإنشاء ملفات SQLite مؤقتة لكل اختبار، وتطهير محرك قاعدة البيانات بعد الانتهاء.
+- حل مشكلة الفشل الحتمي للاختبار `test_grouped_access_pattern_like_receive_transfers` والذي كان يحدث نتيجة تلوث وتداخل البيانات المخزنة من دورات سابقة في قاعدة البيانات المشتركة `core/hr.db`.
+
+**التحقق الفعلي:**
+- تشغيل مجموعة الاختبارات بالكامل: `$env:PYTHONPATH="core;app;."; .venv/Scripts/python.exe -m unittest discover -s tests -p "test_*.py"` -> **36 passed, OK** (لا توجد أي إخفاقات أو تنبيهات متبقية).
 
 <!-- العضو التالي: أضف قسمك هنا فوق هذا التعليق -->
+
 

@@ -21,35 +21,35 @@
     #employees-table th.col-actions{ min-width: 120px; }
 </style>
 
-<!-- Page Header -->
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2"><i class="fas fa-users me-2" aria-hidden="true"></i> قائمة الموظفين</h1>
-    <div class="btn-toolbar mb-2 mb-md-0">
-        <a href="{{ url_for('employees.create') }}" class="btn btn-primary">
-            <i class="fas fa-plus" aria-hidden="true"></i> إضافة موظف فردي
-        </a>
-        <a href="{{ url_for('employees.bulk_entry') }}" class="btn btn-info text-white me-2">
-            <i class="fas fa-layer-group" aria-hidden="true"></i> إضافة موظف جماعي
-        </a>
-        <a href="{{ url_for('employees.bulk_salaries') }}" class="btn btn-dark me-2">
-            <i class="fas fa-money-bill-wave" aria-hidden="true"></i> تعديل المرتبات
-        </a>
-        <a href="{{ url_for('employees.bulk_edit') }}" class="btn btn-warning me-2">
-            <i class="fas fa-edit" aria-hidden="true"></i> تعديل البيانات الأساسية
-        </a>
-    </div>
-</div>
-
-<!-- Export / Import toolbar -->
-<div class="d-flex justify-content-end flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
-    <div class="btn-toolbar mb-2 mb-md-0">
-        <a href="{{ url_for('employees.export_excel', search=search, department_ids=selected_departments, dept_filter_mode=dept_filter_mode, status=status_filter, job_title=selected_job_title, date_from=hire_date_from, date_to=hire_date_to) }}"
-            class="btn btn-warning me-2">
-            <i class="fas fa-file-excel"></i> تصدير Excel
-        </a>
-        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importModal">
-            <i class="fas fa-file-excel"></i> استيراد مجمع
-        </button>
+<!-- Page Header & Actions Toolbar -->
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-2 pb-2 mb-3 border-bottom">
+    <h1 class="h3 mb-0"><i class="fas fa-users me-2 text-primary" aria-hidden="true"></i> قائمة الموظفين</h1>
+    <div class="btn-toolbar gap-2 mb-2 mb-md-0 align-items-center">
+        <div class="btn-group btn-group-sm">
+            <a href="{{ url_for('employees.create') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-1" aria-hidden="true"></i> إضافة موظف
+            </a>
+            <a href="{{ url_for('employees.bulk_entry') }}" class="btn btn-outline-primary">
+                <i class="fas fa-layer-group me-1" aria-hidden="true"></i> إضافة جماعي
+            </a>
+        </div>
+        <div class="btn-group btn-group-sm">
+            <a href="{{ url_for('employees.bulk_salaries') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-money-bill-wave me-1" aria-hidden="true"></i> تعديل المرتبات
+            </a>
+            <a href="{{ url_for('employees.bulk_edit') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-edit me-1" aria-hidden="true"></i> تعديل الأساسية
+            </a>
+        </div>
+        <div class="btn-group btn-group-sm">
+            <a href="{{ url_for('employees.export_excel', search=search, department_ids=selected_departments, dept_filter_mode=dept_filter_mode, status=status_filter, job_title=selected_job_title, date_from=hire_date_from, date_to=hire_date_to) }}"
+                class="btn btn-success">
+                <i class="fas fa-file-excel me-1"></i> تصدير Excel
+            </a>
+            <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#importModal">
+                <i class="fas fa-file-upload me-1"></i> استيراد مجمع
+            </button>
+        </div>
     </div>
 </div>
 

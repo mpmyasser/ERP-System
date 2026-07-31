@@ -158,7 +158,6 @@ def bulk():
     db = current_app.db
     from database_models import Employee, Leave, LeaveTypeEnum, LeaveStatus
     from datetime import date
-    from flask import jsonify
 
     if request.method == 'POST':
         try:
