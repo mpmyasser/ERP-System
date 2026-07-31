@@ -156,7 +156,7 @@ def check_duplicate():
 def bulk():
     """Bulk entry of leaves"""
     db = current_app.db
-    from database_models import Employee, Leave, LeaveTypeEnum, LeaveStatus, LeaveBalance
+    from database_models import Employee, Leave, LeaveTypeEnum, LeaveStatus
     from datetime import date
     from flask import jsonify
 

@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify, session as flask_session
 from core.db_manager import DBManager
-from core.accounting_models import Account, AccountType, JournalEntry, JournalItem, CostCenter
+from core.accounting_models import Account, JournalEntry, JournalItem, CostCenter
 from app.routes.auth import login_required, permission_required
 from sqlalchemy import or_
 from sqlalchemy.orm import joinedload

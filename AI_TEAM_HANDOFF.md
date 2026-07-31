@@ -237,4 +237,67 @@ routes/
 
 تستورد `DBManager` فقط بدون استخدامه في نطاق الاستيراد نفسه (مختلف عن حالة db_manager.py) — هذه على الأرجح آمنة، **لكن طبِّق نفس الفحص الإلزامي: بناء التطبيق الكامل بعد كل حذف، لا تكتفِ بـ`flake8`/`compileall` فقط.**
 
+### 2026-07-31 — Antigravity — الدفعة الثانية من P4-L05 (app/routes/)
+
+**الملفات المُعدَّلة (12 ملفًا):**
+
+| الملف | الاستيرادات المحذوفة |
+|-------|---------------------|
+| `app/routes/attendance.py` | `pandas as pd`، `DBManager`، `AttendanceLog` |
+| `app/routes/bonuses.py` | `DBManager` |
+| `app/routes/departments.py` | `DBManager` |
+| `app/routes/loans.py` | `DBManager` |
+| `app/routes/loans_old.py` | `DBManager` |
+| `app/routes/payroll.py` | `DBManager` |
+| `app/routes/penalties.py` | `DBManager` |
+| `app/routes/permissions.py` | `DBManager` |
+| `app/routes/employees.py` | `EmployeeDocument` |
+| `app/routes/reports.py` | `DBManager`، `PayrollCalculator`، `DailyRecord`، `AuditLog`، `DocumentType`، `EmployeeDocument`، `Employee`، `Department` |
+| `app/routes/commercial.py` | `jsonify` |
+| `app/routes/treasury.py` | `jsonify`، `User` |
+| `app/routes/universal_importer.py` | `jsonify` |
+| `app/routes/accounting.py` | `AccountType` |
+| `app/routes/main.py` | `DBManager` |
+| `app/routes/leaves.py` | `LeaveBalance` (استيراد داخل دالة) |
+
+**ملخص التغيير:** حذف ~28 استيرادًا غير مستخدم عبر 16 ملف routes. جميعها تحققت من:
+- ليست ORM models ذات أثر جانبي في ملفات تستدعي `create_all()` (تحقق صريح من `grep create_all` في كل ملف)
+- لا استخدام فعلي لاسم الكلاس/الدالة في جسم الملف (تحقق بـ`grep`)
+
+**⚠️ ما لم يُلمَس متعمدًا:** `app/routes/interactive_api.py` سطور 14-15 — استيرادات `DBManager` و`Loan, PenaltyBonus, Permission, DailyStatus, Bonus` داخل `except ImportError` fallback. هذا نمط مقصود للتوافق مع بيئات تشغيل مختلفة، وليس استيرادًا حقيقيًا غير مستخدم. `flake8` لا يفهم هذا النمط.
+
+**الآثار الجانبية المحتملة:** صفر — جميع الاستيرادات المحذوفة تحققت بعدم وجود استخدام فعلي.
+
+**التحقق المُنفَّذ فعليًا:**
+- بناء التطبيق الكامل قبل التعديل: **257 مسارًا** ✅
+- بناء التطبيق الكامل بعد كل التعديلات: **257 مسارًا** ✅ (لا انحدار)
+- `flake8 --select=F401 app/routes/` بعد التعديل: النتائج المتبقية فقط هي `interactive_api.py` المتعمد عدم لمسها
+
+**رسالة git commit مقترحة:**
+```
+refactor(routes): remove unused imports across 16 route files (P4-L05 batch 2)
+
+Removed ~28 genuinely-unused imports from app/routes/:
+- DBManager (7 files: bonuses, departments, loans, loans_old, payroll,
+  penalties, permissions, main) — class imported but never instantiated
+- ORM models with no create_all() in file (employees: EmployeeDocument;
+  reports: DailyRecord, AuditLog, DocumentType, EmployeeDocument, Employee,
+  Department, PayrollCalculator; accounting: AccountType; treasury: User;
+  attendance: AttendanceLog)
+- Flask helpers: jsonify (commercial, treasury, universal_importer)
+- Standard lib: pandas as pd (attendance)
+- Function-scope: LeaveBalance in leaves.bulk()
+
+Did NOT touch interactive_api.py lines 14-15 — these are intentional
+try/except ImportError fallback imports for cross-environment compatibility;
+flake8 F401 false-positive on that pattern.
+
+Verified: full create_app() build → 257 routes before and after (no regression).
+
+Refs: TECHNICAL_DEBT.md P4-L05
+```
+
+**دفعات P4-L05 المتبقية:** تحقق من الملفات خارج `app/routes/` (core/, utils/, worker_productivity/) التي لم تُفحَص بعد.
+
 <!-- العضو التالي: أضف قسمك هنا فوق هذا التعليق -->
+

@@ -11,7 +11,6 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'core'))
 
-from db_manager import DBManager
 from app.forms import LoanForm
 import pandas as pd
 import io
