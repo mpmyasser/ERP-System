@@ -1,9 +1,8 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify, session as flask_session
+from flask import Blueprint, render_template, request, flash, redirect, url_for, session as flask_session
 from core.db_manager import DBManager
 from core.treasury_models import CashAccount, BankAccount, CheckRecord, CashTransfer
 from core.accounting_models import Account, JournalEntry, JournalItem, CostCenter
 from core.database_models import Loan, Employee, Department
-from core.auth_models import User
 from core.auth_manager import AuthManager
 from app.routes.auth import login_required
 from sqlalchemy.orm import joinedload

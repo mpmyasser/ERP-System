@@ -1,4 +1,4 @@
-﻿"""
+"""
 Attendance Routes
 =================
 Attendance management and import
@@ -9,15 +9,13 @@ import sys
 import os
 from datetime import datetime, date
 from calendar import monthrange
-import pandas as pd
 from werkzeug.utils import secure_filename
 from utils.helpers import parse_date_compact
 from sqlalchemy.orm import joinedload
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'core'))
 
-from db_manager import DBManager
-from database_models import DailyRecord, Employee, AttendanceLog
+from database_models import DailyRecord, Employee
 from app.forms import AttendanceImportForm
 
 ALLOWED_EXTENSIONS = {'xlsx', 'xls'}

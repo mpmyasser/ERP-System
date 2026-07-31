@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify
+from flask import Blueprint, render_template, request, flash, redirect, url_for
 from core.db_manager import DBManager
 from core.commercial_models import Partner, Invoice, InvoiceItem, Warehouse, Product, InventoryTransaction
 from core.accounting_models import Account, JournalEntry, JournalItem

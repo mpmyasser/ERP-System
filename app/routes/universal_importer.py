@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for, current_app, jsonify
+from flask import Blueprint, render_template, request, flash, redirect, url_for, current_app
 import os
 from werkzeug.utils import secure_filename
 from app.routes.auth import permission_required

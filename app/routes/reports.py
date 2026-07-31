@@ -18,10 +18,6 @@ from core.utils.excel_utils import apply_professional_style
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'core'))
 
-from db_manager import DBManager
-from services.payroll_processor import PayrollCalculator
-from database_models import DailyRecord, Employee, AuditLog, Department
-from database_models import DocumentType, EmployeeDocument
 
 # Function apply_professional_style moved to core/utils/excel_utils.py
 
