@@ -4,11 +4,9 @@ Loans Service
 Handles employee loans (سلف) management
 """
 
-from datetime import date
 from sqlalchemy.orm import Session
 from typing import List
-from database_models import Loan, Employee
-from policy.hr_policy import LoanType, HRPolicy
+from database_models import Loan
 
 
 class LoansService:

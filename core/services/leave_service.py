@@ -5,9 +5,8 @@ Leave Service
 خدمة إدارة الإجازات
 """
 
-from datetime import date, datetime
+from datetime import date
 from sqlalchemy.orm import Session
-from typing import Optional, List
 from database_models import Employee, Leave, LeaveBalance, LeaveTypeEnum
 
 

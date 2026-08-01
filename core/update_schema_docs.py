@@ -1,5 +1,5 @@
 from sqlalchemy import create_engine
-from database_models import Base, EmployeeDocument
+from database_models import EmployeeDocument
 import os
 
 # Connect to database

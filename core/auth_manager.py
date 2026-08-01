@@ -1,6 +1,5 @@
 from core.db_manager import DBManager
 from core.auth_models import User, SystemPermission
-from database_models import Base # Ensure we use the correct Base
 from sqlalchemy.orm import joinedload
 
 class AuthManager:

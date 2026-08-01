@@ -4,7 +4,6 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from sqlalchemy import create_engine
-from core.database_models import Base
 from core.production_models import (
     ProductionProduct,
     ProductionFactory,

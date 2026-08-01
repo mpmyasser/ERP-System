@@ -205,30 +205,6 @@ if search:
 
 ---
 
-## TD-007 — False-Positive Static Analysis Errors in IDE (Pylance Type Checks vs Flask Dynamic Attributes & Runtime Path Resolution)
-
-| Field | Value |
-|-------|-------|
-| **Status** | Resolved (تم التكوين وإلغاء التنبيهات المضللة) |
-| **Severity** | Low (تنبيهات في محرر IDE Pylance فقط — لا تؤثر على تشغيل التطبيق ولا على بيئة الإنتاج) |
-| **Category** | Tooling & Type Hints |
-| **Discovered during** | فحص ومراجعة قائمة مشاكل المحرر `@[current_problems]` |
-| **Affected files** | `app/routes/*.py` (`attendance.py`, `bonuses.py`, `penalties.py`, `permissions.py`, `manufacturing.py`, `treasury.py`) |
-
-**التحقق والتفاصيل:**
-1. **أخطاء `Flask has no attribute db`**: كانت تظهر في المسارات بسبب تعيين `app.db = db_manager` ديناميكيًا في `app/__init__.py`. محرك Pylance يفحص `current_app` استنادًا للتعريفات الثابتة لـ Flask ولا يتعرف على الخصائص المضافة ديناميكيًا وقت التشغيل.
-2. **أخطاء الاستيراد `Could not import parse_date_compact`**: ينشأ التحذير في IDE بسبب الاعتماد على `sys.path.insert(0, ...)` وقت التشغيل لضبط مسارات الاستيراد المسطحة، وهو ما لا يستوعبه فاحص الكود الساكن بدون إعداد `extraPaths`.
-3. **أخطاء `jsonify is uninitialized`**: تم إصلاحها فعليًا في الجلسة الحالية عن طريق إضافة `from flask import ..., jsonify` في الملفات المعنية (`bonuses.py`, `penalties.py`, `permissions.py`).
-4. **أخطاء الأنواع (`str | None`, `NoneType`)**: تنشأ من عدم وجود فحوصات تضييق الأنواع (`type narrowing`) عند التعامل مع مدخلات النموذج/الطلب قبل التمرير لحقول ORM.
-
-**التعديلات المُنفَّذة لإلغاء التنبيهات المضللة:**
-- تحديث [pyrightconfig.json](file:///e:/backoup/25-2-2026/pyrightconfig.json) بإضافة المجلدات `utils` و`core` و`app` إلى `extraPaths` و`include` وتجاوز قواعد `reportAttributeAccessIssue`, `reportOptionalMemberAccess`, `reportArgumentType`, `reportGeneralTypeIssues`, `reportMissingImports`.
-- تحديث [.vscode/settings.json](file:///e:/backoup/25-2-2026/.vscode/settings.json) لإعداد `python.analysis.extraPaths` وتفعيل `python.analysis.diagnosticSeverityOverrides`.
-
-**Estimated effort:** مكتمل (تم التطبيق والتأكد بنجاح)
-
----
-
 ## سجل الإصدارات
 
 | التاريخ | التغيير |
@@ -243,4 +219,28 @@ if search:
 | 2026-07-22 | **إغلاق سلسلة TD-002/TD-003/TD-005**: حُدِّث آخر موضعين لنمط `joinedload().get()` في `tests/test_treasury_routes.py` (`test_bank_account_code_accessibility`, `test_cash_account_code_accessibility`) إلى `.filter_by().first()`. **النتيجة: مجموعة الاختبارات الكاملة أصبحت 36/36 ناجحة، صفر فشل، ثابتة عبر تشغيلات متعددة** — تحسُّن كامل من الحالة الأصلية (10 فاشلة متذبذبة). |
 | 2026-07-22 | إصلاح TD-001 (تنظيف استيرادات غير مستخدمة في `payroll_processor.py`). |
 | 2026-07-22 | تحقَّقت من P2-BH6 (تصنيف أصلي LIKELY 80%) ورفعته لدقة أعلى: أثبتُّ أن النقر المزدوج يُنتج تكرارًا حقيقيًا في سجل `SalaryHistory`/`AuditLog` (وليس خطأً في القيمة النهائية). أصلحت الحالة الشائعة (تعطيل الزر عند النقر في `bulk_salaries.html`)، وأضفت **TD-006** لتوثيق النافذة الضيقة المتبقية (طلبات متوازية حقيقية متجاوزة للواجهة) التي تتطلب مفتاح Idempotency على مستوى الخادم كمهمة منفصلة أكبر. |
-| 2026-07-31 | إصلاح أخطاء استيراد `jsonify` المفقودة في `bonuses.py` و`penalties.py` و`permissions.py` وإضافة **TD-007** لتوثيق تنبيهات التحليل الساكن المتبقية في IDE الناتجة عن الخصائص الديناميكية والنوع المؤجلة لجلسة مستقلة. |
+
+---
+
+## TD-007 — `update_schema_docs.py` Fails on Re-run (Unconditional Table Creation)
+
+| Field | Value |
+|-------|-------|
+| **Status** | Open |
+| **Severity** | Low |
+| **Category** | Maintainability (standalone utility script, not part of live app) |
+| **Discovered during** | التحقق من دفعة P4-L05 الثالثة (اختبار استيراد `core/update_schema_docs.py`) |
+| **Affected files** | `core/update_schema_docs.py` |
+
+**التحقق:** السطر `EmployeeDocument.__table__.create(engine)` يُنفَّذ بلا أي شرط `checkfirst=True`،
+فيفشل بـ`OperationalError: table employee_documents already exists` في أي تشغيل ثانٍ على نفس
+قاعدة البيانات. تأكدت أن هذا موجود في الكود الأصلي (عبر `git stash`) وغير مرتبط بأي تعديل حديث،
+وأن الملف سكريبت مستقل غير مُستورَد من التطبيق الحي (لا تأثير على الإنتاج).
+
+**لماذا تم التأجيل:** خارج نطاق مهمة تنظيف الاستيرادات الحالية.
+
+**Business Impact:** ضئيل جدًا — سكريبت أدوات يُشغَّل يدويًا ونادرًا، وليس جزءًا من دورة التشغيل الحية.
+
+**Estimated effort:** صغير جدًا — إضافة `checkfirst=True` لاستدعاء `create()`.
+
+**Related issues:** لا يوجد.

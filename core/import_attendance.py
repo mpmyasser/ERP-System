@@ -1,7 +1,7 @@
 import pandas as pd
 import sys
 import os
-from datetime import datetime, date
+from datetime import datetime
 import warnings
 
 # Suppress warnings
@@ -16,7 +16,7 @@ from db_manager import DBManager
 # Based on attendance.py usage: db.add_attendance_log uses logic inside DBManager or creates objects directly.
 # attendance.py imports AttendanceLog in the verification step: query(AttendanceLog)
 # Let's import basic models.
-from database_models import Employee, DailyRecord, AttendanceLog
+from database_models import AttendanceLog
 from utils.helpers import parse_date_compact
 
 def clean_value(val):

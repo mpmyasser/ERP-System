@@ -2,8 +2,6 @@ from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
 
 def apply_professional_style(sheet, df):
     """Apply standard professional styling to an Excel sheet"""
-    from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
-    
     header_fill = PatternFill(start_color='1F4E78', end_color='1F4E78', fill_type='solid')
     header_font = Font(color='FFFFFF', bold=True, size=12)
     border_side = Side(style='thin', color='000000')

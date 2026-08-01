@@ -7,7 +7,7 @@ Handles employee permissions (تصاريح)
 from datetime import date
 from sqlalchemy.orm import Session
 from typing import List
-from database_models import DailyRecord, Employee
+from database_models import DailyRecord
 from policy.hr_policy import HRPolicy
 
 

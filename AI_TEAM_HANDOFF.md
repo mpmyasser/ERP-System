@@ -303,4 +303,76 @@ Refs: TECHNICAL_DEBT.md P4-L05
 JS، وربما بعض ملفات `migrations/`/`scripts` القديمة. **نفس التحذير يبقى قائمًا: أي استيراد لموديل
 `ORM` يحتاج تحقُّقًا من كونه المصدر الوحيد لتحميل وحدته قبل الحذف.**
 
+### 2026-08-01 — Claude — الدفعة الثالثة (والأخيرة) من P4-L05
+
+**النتيجة النهائية: `flake8 --select=F401 core/ app/` يُظهر الآن فقط الـ19 حالة المحفوظة عمدًا في
+`core/db_manager.py`** (الموثَّقة في الدفعة الأولى كحمولة ضرورية لتسجيل الجداول). كل استيراد غير
+مستخدَم آخر في المشروع بأكمله (core/ وapp/) نُظِّف. من 80 حالة إجمالًا في بداية P4-L05 إلى 19
+متبقية (كلها محفوظة عمدًا، وليست إغفالًا).
+
+**Files changed (17):** `core/accounting_models.py`, `commercial_models.py`, `treasury_models.py`,
+`auth_manager.py`, `services/leave_service.py`, `services/loans_service.py`, `utils/excel_utils.py`,
+`import_attendance.py`, `import_employees.py`, `init_production_db.py`, `inventory_manager.py`,
+`services/permissions_service.py`, `update_schema_docs.py`, `utils/helpers.py`
+
+**الحالات عالية الحساسية التي تحقَّقت منها بعمق قبل الحذف:**
+- `treasury_models.py::Account` — العلاقة تستخدم مرجعًا نصيًا `relationship('Account')`، والوحدة
+  المصدرية `accounting_models.py` مُحمَّلة أصلًا عبر `db_manager.py` — آمن.
+- `auth_manager.py::Base` — تعليق الكود الأصلي قال "Ensure we use the correct Base" (إشارة تحذير)،
+  لكن تحققت أن `auth_models.py` (المُستورَدة في السطر السابق مباشرة) تستورد نفس `Base` أصلًا، فالسطر
+  مكرر فعليًا. اختبرت `/auth/login` (GET وPOST بمعلومات خاطئة) بعد الحذف للتأكد.
+- `init_production_db.py` و`update_schema_docs.py::Base` — سكريبتان مستقلان تمامًا (غير مُستورَدين
+  من أي مكان في التطبيق الحي)، تحققت عدم وجود أي `create_all()`/`Base.` آخر يعتمد عليهما.
+
+**اكتشاف جديد غير مرتبط (TD-007):** `update_schema_docs.py` يفشل عند أي تشغيل ثانٍ على نفس قاعدة
+البيانات (`create()` بلا `checkfirst=True`) — تحققت أنه موجود في الكود الأصلي (`git stash`) وغير
+مرتبط بهذا التعديل. وثَّقته في `TECHNICAL_DEBT.md`.
+
+**Verification performed:**
+- بناء التطبيق الكامل بعد كل ملف (17 مرة منفصلة) ✅ 257 مسارًا كل مرة
+- `flake8 --select=F401` على `core/` و`app/` كاملَين ✅ فقط الـ19 المحفوظة عمدًا متبقية
+- `pytest tests/` كاملة ✅ `36 passed`
+- محاكاة فعلية: استيراد وإنشاء `LeaveService`, `LoansService`, `PermissionsService` مباشرة ✅
+- محاكاة فعلية: استدعاء `apply_professional_style()` على `Workbook` حقيقي ✅
+- محاكاة فعلية: استيراد `import_attendance`, `import_employees`, `inventory_manager`, `helpers`,
+  `init_production_db` مباشرة (بمعزل عن `update_schema_docs.py` المُستثنى للسبب أعلاه) ✅
+- محاكاة فعلية: طلب `HTTP` حقيقي لـ`/auth/login` (GET + POST بمعلومات خاطئة) بعد تعديل
+  `auth_manager.py` ✅
+
+**Suggested git commit message:**
+```
+refactor: complete P4-L05 unused-imports cleanup (batch 3, final)
+
+Cleaned remaining 17 files across core/. Project-wide F401 count now
+shows only the 19 deliberately-preserved load-bearing imports in
+db_manager.py (documented in batch 1) -- P4-L05 is functionally
+complete.
+
+Notable careful cases:
+- treasury_models.py's unused Account import: relationship uses a
+  string reference ('Account'), and accounting_models.py is already
+  loaded via db_manager.py -- safe to remove.
+- auth_manager.py's redundant Base import (flagged "Ensure we use
+  the correct Base" in a comment): auth_models.py, imported on the
+  line above, already imports the same Base -- verified via real
+  /auth/login request after removal.
+- init_production_db.py / update_schema_docs.py's unused Base:
+  both are standalone scripts never imported by the live app.
+
+Discovered TD-007 (unrelated): update_schema_docs.py fails on
+re-run due to unconditional table creation -- confirmed pre-existing
+via git stash, documented in TECHNICAL_DEBT.md, not fixed here.
+
+Verified via: create_app() build after each individual file,
+project-wide flake8 F401 scan, full pytest suite (36/36), direct
+service instantiation, direct function execution, and real HTTP
+request to /auth/login.
+
+Refs: TECHNICAL_DEBT.md P4-L05 (complete), TD-007 (new)
+```
+
+P4-L05 مكتملة الآن بالكامل ضمن أهداف الملف الأصلي. المهام المتبقية في خارطة الطريق هي فقط
+المبادرات الكبرى (`P1-C02`, `P1-C01`, `P1-C06/07`, `P1-C11`) والقرارات البشرية (`P3-M04`, `P4-L09`)
+المذكورة أعلاه.
+
 <!-- العضو التالي: أضف قسمك هنا فوق هذا التعليق -->
