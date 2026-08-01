@@ -1,6 +1,6 @@
 import pandas as pd
-from core.accounting_models import Account, AccountType
-from typing import Dict, List, Tuple
+from core.accounting_models import Account
+from typing import Tuple
 import traceback
 
 def import_coa_from_excel(db_session, file_path: str) -> Tuple[bool, str]:

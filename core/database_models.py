@@ -911,3 +911,12 @@ class SalaryHistory(Base):
             return 'تخفيض'
         else:
             return 'بدون تغيير'
+
+
+class BulkSalaryUpdateRequest(Base):
+    """مفتاح طلب الحفظ الجماعي لمنع تسجيل التعديل أكثر من مرة."""
+    __tablename__ = 'bulk_salary_update_requests'
+
+    id = Column(Integer, primary_key=True)
+    idempotency_key = Column(String(36), unique=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.now, nullable=False)

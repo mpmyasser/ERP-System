@@ -6,13 +6,11 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'core'))
 
 try:
-    from db_manager import DBManager
-    from database_models import Loan, PenaltyBonus, Permission, DailyRecord, DailyStatus, Bonus
+    from database_models import DailyRecord
 except ImportError:
     # Fallback for IDE linting / different execution contexts
     sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'core'))
-    from core.db_manager import DBManager
-    from core.database_models import Loan, PenaltyBonus, Permission, DailyRecord, DailyStatus, Bonus
+    from core.database_models import DailyRecord
 
 from utils.helpers import parse_date_compact
 

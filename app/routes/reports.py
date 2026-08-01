@@ -16,6 +16,8 @@ from flask import send_file
 from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
 from core.utils.excel_utils import apply_professional_style
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'core'))
+
 from services.payroll_processor import PayrollCalculator
 from database_models import Employee, Department
 
