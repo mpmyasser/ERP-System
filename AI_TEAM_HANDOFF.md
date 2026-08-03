@@ -375,4 +375,64 @@ P4-L05 مكتملة الآن بالكامل ضمن أهداف الملف الأ�
 المبادرات الكبرى (`P1-C02`, `P1-C01`, `P1-C06/07`, `P1-C11`) والقرارات البشرية (`P3-M04`, `P4-L09`)
 المذكورة أعلاه.
 
+### 2026-08-03 — Claude — إصلاح تعارض ناتج عن عمل متوازٍ + ملاحظة مهمة عن سير العمل
+
+**اكتشاف مهم عند بدء الجلسة:** وجدت أن عضوًا آخر (على الأرجح أداة تُدعى "Antigravity"، ظهر اسمها
+في نسخة سابقة من هذا الملف قبل أن تُستبدَل) كان يعمل بالتوازي على نفس المشروع، وأنجز فعليًا ميزة
+كاملة (**TD-006 — مفتاح Idempotency لحفظ الرواتب الجماعي**) عبر 3 مواضع متزامنة:
+`core/database_models.py` (موديل `BulkSalaryUpdateRequest` جديد)، `core/db_manager.py`
+(تحديث `bulk_update_salaries` ليتطلب `idempotency_key`)، و`app/templates/employees/bulk_salaries.html`
+(توليد وإرسال `idempotency_key` من الواجهة). أضافوا أيضًا اختبارًا جيدًا:
+`tests/test_bulk_salary_idempotency.py`.
+
+**المشكلة:** الراوت `app/routes/employees.py::bulk_salaries_save` **لم يُحدَّث ليتوافق** مع
+التوقيع الجديد لـ`bulk_update_salaries` — بقي يستدعيها بدون `idempotency_key` إطلاقًا. النتيجة:
+**كل طلب حفظ جماعي للرواتب كان يفشل بالكامل** (`TypeError: missing 1 required positional
+argument`)، والاختبار الجديد كان فاشلًا 100%.
+
+**السبب الأرجح:** تعارض نتيجة طريقة العمل الحالية (نسخ ملفات مضغوطة يدويًا عبر `GitHub Desktop`
+بدل فروع `git` حقيقية) — عندما طُبِّق ملف مضغوط من عضو لا يحتوي على أحدث نسخة من `employees.py`،
+انعكست تعديلات الراوت الخاصة بهذه الميزة بينما بقيت تعديلات الملفات الأخرى (`db_manager.py`,
+`database_models.py`, القالب) سليمة، فحدث عدم تطابق.
+
+**الإصلاح:** حدَّثت `bulk_salaries_save` لاستخراج `idempotency_key` من الطلب، تمريره لـ
+`bulk_update_salaries`، والتعامل مع القيمة المُرجَعة (`True`/`False`) لإرجاع `duplicate: true/false`
+في الاستجابة كما يتوقع الاختبار والواجهة الأمامية تمامًا.
+
+**Files changed:** `app/routes/employees.py` (دالة `bulk_salaries_save` فقط)
+
+**Verification performed:**
+- `tests/test_bulk_salary_idempotency.py` منفردًا → **PASSED** (كان فاشلًا 100% قبل الإصلاح)
+- `pytest tests/` كاملة → **37 passed** (تصحيح: هذا يشمل بنجاح 20 اختبارًا من ملفي
+  `test_treasury_advanced_scenarios.py` و`test_treasury_detached_instance.py` اللذين أضافهما نفس
+  العضو الآخر — كانوا سليمين تمامًا من الأساس، ولاحظت خطأً أني ظننت عدم تجميعهم بسبب قراءتي طرفًا
+  مُقتطَعًا من ناتج الأمر، وتراجعت عن هذا الاستنتاج الخاطئ فورًا بعد فحص أدق)
+
+**⚠️ ملاحظة لأي عضو مستقبلي — خطر العمل المتوازي بدون فروع Git حقيقية:**
+سير العمل الحالي (كل عضو يعمل في نسخة محلية منفصلة، ثم يُنتِج ملفًا مضغوطًا يُطبِّقه Yasser يدويًا
+فوق نسخته على GitHub Desktop) **معرَّض لهذا النوع من التعارض الصامت** إذا عمل عضوان في وقت متقارب:
+كل عضو يبني على أساس آخر نسخة رآها هو، وقد لا تتضمن أحدث تعديلات العضو الآخر. **التوصية**: قبل
+البدء بأي مهمة، تأكَّد أن `git log --oneline -10` يعكس آخر عمل معروف من كل الأعضاء (راجع هذا
+الملف)، وإن وُجد شك، اطلب من Yasser تأكيد رفع كل الملفات المعلَّقة أولًا قبل أن تبني عليها.
+
+**Suggested git commit message:**
+```
+fix(employees): pass idempotency_key to bulk_update_salaries (merge casualty)
+
+bulk_salaries_save was calling db.bulk_update_salaries() without the
+idempotency_key argument, while db_manager.py's method signature had
+been updated elsewhere to require it (TD-006 feature, implemented in
+parallel by another agent). This caused every bulk salary save
+request to fail with a TypeError, and broke the new
+test_bulk_salary_idempotency.py test.
+
+Fixed the route to extract idempotency_key from the request payload
+and handle the True/False return value (fresh vs duplicate request),
+matching what the frontend (bulk_salaries.html) and test already
+expected.
+
+Verified: test_bulk_salary_idempotency.py now passes; full suite
+37/37 passing.
+```
+
 <!-- العضو التالي: أضف قسمك هنا فوق هذا التعليق -->

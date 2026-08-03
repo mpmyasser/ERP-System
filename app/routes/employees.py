@@ -1332,12 +1332,20 @@ def bulk_salaries_save():
             
     if not updates:
         return {'success': False, 'message': 'لا توجد بيانات لتحديثها'}
-        
+
+    idempotency_key = data.get('idempotency_key')
+    if not idempotency_key:
+        return {'success': False, 'message': 'مفتاح الطلب (idempotency_key) مفقود'}
+
     try:
-        db.bulk_update_salaries(updates, effective_date=effective_date)
-        msg = f'تم تحديث رواتب {len(updates)} موظف بنجاح'
-        flash(msg, 'center')
-        return {'success': True, 'message': msg, 'center': True}
+        is_new_request = db.bulk_update_salaries(updates, effective_date=effective_date, idempotency_key=idempotency_key)
+        if is_new_request:
+            msg = f'تم تحديث رواتب {len(updates)} موظف بنجاح'
+            flash(msg, 'center')
+            return {'success': True, 'message': msg, 'center': True, 'duplicate': False}
+        else:
+            msg = 'تم استلام هذا الطلب مسبقًا ولن يُكرَّر التحديث'
+            return {'success': True, 'message': msg, 'duplicate': True}
     except Exception as e:
         # Return error for AJAX caller
         return {'success': False, 'message': f'حدث خطأ: {str(e)}'}
