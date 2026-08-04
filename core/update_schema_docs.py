@@ -7,6 +7,6 @@ db_path = os.path.join(os.path.dirname(__file__), 'hr.db')
 engine = create_engine(f'sqlite:///{db_path}')
 
 # Create table
-EmployeeDocument.__table__.create(engine)
+EmployeeDocument.__table__.create(engine, checkfirst=True)
 
 print("Created employee_documents table.")
