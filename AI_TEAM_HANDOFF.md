@@ -435,4 +435,51 @@ Verified: test_bulk_salary_idempotency.py now passes; full suite
 37/37 passing.
 ```
 
+### 2026-08-03 — Claude — تصحيح انحراف توثيقي + إغلاق TD-006 وTD-007
+
+**تصحيح توثيقي:** وجدت أن حالة `TD-001` في `TECHNICAL_DEBT.md` كانت لا تزال تقول "Open" رغم أن
+الإصلاح الفعلي في الكود موجود وسليم تمامًا (تحققت مباشرة). هذا انحراف توثيقي ناتج عن نفس مشكلة
+تعارض النسخ اليدوي، وليس رجوعًا فعليًا في الكود. صحَّحت التسمية فقط.
+
+**إغلاق TD-006 (بالتحقق المباشر، وليس الثقة في وجود الكود):** لاحظت أن ميزة `Idempotency` التي
+أنجزها العضو الآخر (وأصلحت تعارضها في الجلسة السابقة) **هي بالضبط** الحل الذي وصفته TD-006. بدل
+افتراض أنها تعمل، أعدت تشغيل السيناريو الدقيق الذي وصفته TD-006 (طلبان بنفس مفتاح Idempotency)
+مع عدّ سجلات `SalaryHistory` **بعد كل طلب على حدة** (وليس فقط في النهاية، لتفادي تفسير خاطئ).
+النتيجة: طلب واحد فقط أنشأ سجلًا واحدًا، والطلب المكرر لم يُنشئ أي سجل إضافي. TD-006 مُغلقة رسميًا.
+
+**إغلاق TD-007:** أضفت `checkfirst=True` لاستدعاء `EmployeeDocument.__table__.create()` في
+`update_schema_docs.py`، واختبرت تشغيله مرتين متتاليتين للتأكد من عدم الفشل بعد الآن.
+
+**Files changed:** `TECHNICAL_DEBT.md` (تصحيح توثيقي)، `core/update_schema_docs.py` (سطر واحد)
+
+**Verification performed:**
+- محاكاة فعلية دقيقة لسيناريو TD-006 (عدّ `SalaryHistory` بعد كل طلب من طلبين بنفس المفتاح) ✅
+- استيراد `update_schema_docs.py` مرتين متتاليتين (محاكاة إعادة تشغيل) ✅ بدون خطأ
+- `pytest tests/` كاملة ✅ `37 passed`
+- بناء التطبيق ✅ 257 مسارًا
+
+**Suggested git commit message:**
+```
+docs+fix: correct TD-001 status drift, close TD-006 and TD-007
+
+- Fixed TD-001 status label (was still "Open" in TECHNICAL_DEBT.md
+  despite the actual code fix being intact -- a documentation-only
+  drift from a prior merge collision).
+
+- Closed TD-006 (bulk salary idempotency key) after re-verifying the
+  exact race-condition scenario it described: ran two requests with
+  the same idempotency key, counted SalaryHistory rows after each
+  request individually (not just at the end) to confirm exactly one
+  entry is created and the duplicate adds none.
+
+- Closed TD-007: added checkfirst=True to
+  EmployeeDocument.__table__.create() in update_schema_docs.py,
+  verified by importing the module twice without error.
+
+TECHNICAL_DEBT.md now has zero open items.
+```
+
+**حالة `TECHNICAL_DEBT.md` النهائية: صفر عناصر مفتوحة.** كل شيء إما مُصلَح ومُتحقَّق منه، أو
+مدحوض بعد الفحص المباشر.
+
 <!-- العضو التالي: أضف قسمك هنا فوق هذا التعليق -->
