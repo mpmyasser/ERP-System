@@ -253,3 +253,40 @@ if search:
 **Estimated effort:** صغير جدًا — إضافة `checkfirst=True` لاستدعاء `create()`.
 
 **Related issues:** لا يوجد.
+
+---
+
+## TD-008 — `DBManager` Contains Real Duplicate Method Definitions (Dead Code), One Case Was a Latent DetachedInstanceError Risk
+
+| Field | Value |
+|-------|-------|
+| **Status** | ✅ Fixed (2026-08-05) |
+| **Severity** | Medium |
+| **Category** | Maintainability / (one case: System Correctness, dormant) |
+| **Discovered during** | فحص أولي لمهمة P1-C02 (God Class)، تأكيدًا لنتائج `flake8 --select=F811` الأصلية |
+| **Affected files** | `core/db_manager.py` |
+
+**التحقق:** `core/db_manager.py` احتوى على 6 دوال معرَّفة مرتين حرفيًا داخل نفس الكلاس:
+`get_employee_by_code` (×3 فعليًا!)، `get_all_loans`، `get_loan_by_id`، `get_all_penalties`،
+`add_penalty`، `get_attendance_by_date`. بحكم قواعد Python، التعريف الأخير فقط هو الذي يعمل فعليًا؛
+كل التعريفات السابقة كانت كودًا ميتًا 100% (غير قابل للاستدعاء إطلاقًا).
+
+**حالة خاصة مهمة — `get_attendance_by_date`:** التعريف "الميت" هنا كان فعليًا **الأكثر أمانًا**:
+يحتوي على `joinedload` + تحميل قسري للعلاقة (`_ = record.employee`) لمنع `DetachedInstanceError` —
+تعليق الكود يقول صراحة "verify data is loaded before session close"، بينما التعريف "الحي" (الذي
+كان يعمل فعليًا) كان نسخة أبسط بلا أي حماية. تحققت أن هذه الدالة **غير مُستخدَمة في أي مكان بالمشروع
+حاليًا** (فلا خطر فعلي اليوم)، لكن دمجت النسخة الأكثر أمانًا كالتعريف الوحيد الباقي، حماية لأي
+استخدام مستقبلي (نفس روح TD-005).
+
+**Verification performed:**
+- بناء التطبيق الكامل بعد كل حذف فردي (6 مرات) ✅ 257 مسارًا كل مرة
+- `flake8 --select=F811` ✅ صفر تكرار دوال متبقٍ (تبقّى فقط أنماط استيراد محلي مكرر، فئة مختلفة تمامًا)
+- **محاكاة فعلية شاملة**: استدعيت كل الدوال الست مباشرة ببيانات حقيقية، وتحققت أن `get_attendance_by_date`
+  تسمح بالوصول لـ`.employee` بعد إغلاق الجلسة بدون عطل
+- `pytest tests/` كاملة ✅ `37 passed`
+
+**Business Impact:** ضئيل حاليًا (كود ميت لا يُنفَّذ، ودالة واحدة غير مستخدَمة أصلًا)، لكن يُحسِّن
+قابلية القراءة والصيانة بشكل ملموس (69 سطرًا أُزيلت من ملف God Class الضخم).
+
+**Related issues:** جزء من `P1-C02` (God Class refactor) — هذه أول شريحة آمنة منها. النمط المتبقي
+(استيراد محلي مكرر لـ`CostCenter`/`Permission`/`Leave`) مرشح لمهمة تنظيف مستقبلية منفصلة وأصغر.

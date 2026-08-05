@@ -669,13 +669,6 @@ class DBManager:
         self.set_user_setting(user_id, key, parsed)
         return True
 
-    def get_employee_by_code(self, code):
-        session = self.get_session()
-        try:
-            return session.query(Employee).options(joinedload(Employee.department)).filter_by(code=code).first()
-        finally:
-            session.close()
-
     def get_employee_by_id(self, emp_id):
         session = self.get_session()
         try:
@@ -744,14 +737,6 @@ class DBManager:
             return session.query(Employee).options(joinedload(Employee.department)).filter(
                 (Employee.name.like(f"%{query}%")) | (Employee.code.like(f"%{query}%"))
             ).order_by(Employee.code.asc()).all()
-        finally:
-            session.close()
-
-    def get_employee_by_code(self, code):
-        """Get employee by code"""
-        session = self.get_session()
-        try:
-            return session.query(Employee).filter_by(code=code).first()
         finally:
             session.close()
 
@@ -992,48 +977,10 @@ class DBManager:
         finally:
             session.close()
 
-    def get_attendance_by_date(self, date):
-        session = self.get_session()
-        try:
-            # Use joinedload with string to ensure it binds correctly
-            # and verify data is loaded before session close
-            records = session.query(DailyRecord).filter_by(date=date).options(joinedload(DailyRecord.employee)).all()
-            for record in records:
-                # Access the attribute to force load if joinedload fails silently
-                _ = record.employee
-            return records
-        finally:
-            session.close()
-
     def get_employee_attendance(self, employee_id):
         session = self.get_session()
         try:
             return session.query(DailyRecord).filter_by(employee_id=employee_id).options(joinedload(DailyRecord.employee)).order_by(DailyRecord.date.desc()).all()
-        finally:
-            session.close()
-
-    def get_all_loans(self):
-        session = self.get_session()
-        try:
-            return session.query(Loan).join(Employee).options(
-                joinedload(Loan.employee).joinedload(Employee.department)
-            ).order_by(Employee.code.asc(), Loan.date.asc(), Loan.id.asc()).all()
-        finally:
-            session.close()
-
-    def get_loan_by_id(self, loan_id):
-        session = self.get_session()
-        try:
-            return session.query(Loan).options(joinedload(Loan.employee)).filter_by(id=loan_id).first()
-        finally:
-            session.close()
-
-    def get_all_penalties(self):
-        session = self.get_session()
-        try:
-            return session.query(PenaltyBonus).join(Employee).options(
-                joinedload(PenaltyBonus.employee).joinedload(Employee.department)
-            ).order_by(Employee.code.asc(), PenaltyBonus.date.asc(), PenaltyBonus.id.asc()).all()
         finally:
             session.close()
 
@@ -1044,21 +991,6 @@ class DBManager:
         finally:
             session.close()
 
-    def add_penalty(self, employee_id, amount, reason=None, date=None):
-        session = self.get_session()
-        try:
-            from datetime import datetime as dt
-            if date is None:
-                date = dt.now().date()
-            penalty = PenaltyBonus(employee_id=employee_id, date=date, type='Penalty', amount=amount, reason=reason)
-            session.add(penalty)
-            session.commit()
-            return penalty
-        except Exception as e:
-            session.rollback()
-            raise e
-        finally:
-            session.close()
     def update_loan(self, loan_id, **kwargs):
         """Update loan"""
         session = self.get_session()
@@ -1271,7 +1203,13 @@ class DBManager:
         """Get attendance records for a specific date"""
         session = self.get_session()
         try:
-            return session.query(DailyRecord).filter_by(date=date).all()
+            # Use joinedload to ensure employee relationship is eager-loaded
+            # and verify data is loaded before session close
+            records = session.query(DailyRecord).filter_by(date=date).options(joinedload(DailyRecord.employee)).all()
+            for record in records:
+                # Access the attribute to force load if joinedload fails silently
+                _ = record.employee
+            return records
         finally:
             session.close()
 

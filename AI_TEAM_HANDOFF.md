@@ -482,4 +482,52 @@ TECHNICAL_DEBT.md now has zero open items.
 **حالة `TECHNICAL_DEBT.md` النهائية: صفر عناصر مفتوحة.** كل شيء إما مُصلَح ومُتحقَّق منه، أو
 مدحوض بعد الفحص المباشر.
 
+### 2026-08-05 — Claude — أول شريحة آمنة من P1-C02: إزالة تكرار الدوال الحقيقي في DBManager
+
+بدأت أول شريحة صغيرة ومحدودة النطاق من مبادرة `P1-C02` الكبرى (God Class)، بدل الانتظار لتخطيط
+مرحلي كامل — إزالة 6 دوال مُعرَّفة مرتين حرفيًا (كود ميت 100%، مؤكَّد بـ`flake8 F811` من الأساس).
+
+**اكتشاف مهم أثناء الفحص:** واحدة من الحالات الستة (`get_attendance_by_date`) كانت النسخة "الميتة"
+هي الأكثر أمانًا فعليًا (تحتوي حماية من `DetachedInstanceError` غير موجودة في النسخة "الحية"). لم
+أحذف تلقائيًا حسب "أيهما ميت"، بل فحصت كل زوج، وفي هذه الحالة **دمجت المنطق الأكثر أمانًا** كالتعريف
+الوحيد الباقي (الدالة غير مستخدَمة حاليًا فلا خطر فوري، لكن حماية استباقية لأي استخدام مستقبلي).
+
+**Files changed:** `core/db_manager.py` فقط (69 سطرًا محذوفًا، صافي)
+
+**Verification performed:** بناء التطبيق بعد كل حذف فردي (6 مرات)، `flake8 F811` صفر تكرار متبقٍ،
+محاكاة فعلية مباشرة لكل الدوال الست ببيانات حقيقية (تحقَّق نجاح كل استدعاء والقيم المُرجَعة)،
+`pytest tests/` كاملة → `37 passed`.
+
+**التفاصيل الكاملة في TD-008.**
+
+**Suggested git commit message:**
+```
+refactor(db_manager): remove 6 real duplicate method definitions (P1-C02 slice 1)
+
+get_employee_by_code (x3!), get_all_loans, get_loan_by_id,
+get_all_penalties, add_penalty, and get_attendance_by_date were each
+defined twice (get_employee_by_code three times) in the same class
+body -- only the last definition was ever callable; the earlier ones
+were 100% dead code, confirmed by flake8 F811.
+
+Special case: get_attendance_by_date's dead definition was actually
+the safer one (eager-loads + force-accesses the employee relationship
+to prevent DetachedInstanceError, matching the TD-005 pattern).
+Verified this function has zero current callers in the codebase, so
+no live risk, but merged its safer logic into the sole surviving
+definition as a forward-looking fix rather than mechanically keeping
+whichever version happened to be textually last.
+
+Verified via: create_app() build after each individual removal,
+flake8 F811 clean, direct functional calls to all 6 methods with
+real data (including confirming .employee stays accessible after
+session close for get_attendance_by_date), full pytest suite
+(37/37 passing).
+
+Refs: TECHNICAL_DEBT.md TD-008 (new), P1-C02 (first safe slice)
+```
+
+هذه أول شريحة فقط من `P1-C02`. الباقي (تفكيك الكلاس الضخم لملفات/خدمات أصغر) لا يزال يحتاج تخطيطًا
+مرحليًا كاملًا كما هو موصوف أعلاه، ولم يُبدأ فيه بعد.
+
 <!-- العضو التالي: أضف قسمك هنا فوق هذا التعليق -->
