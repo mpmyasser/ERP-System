@@ -864,7 +864,6 @@ class DBManager:
         """Check if a permission already exists for an employee on a specific date"""
         session = self.get_session()
         try:
-            from database_models import Permission
             return session.query(Permission).filter(
                 Permission.employee_id == employee_id,
                 Permission.date == date
@@ -913,7 +912,6 @@ class DBManager:
         """Check if a leave already exists for an employee starting on a specific date"""
         session = self.get_session()
         try:
-            from database_models import Leave
             return session.query(Leave).filter(
                 Leave.employee_id == employee_id,
                 Leave.start_date == start_date
@@ -1075,7 +1073,6 @@ class DBManager:
         """Get all permissions"""
         session = self.get_session()
         try:
-            from database_models import Permission
             return session.query(Permission).join(Employee).order_by(
                 Employee.code.asc(),
                 Permission.date.asc(),
@@ -1088,7 +1085,6 @@ class DBManager:
         """Add a new permission"""
         session = self.get_session()
         try:
-            from database_models import Permission
             from datetime import datetime
             
             # Convert time strings to time objects if needed
@@ -1118,7 +1114,6 @@ class DBManager:
         """Delete a permission"""
         session = self.get_session()
         try:
-            from database_models import Permission
             permission = session.query(Permission).filter_by(id=permission_id).first()
             if permission:
                 session.delete(permission)
@@ -1135,7 +1130,6 @@ class DBManager:
         """Get a permission by ID"""
         session = self.get_session()
         try:
-            from database_models import Permission
             from sqlalchemy.orm import joinedload
             return session.query(Permission).options(joinedload(Permission.employee)).filter_by(id=permission_id).first()
         finally:
@@ -1145,7 +1139,6 @@ class DBManager:
         """Update an existing permission"""
         session = self.get_session()
         try:
-            from database_models import Permission
             from datetime import datetime
             
             permission = session.query(Permission).filter_by(id=permission_id).first()

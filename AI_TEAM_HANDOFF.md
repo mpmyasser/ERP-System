@@ -530,4 +530,39 @@ Refs: TECHNICAL_DEBT.md TD-008 (new), P1-C02 (first safe slice)
 هذه أول شريحة فقط من `P1-C02`. الباقي (تفكيك الكلاس الضخم لملفات/خدمات أصغر) لا يزال يحتاج تخطيطًا
 مرحليًا كاملًا كما هو موصوف أعلاه، ولم يُبدأ فيه بعد.
 
+### 2026-08-06 — Claude — الشريحة الثانية من P1-C02: حذف استيرادات محلية مكررة في DBManager
+
+حذفت 6 استيرادات محلية (داخل دوال) لـ`Permission` (5 مرات) و`Leave` (مرة واحدة) من `db_manager.py`
+— كلها مكررة بالكامل لأن الاثنتين موجودتان في السطر 4 من الملف ضمن الاستيراد العلوي للوحدة.
+
+**تحقَّقت قبل الحذف من 3 أشياء**: (1) السطر 4 يحتوي فعليًا `Permission, Leave` بالاسم. (2) كل موضع
+محلي يستخدم نفس الاسم بالضبط (لا إعادة تسمية). (3) استيراد `CostCenter` في السطر 59 **مقصود ومعزَّل**
+(داخل `if not has_table()` لإنشاء جدول اختياري مؤجَّل) — لم ألمسه.
+
+**Files changed:** `core/db_manager.py` (7 سطور محذوفة فقط)
+
+**Verification:** بناء التطبيق ✅، `flake8 F811` صفر تكرار دوال حقيقي متبقٍ ✅، محاكاة فعلية
+لكل الدوال المتأثرة (`check_permission_exists`, `check_leave_exists`, `get_all_permissions`, +3)
+بدون أخطاء ✅، `pytest tests/` → `37 passed` ✅.
+
+**Suggested git commit message:**
+```
+refactor(db_manager): remove 6 redundant local imports of Permission/Leave (P1-C02 slice 2)
+
+Permission and Leave are both imported at module level in line 4.
+Six function-local re-imports of the same names were redundant and
+were shadowing the module-level import (causing flake8 F811 warnings).
+
+Intentionally kept the local CostCenter import inside the
+`if not has_table('cost_centers')` block -- it's a deliberately
+deferred, isolated import for conditional table creation, not a
+mistake.
+
+Verified: flake8 F811 now shows only the intentional CostCenter
+case; direct functional calls to all 6 affected methods succeed
+without errors; full pytest suite (37/37 passing).
+
+Refs: P1-C02 (slice 2 of n)
+```
+
 <!-- العضو التالي: أضف قسمك هنا فوق هذا التعليق -->
