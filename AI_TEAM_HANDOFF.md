@@ -565,4 +565,82 @@ without errors; full pytest suite (37/37 passing).
 Refs: P1-C02 (slice 2 of n)
 ```
 
+### 2026-08-06 — Claude — دفعة P4-L05 التالية: تنظيف استيرادات غير مستخدمة في `utils/helpers.py` و`test_ui_integration_bonus.py`
+
+بعد استلام الدور، تحقَّقت أولًا من حالة Git: `git status` يُظهر شجرة نظيفة، HEAD (`de6d896`) متقدم بمرة واحدة على
+`origin/main` — يعني أن آخر شريحتين من P1-C02 المُسجَّلتين أعلاه **تم عمل `commit` لهما فعليًا** (على عكس ما يُclide في
+نقطة 8 من البروتوكول). لا توجد تعديلات محلية معلَّقة، تطابقت الحالة مع المُسجَّل.
+
+شغَّلت `flake8 --select=F401` على كامل المشروع (`core/ app/ utils/ test_*.py`): النتيجة أن كل دفعات P4-L05 السابقة
+في `app/routes/` نُظِّفت بالكامل (صفر حالات). المتبقي فقط:
+
+- **17 حالة في `core/db_manager.py`** (الأسطر 5-9) — كلها استيرادات موديلات ORM (`CashAccount`, `User`, `Account`,
+  `Partner`, `FabricRoll`...). تأكدت من الدرس الحرج المُسجَّل في الدفعة الأولى من P4-L05: هذه **load-bearing** لأن
+  `DBManager.__init__` يستدعي `Base.metadata.create_all()` (تأكدت بقراءة الكود: `create_all` موجود في الملف
+  نفسه، النماذج تُسجَّل في `Base.metadata` بمجرد الاستيراد). حذف أي منها يكسر الإقلاع بـ`NoReferencedTableError`
+  كما حدث سابقًا. **لم ألمسها.**
+- **`F811` في `db_manager.py:59`**: استيراد `CostCenter` مكرر من السطر 7 — مُسجَّل كمقصود ومعزول (داخل
+  `if not has_table('cost_centers')`) وفق ما أکد کلود سابقًا. **لم ألمسه.**
+
+الاستيرادات الآمنة الوحيدة المتبقية فعلًا كانت في ملفين خارج `core/`:
+
+**Files changed (2):**
+- `utils/helpers.py`: السطر `from datetime import datetime, date, time` → `from datetime import date`
+  (تحقَّقت: فقط `date` مستخدمة فعليًا في `calculate_age` عبر `date.today()`؛ `datetime` و`time` غير مشار إليهما
+  في أي سطر بالملف، وليستا موديلات ORM فلا أثر جانبي لاستيرادهما).
+- `test_ui_integration_bonus.py`: حذف سطر `import os` فقط (تحقَّقت: الملف لا يستخدم `os` في أي سطر من كوده).
+
+**Verification performed (كامل وفق البروتوكول):**
+- `flake8 --select=F401,F821,E9` على الملفين → **صفر تحذيرات** ✅
+- `python -m compileall` على الملفين → نجاح ✅
+- **بناء التطبيق الكامل** `create_app()` → **257 مسارًا** (مطابق للموثَّق) ✅
+- محاكاة فعلية: استدعاء كل دوال `utils/helpers.py` ببيانات حقيقية
+  (`format_currency`, `format_date_ar` بـNone/str/date, `calculate_age`, `minutes_to_hours`, `hours_to_minutes`)
+  → جميعها تُرجع القيم الصحيحة ✅
+- محاكاة فعلية: تشغيل `python test_ui_integration_bonus.py` (الاختبار المستقل) → `2/7 passed`,
+  `5 TEST(S) FAILED`. أثبتت بـ`git stash` أن هذا الفشل **سابق موجود تمامًا** ولا علاقة له بتعديلي
+  (نفس النتيجة `2/7` على الكود قبل حذف `import os`).
+- **`pytest tests/`** → **`37 passed`** (مطابق للحالة المرجعية، صفر انحدار) ✅
+
+**Side effect — اكتشاف جديد موثَّق:**
+أثناء التحقق، شغَّلت `test_ui_integration_bonus.py` (سكريبت UI مستقل خارج `tests/`) فاكتشفت أنه يفشل 5/7
+سابقًا — غير موثَّق في أي مكان. أثبتت بـ`git stash` أنه لا علاقة له بتعديلي. وفق البروتوكول نقطة 5:
+لم أصلحه. أضفته كـ**TD-009** في `TECHNICAL_DEBT.md` بمعرِّف فريد، سبب التأجيل، الأثر، والجهد المُقدَّر،
+وذلك كحقيقة مُثبَتة بدليل تنفيذ مباشر (مخرجات الاختبار + `git stash`).
+
+**Files changed (documentation):** `TECHNICAL_DEBT.md` (إضافة قسم TD-009 + سطر في سجل الإصدارات).
+
+**Suggested git commit message:**
+```
+refactor: remove 3 genuinely-unused imports in helpers.py & test_ui_integration_bonus.py (P4-L05)
+
+- utils/helpers.py: drop `datetime` and `time` from
+  `from datetime import datetime, date, time` -- only `date` is used
+  (in calculate_age via date.today()). Neither is an ORM model, so
+  no load-bearing side effect; verified all 5 helper functions still
+  return correct values via direct calls.
+- test_ui_integration_bonus.py: drop `import os` -- os is never
+  referenced anywhere in the file.
+
+Continuing the strict P4-L05 rule learned in batch 1: built the full
+app (create_app() -> 257 routes) after the edits, not just
+flake8/compileall. Did NOT touch the 17 F401 hits in core/db_manager.py
+lines 5-9 (ORM model imports) -- these are load-bearing for
+Base.metadata.create_all(); removing them re-breaks startup with
+NoReferencedTableError as documented in the batch-1 incident note.
+Also did NOT touch the intentional local CostCenter import at
+db_manager.py:59 (F811, deliberate deferred table-creation guard).
+
+Bonus: discovered pre-existing 5/7-test failure in
+test_ui_integration_bonus.py (standalone UI script, outside tests/).
+Proved via `git stash` the failure is unrelated to this cleanup.
+Recorded as TD-009 in TECHNICAL_DEBT.md (not fixed -- out of scope).
+
+Verified: flake8 F401/F821/E9 clean on both files; full app build
+(257 routes); direct functional calls to all utils.helpers functions;
+pytest tests/ -> 37 passed (matches reference, zero regression).
+
+Refs: TECHNICAL_DEBT.md TD-009 (new), P4-L05 (continuation)
+```
+
 <!-- العضو التالي: أضف قسمك هنا فوق هذا التعليق -->
