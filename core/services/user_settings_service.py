@@ -13,7 +13,7 @@ methods now delegate here.
 import json
 from types import SimpleNamespace
 
-from auth_models import UserPreference
+from core.auth_models import UserPreference
 
 
 class UserSettingsService:
