@@ -701,4 +701,61 @@ full pytest suite (37/37 passing).
 Refs: P1-C02 (slice 3 of n)
 ```
 
+### 2026-08-07 — Claude — تحقق وتوثيق إصلاح عطل توافق حرج في user_settings_service.py (مُلتزَم به سابقًا في b522301)
+
+**بدء الجلسة:** فحصت `git reflog` فوجدت أن HEAD الحالي = **`b522301`** (08-07 11:56)، وليس `dd5aacc` كما في آخر سجل. الـcommit `b522301` **عدّل سطرًا واحدًا في `user_settings_service.py`** (1 insertion, 1 deletion) — وهو بالتحديد إصلاح العطل الذي صُصت لمعالجته هنا. إذًا الإصلاح **مُلتزَمٌ به بالفعل**، وليس غير مُلتزَم به كما افترضت في المسودة الأولى من هذا السجل (صحَّحت المسودة وفقًا لذلك). يبقى توثيق التحليل الجذري + التحفظات المُكتشَفة كقيمة معرفية لمن يأتي بعد، إضافةً إلى نتائج التحقق الشاملة التي تُثبت سلامة الحالة الحالية.
+
+**العطل المُكتشَف (حقيقي ومُثبَت):** `sqlalchemy.exc.InvalidRequestError: Table 'system_permissions' is already defined for this MetaData instance`.
+
+**السبب الجذري:** الخدمة استخدمت نمط استيراد مسطَّح `from auth_models import UserPreference`، بينما `db_manager.py` (المستهلك الأساسي الذي يستدعي الخدمة عبر `_user_settings_service`) يستورد نفس الموديل بـ`from core.auth_models import User, SystemPermission`. هذان النمطان **يُنتجان وحدتين منفصلتين في `sys.modules`** (`auth_models` مقابل `core.auth_models`)، فيُسجَّل الجدول مرتين في `Base.metadata` → ينهار الاستيراد.
+
+**ملاحظة بيئية إضافية مُكتشَفة (مُوثَّقة هنا فقط، ليست TD لأنها ليست عطلًا في الكود):** `AI_TEAM_HANDOFF.md` يكتب تعليمات التحقق بـ`PYTHONPATH="core:app:."` (بنقطتين ربط `:`). هذا الفاصل صالح على **Linux/Gitpod** لكنه **باطل على Windows PowerShell** (الفاصل الصحيح `;`). هذا تسبب في فشل أوامر `flake8`/الاستيراد المباشر سابقًا بصمت. التحقق الناجح يتطلب `PYTHONPATH="core;app;."` على Windows. **لا حاجة لتسجيل TD**: البروتوكول يحدد أن `PYTHONPATH` بفاصل Linux هو المرجع المحمول؛ Windows هو بيئة تطوير/تحقق محلية فقط، والفاصل `:` يعمل على Docker/Gitpod (بيئة الإنتاج/CI المُستهدَفة).
+
+**الإصلاح (سطر واحد، توافقي):** `core/services/user_settings_service.py:16` — `from auth_models import UserPreference` → `from core.auth_models import UserPreference`. هذا يطابق نمط استيراد `db_manager.py` (المسار الذي تُستهلك فيه الخدمة)، فيضمن وحدة `auth_models` واحدة في `sys.modules` ويمنع تعارض `Base.metadata`. لا يُغيّر أي سلوك دالة.
+
+**ما لم أُلمسه (وفق البروتوكول):**
+- لم أُلمس خدمات أخرى في `core/services/` (`loans_service.py`, `permissions_service.py`, `leave_service.py`, `attendance_service.py`) التي تستخدم النمط المسطَّح `from database_models import`. هي تعمل حاليًا لأنها تُستهلك من `app/routes/` (حيث `core` على `sys.path` ولا يُستورد موديل ORM آخر مسبقًا بمسار حزمة مختلف). إذا جرت محاولة استدعائها من داخل `db_manager.py` (بنمط حزمة)، ستواجه نفس التعارض. **سجَّلت هذا كملاحظة تحذيرية هنا**، لا TD (لأنه لا ينكسر حاليًا فعلًا — لا مُستهلِك حالي يخلق السيناريو المُتعارَض).
+- لم أُلمس الـ18 `F401` المحفوظة عمدًا في `db_manager.py` (load-bearing لـ`create_all()`).
+
+**Files changed (1):** `core/services/user_settings_service.py` (سطر استيراد واحد).
+
+**Verification performed (كامل وفق البروتوكول، بـ`PYTHONPATH="core;app;."` على Windows):**
+- `flake8 --select=F401,F811,F821,E9` على الملف المُعدَّل → **صفر تحذيرات جديدة** ✅
+- `python -m compileall -q` على الملف → نجاح ✅
+- بناء التطبيق الكامل `create_app()` → **257 مسارًا** (مطابق للموثَّق) ✅
+- **محاكاة فعلية شاملة (12 استدعاء)** عبر `DBManager` + `UserSettingsService` معًا في قاعدة بيانات مؤقتة: set/get dict (JSON roundtrip), get-missing-default, set_user_settings (multi), get_user_settings (prefix filter), `_table_setting_key` (مع/بدون table_key), save/get_user_table_setting (`[10,20,30]` → list roundtrip), delete_user_setting + verify gone, delete_user_settings (multi, leaves untouched keys), missing table setting → None, list roundtrip, الاستخدام المباشر للخدمة بدون DBManager → **`ALL_CALLS_OK`** ✅
+- **محاكاة اندماج حقيقية** عبر `app.db` (نسخة `DBManager` من `create_app()`) داخل `app.app_context()`: set/get/`_table_setting_key`/save/get table/delete_user_settings/verify gone → **`INTEGRATION_OK`** ✅ (السلوك مطابق للأصل)
+- **`pytest tests/`** → **`37 passed`** (مطابق للمرجع، صفر انحدار) ✅
+
+**الحالة الحالية:** الإصلاح **مُلتزَم به بالفعل** في `b522301` (HEAD الحالي). شجرة العمل نظيفة عدا تحديث ملف `AI_TEAM_HANDOFF.md` (هذا السجل). لا `commit` كود إضافي مطلوب — فقط `commit` لتحديث ملف التسليم.
+
+**Suggested git commit message (documentation only):**
+```
+docs: log verification of import-path compatibility fix in user_settings_service (P1-C02 follow-up)
+
+HEAD b522301 already committed the one-line import-path fix
+(`from auth_models import UserPreference` -> `from core.auth_models
+import UserPreference`) that prevents the
+`Table 'system_permissions' is already defined` InvalidRequestError
+when the service and db_manager are imported together (flat vs package
+import style creates two sys.modules entries -> double Base.metadata
+table registration).
+
+This commit only updates AI_TEAM_HANDOFF.md with:
+- Root-cause analysis of the collision (flat vs package import style)
+- The verification suite proving the current HEAD state is healthy
+  (flake8 clean, compileall, create_app 257 routes, 12-call DBManager
+  + UserSettingsService integration simulation -> ALL_CALLS_OK, real
+  app.db through app_context -> INTEGRATION_OK, pytest 37 passed)
+- A heads-up (NOT a TD) that other core/services/*.py still use the
+  flat style and would hit the same collision if ever imported from
+  inside db_manager.py (package style); no current consumer triggers it
+- A local-verification note that PYTHONPATH on Windows PowerShell needs
+  `;` not `:` (the `:` in AI_TEAM_HANDOFF.md docs is correct for
+  Linux/Gitpod, the target/CI env; documented here only to save the
+  next agent time on Windows verification)
+
+Refs: P1-C02 (verification/logging of fix already committed at b522301)
+```
+
 <!-- العضو التالي: أضف قسمك هنا فوق هذا التعليق -->
