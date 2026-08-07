@@ -46,7 +46,6 @@ update_cut_item_dispatch = _mod.update_cut_item_dispatch
 bulk_dispatch_cut_items = getattr(_mod, "bulk_dispatch_cut_items", lambda *a, **k: 0)
 reverse_cut_item_dispatch = getattr(_mod, "reverse_cut_item_dispatch", lambda *a, **k: None)
 delete_cut_item = _mod.delete_cut_item
-get_reference_items = _mod.get_reference_items
 add_reference_items = _mod.add_reference_items
 save_cut_batch = _mod.save_cut_batch
 update_item_receipt = _mod.update_item_receipt

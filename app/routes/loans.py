@@ -360,7 +360,6 @@ def bulk_edit_save():
             date_str = item.get('date')
             date_val = None
             if date_str:
-                from utils.helpers import parse_date_compact
                 date_val = parse_date_compact(date_str)
                 if not date_val:
                     try:

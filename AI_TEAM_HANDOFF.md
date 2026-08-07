@@ -643,4 +643,62 @@ pytest tests/ -> 37 passed (matches reference, zero regression).
 Refs: TECHNICAL_DEBT.md TD-009 (new), P4-L05 (continuation)
 ```
 
+### 2026-08-07 — Claude — الشريحة الثالثة من P1-C02: تكرار حقيقي في operation_storage.py + استيرادات محلية متبقية
+
+**بدء الجلسة:** قرأت `AI_TEAM_HANDOFF.md` وسجل النشاط الأخير من نسخة أخرى من Claude (شرائح P1-C02
+الثانية + دفعة P4-L05 إضافية + TD-009). لم أُصلح TD-009 (مسجَّلة توثيقًا فقط، ليست ضمن نطاق أي
+مهمة حالية). فحصت `flake8 --select=F811` عبر المشروع بأكمله (لا فقط `db_manager.py`) فوجدت 3 مواضع
+جديدة لم تُفحَص قبل ذلك.
+
+**الاكتشاف الأهم:** `app/routes/operation_storage.py:170` — تكرار حقيقي (وليس استيرادًا) لكن بآلية
+مختلفة عن حالات `DBManager`: الملف واجهة `facade` تُعيد تصدير دوال من وحدة حقيقية `_mod` عبر تعيين
+مباشر (`get_reference_items = _mod.get_reference_items`)، لكن دالة محلية جديدة بنفس الاسم (مع دعم
+ترقيم صفحات وبحث) عُرِّفت لاحقًا في الملف وتجاوزتها بالكامل. **هذا ليس خطأً بل تطويرًا متعمَّدًا** —
+تحققت من محتوى الدالة الجديدة (بارامترات `limit/offset/search` مع استعلامات SQL كاملة)، وهي واضحة
+النية. حذفت فقط سطر إعادة التصدير الميتة (49) لمنع تضليل أي قارئ مستقبلي بالاعتقاد أنها تُفوَّض
+لـ`_mod`.
+
+**+ نمط الاستيراد المحلي المكرر المعتاد**: `app/routes/loans.py` و`loans_old.py` — كلاهما يحتوي
+استيرادًا محليًا مكررًا لـ`parse_date_compact` **داخل حلقة `for`** (كان يُعاد تنفيذه في كل تكرار
+بلا فائدة، فوق كونه مكررًا مع استيراد أعلى في نفس الدالة).
+
+**Files changed (3):** `app/routes/loans.py`, `app/routes/loans_old.py`, `app/routes/operation_storage.py`
+
+**Verification performed:**
+- `compileall` + `flake8 --select=F811,F821` ✅ صفر أخطاء على الثلاثة
+- بناء التطبيق الكامل ✅ 257 مسارًا
+- محاكاة فعلية: استدعاء `get_reference_items()`/`count_reference_items()` مباشرة بعد الحذف ✅
+- محاكاة فعلية: طلب `HTTP` حقيقي لـ`/loans/bulk_edit/save` ببيانات حقيقية (قرض حقيقي في قاعدة بيانات مؤقتة)
+  → واجهت خطأ غير متعلق (`'type'` مفتاح مفقود في حمولة اختباري، وليس عطلًا في الكود) — تأكَّدت
+  بـ`git stash` أن هذا **موجود بالضبط في الكود الأصلي أيضًا**، لا علاقة له بحذف الاستيراد المكرر. لم
+  أُسجِّله كـTD لأنه على الأرجح تصميم صحيح (الحقل `type` مطلوب في نموذج "تعديل جماعي")، وليس عطلًا
+  حقيقيًا، فلا يفي بمعيار "حقيقة مُثبَتة" الكافي للتسجيل.
+- `pytest tests/` كاملة ✅ `37 passed`
+
+**Suggested git commit message:**
+```
+refactor: remove real duplicate + redundant loop-local imports (P1-C02 slice 3)
+
+app/routes/operation_storage.py: removed a dead facade re-export
+(`get_reference_items = _mod.get_reference_items`) that was always
+shadowed by a later, more feature-complete local def (pagination +
+search support). The re-export served no purpose but could mislead
+future readers into thinking this function delegates to _mod.
+
+app/routes/loans.py and loans_old.py: removed a redundant local
+import of parse_date_compact inside a for-loop body (already
+imported once at function scope above the loop) -- was being
+re-executed every iteration for no benefit, matching the pattern
+already documented for db_manager.py.
+
+Verified via: compileall, flake8 F811/F821 clean, create_app() build,
+direct calls to get_reference_items/count_reference_items, real HTTP
+request to /loans/bulk_edit/save (confirmed an unrelated pre-existing
+'type' KeyError via git stash -- same on original code, not a
+regression, likely expected validation behavior not a real bug),
+full pytest suite (37/37 passing).
+
+Refs: P1-C02 (slice 3 of n)
+```
+
 <!-- العضو التالي: أضف قسمك هنا فوق هذا التعليق -->
