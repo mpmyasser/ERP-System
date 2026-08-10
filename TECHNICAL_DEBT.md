@@ -340,3 +340,46 @@ placeholders` على السطر `print(f"   ✅ Route returns 200 OK")` (حرف 
 تعديل (السطر 72 untouched، التعديل كان في السطر 9 `import os`). تنبيه سطحى/Style فقط، لا أثر تشغيلي. ثبت أنه
 سابق عبر `git stash` (نفس تنبيه F541 يظهر على النسخة الأصلية غير المعدَّلة). لم يُصلَح لتجنب خلط مهمة غير
 مرتبطة بنظافة الاستيرادات؛ أي عضو يلمّ نفس الملف مستقبلًا يمكنه إزالة حرف `f` الزائد كنظافة جانبية.
+
+---
+
+## TD-010 — Hardcoded POSIX `/tmp` Path in `audit_export` Route Crashes on Windows
+
+| Field | Value |
+|-------|-------|
+| **Status** | Open |
+| **Severity** | Medium |
+| **Category** | Portability / Cross-Platform Correctness |
+| **Discovered during** | Integration test of `P1-C02` audit-log service extraction (route-level `test_client` check of `/reports/audit_export`) |
+| **Affected file** | `app/routes/reports.py` دالة `audit_export` (المسار `/reports/audit_export`)، السطر 751 |
+
+**التحقق (حقيقة مباشرة):** عبر `Flask test_client` بمصادقة وهمية (`session['user_id']=1`):
+
+```
+resp = client.get('/reports/audit_export')
+# stdout: خطأ في تصدير السجلات: [Errno 2] No such file or directory: '/tmp\\audit_logs_20260810_103413.csv'
+# resp.status_code = 302 (إعادة توجيه بعد فشل `send_file`)
+```
+
+قراءة السطر 751 مباشرة:
+```python
+filepath = os.path.join('/tmp', filename)  # الملف المؤقت
+```
+
+`os.path.join('/tmp', 'x.csv')` على Windows يُنتج `'/tmp\\x.csv'` (مسار نسبي بجذر القسم الحالي، وليس مجلدًا مؤقتًا حقيقيًا) — لا يُوجَد المجلد، فيفشل `csv.writer(open(filepath,'w',...))` داخل `AuditLogService.export_csv` برفع `FileNotFoundError`. المسار الفعلي المُستخدَم في الإنتاج على Linux يعمل (لأن `/tmp` يُوجَد)، لكن على Windows (بيئة التطوير الحالية) يفشل.
+
+**لماذا تم التأجيل:** الاكتشاف حدث أثناء التحقق من مهمة تفكيك God Class `DBManager` (استخراج `AuditLogService` وإضافة 6 wrappers رفيعي)، ولا علاقة لخدمتي بهذه العلة — الخدمة الجديدة `AuditLogService.export_csv` تعمل بشكل صحيح عند تمرير مسار صالح (تم التحقق مباشرة في `ALL_CALLS_OK` خطوة 6). العلة في **المسار** `audit_export` نفسه الذي يمرر مسارًا غير صالح، وليس في الخدمة. إصلاحها يعني تعديل `app/routes/reports.py` فقط (لا علاقة له بالـGod Class)، وهو خارج نطاق المهمة الحالية.
+
+**Business Impact:** متوسط. مسار `/reports/audit_export` (تصدير تقرير التتبع إلى CSV) **معطّل بالكامل على Windows** (تُرجِع إعادة توجيه + رسالة خطأ). على Linux/الإنتاج يعمل لأن `/tmp` يُوجَد. المستخدمون على Windows لا يستطيعون تصدير سجلات التتبع على الإطلاق.
+
+**الحل المقترح:** استبدال `os.path.join('/tmp', filename)` بـ`tempfile.gettempdir()`:
+```python
+import tempfile
+filepath = os.path.join(tempfile.gettempdir(), filename)
+```
+أو استخدام `tempfile.NamedTemporaryFile(delete=False, suffix='.csv')` لإدارة دورة حياة الملف بشكل أنظف.
+
+**Estimated effort:** صغير جدًا (< 10 دقائق) — استبدال سطر واحد مع استيراد `tempfile`. اختبار التحقق: إعادة تشغيل `client.get('/reports/audit_export')` والتأكد من `200` + `Content-Disposition: attachment`.
+
+**Related issues:** لا يوجد ذكر في `AUDIT_REPORT.md`/`VERIFIED_AUDIT_REPORT.md`. لا صلة مباشرة بـTD أخرى. ترتبط بمنطق صيانة ملفات مؤقتة.
+

@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, inspect, text, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, joinedload
-from core.database_models import Base, Department, Employee, AttendanceLog, DailyRecord, Loan, PenaltyBonus, EmployeeDocument, AuditLog, Bonus, DocumentType, Permission, Leave, SalaryHistory, BulkSalaryUpdateRequest
+from core.database_models import Base, Department, Employee, AttendanceLog, DailyRecord, Loan, PenaltyBonus, EmployeeDocument, Bonus, DocumentType, Permission, Leave, SalaryHistory, BulkSalaryUpdateRequest
 from core.treasury_models import CashAccount, BankAccount, CheckRecord
 from core.auth_models import User, SystemPermission
 from core.accounting_models import Account, CostCenter, JournalEntry, JournalItem
@@ -1471,186 +1471,52 @@ class DBManager:
 
     # ===== Audit Log Functions (ط³ط¬ظ„ط§طھ ط§ظ„طھطھط¨ط¹) =====
     
-    def get_audit_logs_by_employee(self, employee_code, limit=100):
-        """
-        ط§ظ„ط­طµظˆظ„ ط¹ظ„ظ‰ ط³ط¬ظ„ط§طھ ط§ظ„طھطھط¨ط¹ ظ„ظ…ظˆط¸ظپ ظ…ط¹ظٹظ†
-        
-        Parameters:
-        - employee_code: ظƒظˆط¯ ط§ظ„ظ…ظˆط¸ظپ
-        - limit: ط¹ط¯ط¯ ط§ظ„ط³ط¬ظ„ط§طھ ط§ظ„ظ…ط±ط¬ط¹ط© (ط§ظ„ط§ظپطھط±ط§ط¶ظٹ: 100)
-        
-        Returns:
-        - ظ‚ط§ط¦ظ…ط© ط¨ط³ط¬ظ„ط§طھ AuditLog
-        """
-        session = self.get_session()
-        try:
-            logs = session.query(AuditLog)\
-                .filter(AuditLog.employee_code == employee_code)\
-                .order_by(AuditLog.timestamp.desc())\
-                .limit(limit)\
-                .all()
-            return logs
-        finally:
-            session.close()
-    
-    def get_audit_logs_by_field(self, field_name, limit=100):
-        """
-        ط§ظ„ط­طµظˆظ„ ط¹ظ„ظ‰ ط³ط¬ظ„ط§طھ ط§ظ„طھطھط¨ط¹ ظ„ط­ظ‚ظ„ ظ…ط¹ظٹظ†
-        ظ…ط«ظ„: ط¬ظ…ظٹط¹ طھط؛ظٹظٹط±ط§طھ ط§ظ„ط±ط§طھط¨ ط§ظ„ط£ط³ط§ط³ظٹ
-        
-        Parameters:
-        - field_name: ط§ط³ظ… ط§ظ„ط­ظ‚ظ„ (ظ…ط«ظ„ 'base_salary')
-        - limit: ط¹ط¯ط¯ ط§ظ„ط³ط¬ظ„ط§طھ ط§ظ„ظ…ط±ط¬ط¹ط© (ط§ظ„ط§ظپطھط±ط§ط¶ظٹ: 100)
-        
-        Returns:
-        - ظ‚ط§ط¦ظ…ط© ط¨ط³ط¬ظ„ط§طھ AuditLog
-        """
-        session = self.get_session()
-        try:
-            logs = session.query(AuditLog)\
-                .filter(AuditLog.field_name == field_name)\
-                .order_by(AuditLog.timestamp.desc())\
-                .limit(limit)\
-                .all()
-            return logs
-        finally:
-            session.close()
-    
-    def get_audit_logs_recent(self, limit=100):
-        """
-        ط§ظ„ط­طµظˆظ„ ط¹ظ„ظ‰ ط¢ط®ط± ط³ط¬ظ„ط§طھ ط§ظ„طھطھط¨ط¹
-        
-        Parameters:
-        - limit: ط¹ط¯ط¯ ط§ظ„ط³ط¬ظ„ط§طھ ط§ظ„ظ…ط±ط¬ط¹ط© (ط§ظ„ط§ظپطھط±ط§ط¶ظٹ: 100)
-        
-        Returns:
-        - ظ‚ط§ط¦ظ…ط© ط¨ط¢ط®ط± ط³ط¬ظ„ط§طھ AuditLog
-        """
-        session = self.get_session()
-        try:
-            logs = session.query(AuditLog)\
-                .order_by(AuditLog.timestamp.desc())\
-                .limit(limit)\
-                .all()
-            return logs
-        finally:
-            session.close()
-    
-    def get_audit_log_summary(self, employee_code):
-        """
-        ط§ظ„ط­طµظˆظ„ ط¹ظ„ظ‰ ظ…ظ„ط®طµ ط¬ظ…ظٹط¹ ط§ظ„طھط؛ظٹظٹط±ط§طھ ظ„ظ…ظˆط¸ظپ ظ…ط¹ظٹظ†
-        ظٹط¹ظٹط¯: ط¹ط¯ط¯ ط§ظ„طھط؛ظٹظٹط±ط§طھ ظˆط¢ط®ط± طھط؛ظٹظٹط±
-        
-        Parameters:
-        - employee_code: ظƒظˆط¯ ط§ظ„ظ…ظˆط¸ظپ
-        
-        Returns:
-        - ظ‚ط§ظ…ظˆط³ ظٹط­طھظˆظٹ ط¹ظ„ظ‰:
-          - 'count': ط¹ط¯ط¯ ط§ظ„طھط؛ظٹظٹط±ط§طھ ط§ظ„ط¥ط¬ظ…ط§ظ„ظٹط©
-          - 'latest': ط¢ط®ط± طھط؛ظٹظٹط±
-          - 'fields_changed': ظ‚ط§ط¦ظ…ط© ط¨ط§ظ„ط­ظ‚ظˆظ„ ط§ظ„طھظٹ طھط؛ظٹط±طھ
-        """
-        session = self.get_session()
-        try:
-            logs = session.query(AuditLog)\
-                .filter(AuditLog.employee_code == employee_code)\
-                .order_by(AuditLog.timestamp.desc())\
-                .all()
-            
-            if not logs:
-                return {
-                    'count': 0,
-                    'latest': None,
-                    'fields_changed': []
-                }
-            
-            # ط§ظ„ط­طµظˆظ„ ط¹ظ„ظ‰ ظ‚ط§ط¦ظ…ط© ط§ظ„ط­ظ‚ظˆظ„ ط§ظ„ظپط±ظٹط¯ط© ط§ظ„طھظٹ طھط؛ظٹط±طھ
-            fields_changed = list(set([log.field_name for log in logs]))
-            
-            return {
-                'count': len(logs),
-                'latest': logs[0] if logs else None,
-                'fields_changed': fields_changed
-            }
-        finally:
-            session.close()
-    
-    def get_audit_log_history(self, employee_code, field_name):
-        """
-        ط§ظ„ط­طµظˆظ„ ط¹ظ„ظ‰ ط³ط¬ظ„ ط§ظ„طھط·ظˆط± ط§ظ„ظƒط§ظ…ظ„ ظ„ط­ظ‚ظ„ ظ…ط¹ظٹظ†
-        ظٹظڈط¸ظ‡ط± ط¬ظ…ظٹط¹ ط§ظ„ظ‚ظٹظ… ط§ظ„طھظٹ ظƒط§ظ†طھ ظ„ظ‡ ط¹ط¨ط± ط§ظ„ط²ظ…ظ†
-        
-        Parameters:
-        - employee_code: ظƒظˆط¯ ط§ظ„ظ…ظˆط¸ظپ
-        - field_name: ط§ط³ظ… ط§ظ„ط­ظ‚ظ„
-        
-        Returns:
-        - ظ‚ط§ط¦ظ…ط© ط¨ط³ط¬ظ„ط§طھ ط§ظ„طھط؛ظٹظٹط± ظ…ط¹ ط§ظ„ظ‚ظٹظ…
-        """
-        session = self.get_session()
-        try:
-            logs = session.query(AuditLog)\
-                .filter(
-                    AuditLog.employee_code == employee_code,
-                    AuditLog.field_name == field_name
-                )\
-                .order_by(AuditLog.timestamp.asc())\
-                .all()
-            
-            # ط¨ظ†ط§ط، ط³ط¬ظ„ ط§ظ„طھط·ظˆط±
-            history = []
-            for log in logs:
-                history.append({
-                    'timestamp': log.timestamp,
-                    'old_value': log.old_value,
-                    'new_value': log.new_value,
-                    'change': f"{log.old_value} â†’ {log.new_value}"
-                })
-            
-            return history
-        finally:
-            session.close()
-    
-    def export_audit_logs_csv(self, filename="audit_logs.csv"):
-        """
-        طھطµط¯ظٹط± ط¬ظ…ظٹط¹ ط³ط¬ظ„ط§طھ ط§ظ„طھطھط¨ط¹ ط¥ظ„ظ‰ ظ…ظ„ظپ CSV
-        
-        Parameters:
-        - filename: ط§ط³ظ… ط§ظ„ظ…ظ„ظپ ط§ظ„ظ…ط±ط§ط¯ ط§ظ„ط­ظپط¸ ظپظٹظ‡
-        
-        Returns:
-        - True ط¥ط°ط§ ظ†ط¬ط­ ط§ظ„طھطµط¯ظٹط±
-        """
-        import csv
-        
-        session = self.get_session()
-        try:
-            logs = session.query(AuditLog)\
-                .order_by(AuditLog.timestamp.desc())\
-                .all()
-            
-            with open(filename, 'w', newline='', encoding='utf-8-sig') as f:
-                writer = csv.writer(f)
-                # ط±ط£ط³ ط§ظ„ط¬ط¯ظˆظ„
-                writer.writerow(['ظƒظˆط¯ ط§ظ„ظ…ظˆط¸ظپ', 'ط§ط³ظ… ط§ظ„ط­ظ‚ظ„', 'ط§ظ„ظ‚ظٹظ…ط© ط§ظ„ظ‚ط¯ظٹظ…ط©', 'ط§ظ„ظ‚ظٹظ…ط© ط§ظ„ط¬ط¯ظٹط¯ط©', 'ط§ظ„طھط§ط±ظٹط® ظˆط§ظ„ظˆظ‚طھ'])
-                
-                # ط§ظ„طµظپظˆظپ
-                for log in logs:
-                    writer.writerow([
-                        log.employee_code,
-                        log.field_name,
-                        log.old_value or '',
-                        log.new_value or '',
-                        log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if log.timestamp else ''
-                    ])
-            
-            return True
-        except Exception as e:
-            print(f"ط®ط·ط£ ظپظٹ طھطµط¯ظٹط± ط§ظ„ط³ط¬ظ„ط§طھ: {e}")
-            return False
-        finally:
-            session.close()
+    @property
+    def _audit_log_service(self):
+        """Lazy-initialized `AuditLogService` bound to this manager's session
+        factory. The service is instantiated on first access and cached on the
+        instance via a private attribute so subsequent calls reuse it.
 
+        NOTE (P1-C02 slice, 2026-08-07): unlike the earlier `UserSettingsService`
+        extraction which only created the service file but left the
+        `DBManager.user_setting*` methods with their original inline logic (so
+        that service is currently unused -- see AI_TEAM_HANDOFF.md today's
+        entry), this audit-log slice wires the `DBManager.get_audit_log*` /
+        `export_audit_logs_csv` methods to actually delegate here, keeping the
+        public method signatures unchanged for backwards compatibility with
+        `app/routes/reports.py`.
+        """
+        svc = getattr(self, '_audit_log_service_instance', None)
+        if svc is None:
+            from core.services.audit_log_service import AuditLogService
+            svc = AuditLogService(self.Session)
+            self._audit_log_service_instance = svc
+        return svc
+
+
+    def get_audit_logs_by_employee(self, employee_code, limit=100):
+        """Compatibility wrapper delegating to `AuditLogService.get_logs_by_employee`."""
+        return self._audit_log_service.get_logs_by_employee(employee_code, limit=limit)
+
+    def get_audit_logs_by_field(self, field_name, limit=100):
+        """Compatibility wrapper delegating to `AuditLogService.get_logs_by_field`."""
+        return self._audit_log_service.get_logs_by_field(field_name, limit=limit)
+
+    def get_audit_logs_recent(self, limit=100):
+        """Compatibility wrapper delegating to `AuditLogService.get_recent_logs`."""
+        return self._audit_log_service.get_recent_logs(limit=limit)
+
+    def get_audit_log_summary(self, employee_code):
+        """Compatibility wrapper delegating to `AuditLogService.get_summary`."""
+        return self._audit_log_service.get_summary(employee_code)
+
+    def get_audit_log_history(self, employee_code, field_name):
+        """Compatibility wrapper delegating to `AuditLogService.get_field_history`."""
+        return self._audit_log_service.get_field_history(employee_code, field_name)
+
+    def export_audit_logs_csv(self, filename="audit_logs.csv"):
+        """Compatibility wrapper delegating to `AuditLogService.export_csv`."""
+        return self._audit_log_service.export_csv(filename=filename)
     def add_bonus(self, employee_id, amount, reason, date_awarded, paid_with_salary=True):
         """
         ط¥ط¶ط§ظپط© ظ…ظƒط§ظپط£ط© ط¬ط¯ظٹط¯ط© ظ„ظ„ظ…ظˆط¸ظپ

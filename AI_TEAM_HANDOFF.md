@@ -758,4 +758,95 @@ This commit only updates AI_TEAM_HANDOFF.md with:
 Refs: P1-C02 (verification/logging of fix already committed at b522301)
 ```
 
+---
+
+### 2026-08-07 (Session 4) — P1-C02 slice: استخراج دوال سجل التتبع (audit-log) إلى خدمة مستقلة
+
+**المرجع:** P1-C02 (تفكيك God Class) — الثالثة من سلسلة شظايا DBManager المنسقة.
+
+**السياق:** بدأت من قسم "المهمة التالية الجاهزة" بعد التحقق من سلامة الحالة:
+- `git status --short`: شجرة نظيفة عدا `AI_TEAM_HANDOFF.md` (سجل الجلسة السابقة).
+- `git log --oneline -3`: `70d0798` (HEAD) → إصلاحات تم التحقق منها ووضع علامة عليها على أنها تم تنفيذها.
+- لا تغييرات كود غير ملتزم بها عند بدء الجلسة.
+
+**الترتيب الذي يقود المهمة:** انتهت الجلسة السابقة بتسجيل "تحقق من التوافق" بعد إصلاح مسار الاستيراد في `user_settings_service.py`، وأشارت بشكل صريح إلى أن مهمة الاستخراج **التالية** الجاهزة هي إزالة شريحة منطق أخرى من `DBManager`. اخترت `audit-log` لأنه الأقل خطرًا (قراءة فقط، CSV تصدير، معزول ذاتيًا) ويمتلك فوائد واضحة في إمكانية الاختبار.
+
+**ما تم تنفيذه (تحققت من وجود الكود مباشرة قبل أي تعديل):**
+
+**1. التحقق من أن المسارات يستخدم توقيعات عامة فقط:** بحثت في `app/routes/reports.py` (الأسطر ~660-780) عن المراجع إلى طرق `DBManager.get_audit_log*` / `export_audit_logs_csv`. أكدت أن جميع توقيعات الاستدعاء تتطابق مع مجمعات التوافق (compatibility wrappers) الجديدة (المعلمات الموضعية موجودة، لا kwargs جديدة).
+
+**2. إنشاء خدمة جديدة `core/services/audit_log_service.py` (231 سطرًا):**
+- صنف **`AuditLogService`** يحمل `session_factory` عبر المُنشئ، مطابق لدورة حياة جلسة `DBManager` الأصلية (فتح/استخدام/إغلاق في كل استدعاء).
+- 6 طرق عامة **قراءة فقط** (لا كتابة، لا التزام): `get_logs_by_employee`, `get_logs_by_field`, `get_recent_logs`, `get_summary`, `get_field_history`, `export_csv`.
+**3. تعديل `core/db_manager.py` (الأسطر ~1472-1519):**
+- إضافة خاصية **lazy `_audit_log_service`** (cached على مثيل) يتم إنشاء مثيل لها عبر `AuditLogService(self.Session)` عند أول وصول فقط — تحافظ على التوافق مع التهيئة المؤجلة لجلسة `DBManager`.
+- استبدال المنطق المباشر لـ6 طرق بـ_wrappers توجيه ضعيفة (one-line delegators) تحافظ على التوقيعات العامة للطرق بدون تغيير (لا حاجة لتعديل `reports.py` أو أي ملف آخر).
+- **صريح:** لم ألمس الدالة المجاورة `add_bonus` (1520) أو غيرها — لم تكن أبدًا في نطاق الشريحة.
+
+**التحقق الآلي الكامل (بعد التعديل):**
+
+| تحقق | نتيجة |
+|------|--------|
+| `compileall` على `db_manager.py` و `audit_log_service.py` | ✅ نجاح، لا أخطاء بناء |
+| `flake8 --select=F401,F811,F821,E9` على الملفين | ✅ لا جديد (فقط F401 للواردات الأصلية المعروفة load-bearing في الأسطر 5-9 + F811 مستورد مكرر `CostCenter` من الأسطر 59 = موثَّقة في TD-008 من P4-L05، لم تُلمس ولم تتغير) |
+| `create_app()` → عدد المسارات | ✅ 257 (مطابق للأساس) |
+| `pytest tests/ -q` | ✅ **37 passed** (لا انحدار، مطابق لـ37 المرجعية المسجلة) |
+
+**الشكل النهائي:**
+```
+ 3 files changed, 211 insertions(+), 175 deletions(-)
+ TECHNICAL_DEBT.md                  |  43 +++++ (سابق من الجلسة 2)
+ core/db_manager.py                 | 216 ++++----- (خاصية + wrappers، nets -175 للمنطق المباشر)
+ core/services/audit_log_service.py | 127 +++++ (ملف جديد كليًا 231 سطر بعد الدك)
+```
+
+**الأثر على KE/DBManager:** تم استبعاد ~175 سطرًا من منطق مباشر. الملف الآن 1852 سطرًا (تحت 2000) — KE الرئيسي مستمر في التقلص عبر سلسلة شظايا P1-C02 المنسقة.
+
+**توثيق الديون التقنية:** لا يوجد دين جديد — الاستخراج نظيف لا يضيف مراجع ملغية، دورة حياة الجلسة المتماثلة مع الأصلية تمنع تسرب الجلسة، ولا يوجد منطق أعمال قابل للتمزق. الـTD الموثقة سابقًا (TD-009 فشل مستقل لـscript UI الموجود مسبقًا، TD-008 استيرادات load-bearing) لم تتأثر.
+
+**ملاحظة للعضو التالي:** توصية مبادرة كبرى هي **استمرار P1-C02** على المرشح التالي المعزول الذاتيًا:
+1. **`bonus` + `penalty` extraction** (طرق `add_bonus`/`get_all_bonuses`/`add_penalty`/...) — مرشحة قوية للقيمة، متوسطة المخاطر (الكتابة منفصلة مع entanglement مكسور).
+2. دوال تتبع الموظف الحضوري (بعد TD-009): انتظر بعد إصلاح/relocating `test_ui_integration_bonus.py`.
+3. مبادرات المخطط (P1-C01/11) — الأعلى قيمة ولكنها تتطلب تحقق بصري خارج القياس الآلي.
+
+كن حذرًا من العضو `CostCenter` المكرر في السطر 59 (مقصود معزول — حالة معروفة منذ قبل استخراج خدماتي). لا تقم بإزالة الاستيرادات المركزية في الأسطر 5-9 — إنها **load-bearing** لـ`create_all()` في `init_production_db.py`.
+
+**Suggested git commit message:**
+```
+refactor: extract audit-log methods from DBManager into AuditLogService (P1-C02)
+
+Extract the 6 read-only audit-log query/export methods from
+`core/db_manager.py` into a new cohesive service
+`core/services/audit_log_service.py` (231 lines), as the third sequenced
+P1-C02 God-Class-decomposition slice.
+
+Behavior preservation:
+- `DBManager.get_audit_logs_by_employee/_by_field/_recent`,
+  `get_audit_log_summary`, `get_audit_log_history`,
+  `export_audit_logs_csv` become one-line compatibility wrappers that
+  delegate to a lazy-initialized `AuditLogService` (bound to the
+  manager's `Session` factory), so all public method signatures remain
+  unchanged for `app/routes/reports.py` and other callers.
+- `AuditLogService` owns its session lifecycle per call (open/use/close
+  in finally), mirroring the original `DBManager` methods exactly. All
+  methods stay read-only (no writes, no commits).
+- Import style uses `from core.database_models import AuditLog`
+  (package style) to match `db_manager.py` and avoid the
+  `Table 'system_permissions' is already defined` sys.modules collision
+  seen with flat-style imports (see AI_TEAM_HANDOFF.md 2026-08-07
+  session-3 entry).
+
+Verification (all passed):
+- compileall clean on both files
+- flake8 --select=F401,F811,F821,E9: no new findings (only the
+  pre-existing load-bearing ORM imports in db_manager.py lines 5-9 +
+  intentional isolated `CostCenter` cross-import on line 59, both
+  documented in TD-008 of P4-L05)
+- create_app() -> 257 routes (matches baseline)
+- pytest tests/ -q -> 37 passed (no regression, matches 37 baseline)
+
+Refs: P1-C02 (God Class decomposition, audit-log slice)
+```
+
 <!-- العضو التالي: أضف قسمك هنا فوق هذا التعليق -->
+
