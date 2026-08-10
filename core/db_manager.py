@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, inspect, text, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, joinedload
-from core.database_models import Base, Department, Employee, AttendanceLog, DailyRecord, Loan, EmployeeDocument, Bonus, DocumentType, Permission, Leave, SalaryHistory, BulkSalaryUpdateRequest
+from core.database_models import Base, Department, Employee, AttendanceLog, DailyRecord, Loan, EmployeeDocument, DocumentType, Permission, Leave, SalaryHistory, BulkSalaryUpdateRequest
 from core.treasury_models import CashAccount, BankAccount, CheckRecord
 from core.auth_models import User, SystemPermission
 from core.accounting_models import Account, CostCenter, JournalEntry, JournalItem
@@ -1483,166 +1483,57 @@ class DBManager:
     def export_audit_logs_csv(self, filename="audit_logs.csv"):
         """Compatibility wrapper delegating to `AuditLogService.export_csv`."""
         return self._audit_log_service.export_csv(filename=filename)
+    # ===== Bonus Functions (ط§ظ„ظ…ظƒط§ظپط¢طھ) =====
+
+    @property
+    def _bonus_service(self):
+        """Lazy-initialized `BonusService` bound to this manager's session
+        factory. The service is instantiated on first access and cached on the
+        instance via a private attribute so subsequent calls reuse it.
+
+        NOTE (P1-C02 slice, 2026-08-10): follows the same lazy-property +
+        one-line-wrapper delegation pattern established by
+        `_audit_log_service` and `_penalty_service`. All public method
+        signatures on `DBManager` remain unchanged for
+        `app/routes/bonuses.py` / `app/routes/interactive_api.py` and
+        other callers.
+        """
+        svc = getattr(self, '_bonus_service_instance', None)
+        if svc is None:
+            from core.services.bonus_service import BonusService
+            svc = BonusService(self.Session)
+            self._bonus_service_instance = svc
+        return svc
+
     def add_bonus(self, employee_id, amount, reason, date_awarded, paid_with_salary=True):
-        """
-        ط¥ط¶ط§ظپط© ظ…ظƒط§ظپط£ط© ط¬ط¯ظٹط¯ط© ظ„ظ„ظ…ظˆط¸ظپ
-        
-        Args:
-            employee_id: ظ…ط¹ط±ظپ ط§ظ„ظ…ظˆط¸ظپ
-            amount: ظ…ط¨ظ„ط؛ ط§ظ„ظ…ظƒط§ظپط£ط©
-            reason: ط³ط¨ط¨ ط§ظ„ظ…ظƒط§ظپط£ط©
-            date_awarded: طھط§ط±ظٹط® ظ…ظ†ط­ ط§ظ„ظ…ظƒط§ظپط£ط©
-            paid_with_salary: ظ‡ظ„ ط³طھظڈطµط±ظپ ظ…ط¹ ط§ظ„ط±ط§طھط¨ (True) ط£ظ… طµظڈط±ظپطھ ظ…ط³ط¨ظ‚ط§ظ‹ (False)
-            
-        Returns:
-            Bonus: ظƒط§ط¦ظ† ط§ظ„ظ…ظƒط§ظپط£ط© ط§ظ„ظ…ط¶ط§ظپط©
-        """
-        session = self.get_session()
-        try:
-            bonus = Bonus(
-                employee_id=employee_id,
-                amount=amount,
-                reason=reason,
-                date_awarded=date_awarded,
-                paid_with_salary=paid_with_salary
-            )
-            session.add(bonus)
-            session.commit()
-            return bonus
-        except Exception as e:
-            session.rollback()
-            raise e
-        finally:
-            session.close()
+        """Compatibility wrapper delegating to `BonusService.add_bonus`."""
+        return self._bonus_service.add_bonus(employee_id, amount, reason, date_awarded, paid_with_salary=paid_with_salary)
 
     def get_all_bonuses(self):
-        """
-        ط§ط³طھط±ط¬ط§ط¹ ط¬ظ…ظٹط¹ ط§ظ„ظ…ظƒط§ظپط¢طھ ظ…ط¹ ط¨ظٹط§ظ†ط§طھ ط§ظ„ظ…ظˆط¸ظپظٹظ†
-        
-        Returns:
-            list: ظ‚ط§ط¦ظ…ط© ط¨ط¬ظ…ظٹط¹ ط§ظ„ظ…ظƒط§ظپط¢طھ
-        """
-        session = self.get_session()
-        try:
-            return session.query(Bonus).options(joinedload(Bonus.employee)).all()
-        finally:
-            session.close()
+        """Compatibility wrapper delegating to `BonusService.get_all_bonuses`."""
+        return self._bonus_service.get_all_bonuses()
 
     def get_bonus_by_id(self, bonus_id):
-        """
-        ط§ط³طھط±ط¬ط§ط¹ ظ…ظƒط§ظپط£ط© ظ…ط­ط¯ط¯ط© ط­ط³ط¨ ط§ظ„ظ…ط¹ط±ظپ
-        
-        Args:
-            bonus_id: ظ…ط¹ط±ظپ ط§ظ„ظ…ظƒط§ظپط£ط©
-            
-        Returns:
-            Bonus: ظƒط§ط¦ظ† ط§ظ„ظ…ظƒط§ظپط£ط©
-        """
-        session = self.get_session()
-        try:
-            return session.query(Bonus).options(joinedload(Bonus.employee)).filter_by(id=bonus_id).first()
-        finally:
-            session.close()
+        """Compatibility wrapper delegating to `BonusService.get_bonus_by_id`."""
+        return self._bonus_service.get_bonus_by_id(bonus_id)
 
     def get_employee_bonuses(self, employee_id):
-        """
-        ط§ط³طھط±ط¬ط§ط¹ ط¬ظ…ظٹط¹ ظ…ظƒط§ظپط¢طھ ظ…ظˆط¸ظپ ظ…ط¹ظٹظ†
-        
-        Args:
-            employee_id: ظ…ط¹ط±ظپ ط§ظ„ظ…ظˆط¸ظپ
-            
-        Returns:
-            list: ظ‚ط§ط¦ظ…ط© ط¨ظ…ظƒط§ظپط¢طھ ط§ظ„ظ…ظˆط¸ظپ
-        """
-        session = self.get_session()
-        try:
-            return session.query(Bonus).filter_by(employee_id=employee_id).order_by(Bonus.date_awarded.asc()).all()
-        finally:
-            session.close()
+        """Compatibility wrapper delegating to `BonusService.get_employee_bonuses`."""
+        return self._bonus_service.get_employee_bonuses(employee_id)
 
     def update_bonus(self, bonus_id, **kwargs):
-        """
-        طھط­ط¯ظٹط« ط¨ظٹط§ظ†ط§طھ ط§ظ„ظ…ظƒط§ظپط£ط©
-        
-        Args:
-            bonus_id: ظ…ط¹ط±ظپ ط§ظ„ظ…ظƒط§ظپط£ط©
-            **kwargs: ط§ظ„ط­ظ‚ظˆظ„ ط§ظ„ظ…ط±ط§ط¯ طھط­ط¯ظٹط«ظ‡ط§
-            
-        Returns:
-            Bonus: ظƒط§ط¦ظ† ط§ظ„ظ…ظƒط§ظپط£ط© ط§ظ„ظ…ط­ط¯ط«ط©
-        """
-        session = self.get_session()
-        try:
-            bonus = session.query(Bonus).filter_by(id=bonus_id).first()
-            if bonus:
-                for key, value in kwargs.items():
-                    if hasattr(bonus, key):
-                        setattr(bonus, key, value)
-                session.commit()
-                return bonus
-            return None
-        except Exception as e:
-            session.rollback()
-            raise e
-        finally:
-            session.close()
+        """Compatibility wrapper delegating to `BonusService.update_bonus`."""
+        return self._bonus_service.update_bonus(bonus_id, **kwargs)
 
     def delete_bonus(self, bonus_id):
-        """
-        ط­ط°ظپ ظ…ظƒط§ظپط£ط©
-        
-        Args:
-            bonus_id: ظ…ط¹ط±ظپ ط§ظ„ظ…ظƒط§ظپط£ط©
-            
-        Returns:
-            bool: True ط¥ط°ط§ طھظ… ط§ظ„ط­ط°ظپ ط¨ظ†ط¬ط§ط­
-        """
-        session = self.get_session()
-        try:
-            bonus = session.query(Bonus).filter_by(id=bonus_id).first()
-            if bonus:
-                session.delete(bonus)
-                session.commit()
-                return True
-            return False
-        except Exception as e:
-            session.rollback()
-            raise e
-        finally:
-            session.close()
+        """Compatibility wrapper delegating to `BonusService.delete_bonus`."""
+        return self._bonus_service.delete_bonus(bonus_id)
 
     def get_bonuses_by_month(self, employee_id, month, year):
-        """
-        ط§ط³طھط±ط¬ط§ط¹ ط§ظ„ظ…ظƒط§ظپط¢طھ ظ„ظ…ظˆط¸ظپ ظ…ط¹ظٹظ† ظپظٹ ط´ظ‡ط± ظ…ط­ط¯ط¯
-        
-        Args:
-            employee_id: ظ…ط¹ط±ظپ ط§ظ„ظ…ظˆط¸ظپ
-            month: ط§ظ„ط´ظ‡ط± (1-12)
-            year: ط§ظ„ط³ظ†ط©
-            
-        Returns:
-            list: ظ‚ط§ط¦ظ…ط© ط§ظ„ظ…ظƒط§ظپط¢طھ ظپظٹ ط§ظ„ط´ظ‡ط± ط§ظ„ظ…ط­ط¯ط¯
-        """
-        session = self.get_session()
-        try:
-            from datetime import date
-            start_date = date(year, month, 1)
-            
-            if month == 12:
-                end_date = date(year + 1, 1, 1)
-            else:
-                end_date = date(year, month + 1, 1)
-            
-            return session.query(Bonus).filter(
-                Bonus.employee_id == employee_id,
-                Bonus.date_awarded >= start_date,
-                Bonus.date_awarded < end_date
-            ).all()
-        finally:
-            session.close()
+        """Compatibility wrapper delegating to `BonusService.get_bonuses_by_month`."""
+        return self._bonus_service.get_bonuses_by_month(employee_id, month, year)
 
     # ===== Salary History Functions (ط³ط¬ظ„ طھط§ط±ظٹط® ط§ظ„ط±ظˆط§طھط¨) =====
-    
     def add_salary_history(self, employee_id, old_salary, new_salary, reason=None, notes=None, modified_by=None):
         """
         طھط³ط¬ظٹظ„ طھط¹ط¯ظٹظ„ ط¹ظ„ظ‰ ط±ط§طھط¨ ط§ظ„ظ…ظˆط¸ظپ ظپظٹ ط§ظ„ط³ط¬ظ„ ط§ظ„طھط§ط±ظٹط®ظٹ
