@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, inspect, text, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, joinedload
-from core.database_models import Base, Department, Employee, AttendanceLog, DailyRecord, Loan, PenaltyBonus, EmployeeDocument, Bonus, DocumentType, Permission, Leave, SalaryHistory, BulkSalaryUpdateRequest
+from core.database_models import Base, Department, Employee, AttendanceLog, DailyRecord, Loan, EmployeeDocument, Bonus, DocumentType, Permission, Leave, SalaryHistory, BulkSalaryUpdateRequest
 from core.treasury_models import CashAccount, BankAccount, CheckRecord
 from core.auth_models import User, SystemPermission
 from core.accounting_models import Account, CostCenter, JournalEntry, JournalItem
@@ -962,18 +962,25 @@ class DBManager:
             session.close()
 
 
+    # ===== Penalty Functions (دوال العقوبات) =====
+
+    @property
+    def _penalty_service(self):
+        """Lazy-initialized `PenaltyService` bound to this manager's session
+        factory, following the same pattern as `_audit_log_service` (P1-C02
+        slice, 2026-08-10). Instantiated on first access and cached on the
+        instance via a private attribute so subsequent calls reuse it.
+        """
+        svc = getattr(self, '_penalty_service_instance', None)
+        if svc is None:
+            from core.services.penalty_service import PenaltyService
+            svc = PenaltyService(self.Session)
+            self._penalty_service_instance = svc
+        return svc
+
     def add_penalty_bonus(self, employee_id, date, type, amount, reason):
-        session = self.get_session()
-        try:
-            pb = PenaltyBonus(employee_id=employee_id, date=date, type=type, amount=amount, reason=reason)
-            session.add(pb)
-            session.commit()
-            return pb
-        except Exception as e:
-            session.rollback()
-            raise e
-        finally:
-            session.close()
+        """Compatibility wrapper delegating to `PenaltyService.add_penalty_bonus`."""
+        return self._penalty_service.add_penalty_bonus(employee_id, date, type, amount, reason)
 
     def get_employee_attendance(self, employee_id):
         session = self.get_session()
@@ -983,11 +990,8 @@ class DBManager:
             session.close()
 
     def get_penalty_by_id(self, penalty_id):
-        session = self.get_session()
-        try:
-            return session.query(PenaltyBonus).options(joinedload(PenaltyBonus.employee)).filter_by(id=penalty_id).first()
-        finally:
-            session.close()
+        """Compatibility wrapper delegating to `PenaltyService.get_penalty_by_id`."""
+        return self._penalty_service.get_penalty_by_id(penalty_id)
 
     def update_loan(self, loan_id, **kwargs):
         """Update loan"""
@@ -1032,38 +1036,12 @@ class DBManager:
             session.close()
 
     def get_all_penalties(self):
-        """Get all penalties with employee data"""
-        session = self.get_session()
-        try:
-            return session.query(PenaltyBonus).join(Employee).options(
-                joinedload(PenaltyBonus.employee).joinedload(Employee.department)
-            ).order_by(Employee.code.asc(), PenaltyBonus.date.asc(), PenaltyBonus.id.asc()).all()
-        finally:
-            session.close()
+        """Compatibility wrapper delegating to `PenaltyService.get_all_penalties`."""
+        return self._penalty_service.get_all_penalties()
 
     def add_penalty(self, employee_id, penalty_type, amount, reason, date=None):
-        """Add a new penalty/bonus"""
-        session = self.get_session()
-        try:
-            if date is None:
-                from datetime import datetime
-                date = datetime.now().date()
-            
-            penalty = PenaltyBonus(
-                employee_id=employee_id,
-                type=penalty_type,
-                amount=amount,
-                reason=reason,
-                date=date
-            )
-            session.add(penalty)
-            session.commit()
-            return penalty
-        except Exception as e:
-            session.rollback()
-            raise e
-        finally:
-            session.close()
+        """Compatibility wrapper delegating to `PenaltyService.add_penalty`."""
+        return self._penalty_service.add_penalty(employee_id, penalty_type, amount, reason, date=date)
     
     # =====================================
     # Permissions Methods
@@ -1161,20 +1139,8 @@ class DBManager:
             session.close()
     
     def delete_penalty(self, penalty_id):
-        """Delete a penalty/bonus"""
-        session = self.get_session()
-        try:
-            penalty = session.query(PenaltyBonus).filter_by(id=penalty_id).first()
-            if penalty:
-                session.delete(penalty)
-                session.commit()
-                return True
-            return False
-        except Exception as e:
-            session.rollback()
-            raise e
-        finally:
-            session.close()
+        """Compatibility wrapper delegating to `PenaltyService.delete_penalty`."""
+        return self._penalty_service.delete_penalty(penalty_id)
     
     def delete_loan(self, loan_id):
         """Delete a loan"""

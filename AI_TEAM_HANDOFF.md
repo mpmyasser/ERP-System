@@ -848,5 +848,73 @@ Verification (all passed):
 Refs: P1-C02 (God Class decomposition, audit-log slice)
 ```
 
+### 2026-08-10 — Claude — P1-C02 slice: استخراج دوال العقوبات إلى PenaltyService
+
+**بدء الجلسة:** قرأت آخر سجلات النشاط (جلستان متوازيتان سابقتان: إصلاح حرج لتعارض استيراد
+مسطَّح/حزمة في `user_settings_service.py`، واستخراج `AuditLogService` كأول شريحة فعلية من
+`P1-C02`). تحققت أن الحالة الموثَّقة مطابقة للكود الفعلي (`wc -l core/db_manager.py` = 1852،
+`AuditLogService` موجودة وتعمل) قبل البدء. اتبعت التوصية الصريحة من جلسة "Session 4" بالبدء
+بـ`bonus`/`penalty` extraction — اخترت **العقوبات فقط** كشريحة أولى (فصلتها عن المكافآت، لأنهما
+موديلان منفصلان تمامًا `PenaltyBonus` و`Bonus`، فدمجهما في خدمة واحدة كان سيُخالف مبدأ "مهمة واحدة
+منطقية").
+
+**ما تم تنفيذه:**
+- إنشاء `core/services/penalty_service.py` (خدمة جديدة، 5 دوال: `add_penalty_bonus`,
+  `get_penalty_by_id`, `get_all_penalties`, `add_penalty`, `delete_penalty`) — بنفس نمط
+  `AuditLogService` بالضبط (session factory، فتح/استخدام/إغلاق per-call، استيراد بنمط الحزمة).
+- استبدال الدوال الخمس المقابلة في `db_manager.py` بخاصية `_penalty_service` (lazy، مُخبَّأة) +
+  دوال توجيه أحادية السطر، تمامًا كنمط `_audit_log_service`.
+- **اكتشاف واستكمال أثناء التحقق**: بعد الاستخراج، أظهر `flake8 F811` أن `PenaltyBonus` في
+  الاستيراد العلوي أصبحت الآن **غير مستخدَمة** (الاستخدام الوحيد المتبقي في `check_penalty_bonus_exists`
+  له استيراد محلي خاص به بالفعل، لم ألمسها). حذفت `PenaltyBonus` من قائمة الاستيراد العلوي —
+  **تحققت أولًا (بعد درس TD-005/P4-L05) أن هذا آمن**: بقية الأسماء في نفس سطر الاستيراد
+  (`Base, Department, Employee, ...`) تضمن تحميل وحدة `database_models.py` بالكامل بأي حال، فحذف
+  اسم واحد من نفس عبارة `from ... import` لا يمنع تحميل الوحدة ولا تسجيل الكلاس في `Base.metadata`
+  — بخلاف حذف عبارة `import` مستقلة بالكامل (وهو الخطر الحقيقي الموثَّق سابقًا).
+
+**Files changed:** `core/services/penalty_service.py` (جديد، 155 سطرًا)، `core/db_manager.py`
+(-34 سطرًا صافي، الآن 1818 سطرًا بعد 1852)
+
+**Verification performed:**
+- `compileall` + `flake8 --select=F821,F811,F401,E9` على الملفين ✅ صفر جديد (فقط الـ17 المحفوظة
+  عمدًا + `CostCenter` المقصودة، كلاهما موثَّق مسبقًا ولم يتغيّر عددهما)
+- بناء التطبيق الكامل ✅ 257 مسارًا
+- **محاكاة فعلية مباشرة** لكل الدوال الخمس المُستخرَجة + `check_penalty_bonus_exists` غير المُعدَّلة
+  ببيانات حقيقية (إضافة، قراءة بمُعرِّف، قراءة الكل، تحقق وجود، حذف، تأكيد النقص بعد الحذف) ✅
+- **محاكاة فعلية عبر HTTP حقيقي** لـ`/penalties/` و`/penalties/create` ✅ `200 OK`
+- `pytest tests/` كاملة ✅ `37 passed`
+
+**Suggested git commit message:**
+```
+refactor: extract penalty methods from DBManager into PenaltyService (P1-C02)
+
+Extract the 5 penalty CRUD methods from core/db_manager.py into a new
+cohesive service core/services/penalty_service.py, following the same
+pattern established by AuditLogService (lazy-initialized property +
+one-line compatibility wrappers, session-per-call lifecycle).
+
+Bonus methods (separate PenaltyBonus vs Bonus models) intentionally
+left untouched for a future, separately-scoped slice.
+
+Side finding: after extraction, PenaltyBonus became unused in
+db_manager.py's top-level import (the one remaining usage,
+check_penalty_bonus_exists, already has its own local import).
+Removed it from the shared `from core.database_models import ...`
+line -- verified safe (unlike the TD-005/P4-L05 load-bearing case)
+because other names in the same import statement still trigger full
+module load, so Base metadata registration is unaffected.
+
+Verified via: compileall, flake8 F821/F811/F401 clean (no new
+findings), create_app() build (257 routes), direct functional calls
+to all 5 extracted methods + the untouched check_penalty_bonus_exists
+with real data, real HTTP requests to /penalties/ and
+/penalties/create (200 OK), full pytest suite (37/37 passing).
+
+Refs: P1-C02 (God Class decomposition, penalty slice)
+```
+
+**التالي المُقترَح:** استخراج `Bonus` (add_bonus/get_all_bonuses/get_bonus_by_id/update_bonus/
+delete_bonus/get_bonuses_by_month) في `BonusService` منفصلة، بنفس النمط بالضبط.
+
 <!-- العضو التالي: أضف قسمك هنا فوق هذا التعليق -->
 
