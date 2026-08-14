@@ -970,5 +970,137 @@ Refs: P1-C02 (God Class decomposition, bonus slice -- verification)
 (`Loan`) — `add_loan`, `get_all_loans`, `get_loan_by_id`, `update_loan`, `delete_loan`، وغيرها،
 بنفس نمط الاستخراج تمامًا.
 
+---
+## سجل النشاط — دورة 7 (2026-08-11): استخراج `LoansService` (شريحة P1-C02) ✅
+
+**مُنفِّذ:** Cline (ACT mode) — استكمالًا لتسلسل P1-C02 بعد آخر سجل (التحقق من Bonus) وآخر
+commit `b433db9` (توثيق فقط).
+
+### السياق
+- آخر commit `b433db9` أوصى بها بوضوح: المرشح المنطقي التالي هو دوال **القروض (`Loan`)** بنفس
+  نمط الاستخراج المُؤسَّس في Audit Log / Penalty / Bonus.
+- **ملاحظة العضو:** وُجد في `core/services/loans_service.py` ملف **draft سابق غير مكتمل** من عضو
+  آخر (الجلسة التي توقفت عند نفاذ الباقة) — كان يستخدم:
+  1. flat-style `from database_models import Loan` (يخالف نمط الحزمة المُؤسَّس — خطر
+     `Table already defined` collision).
+  2. `__init__(self, db_session: Session)` — جلسة مشتركة (يخالف نمط per-call session-factory
+     المُتبع في Audit/Penalty/Bonus).
+  3. دوال بأسماء **لا تطابق** الدوال inline في `db_manager.py` ولا أي مستدعٍ في `app/routes/`:
+     `calculate_monthly_installment`, `get_active_loans`, `get_remaining_balance`,
+     `deduct_installment` — مرجعها حقول (`is_paid_off`, `installments_remaining`,
+     `monthly_installment`, `paid_amount`) **غير موجودة** في نموذج `Loan` الحالي
+     (تُؤكد قراءة `core/database_models.py` أن الحقول الفعلية هي `installments_count`, `amount`,
+     `remaining_balance`, `status`). أي أن الـdraft كان **dead code غير قابل للتوصيل** بالكامل +
+     مخاطر collision.
+- **القرار:** استبدال الملف بالكامل (wholesale replacement) لا تمديده، لأن الـdraft لا يحتوي أي
+  منطق قابل لإعادة الاستخدام (لا توجد استدعاءات لـ`get_active_loans`/`deduct_installment`/... في
+  `app/routes/*.py` أو `scripts/*.py` — تم التحقق عبر grep). بنفس المنطق الذي تم لـBonusService.
+
+### التحقق من المتصلين قبل أي تعديل (لا تثق، تحقَّق)
+grep عبر كامل القاعدة (`app/routes/*.py`, `scripts/*.py`, `worker_productivity/`, tests/):
+- `loans.py`, `loans_old.py`, `interactive_api.py`, `reports.py` — كلها يستدعي عبر `db.X(...)`
+  (مثلاً `db.add_loan(...)`, `db.get_loan_by_id(id)`, `db.update_loan(**update_data)`,
+  `db.delete_loan(id)`, `db.check_loan_exists(employee_id, date_val)`, `db.get_all_loans()`).
+- الخلاصة: API الـDBManager يجب أن يبقى **100% متطابق** (نفس أسماء التوابع + نفس التوقيعات).
+  جميع الاستدعاءات عبر `db.X(...)` ← يكفي lazy-property + wrappers أحادية السطر.
+
+### الدوال المستهدَفة (6) في `db_manager.py` قبل الاستخراج:
+| السطر | الدالة | السلوك |
+|------|------|------|
+| 823-850 | `add_loan(...)` | إنشاء `Loan` + force-type recompute (1 قسط→temporary, >1→permanent) |
+| 852-861 | `check_loan_exists(employee_id, date_issued)` | قراءة bool (employee + date) |
+| 996-1018 | `update_loan(loan_id, **kwargs)` | modify + force-type recompute |
+| 1020-1028 | `get_all_loans()` | joinedload employee.department، ترتيب code/date/id |
+| 1030-1036 | `get_loan_by_id(loan_id)` | joinedload employee.department |
+| 1145-1159 | `delete_loan(loan_id)` | hard delete |
+
+### التنفيذ — ملفان مُعدَّلان:
+
+**1. `core/services/loans_service.py` (إعادة كتابة كاملة — 156 سطرًا):**
+- استبدال الـdraft بـ`LoansService(session_factory)` — نمط per-call session-factory متطابق مع
+  `AuditLogService`/`PenaltyService`/`BonusService`.
+- استيراد بنمط الحزمة `from core.database_models import Loan` + استيراد محلي داخل الدالة لـ`Employee`
+  فقط في `get_all_loans`/`get_loan_by_id` (كما في الأصل inline).
+- 6 دوال عامة بمنطق متطابق 100% مع inline الأصلي، بما其中包括 **force-type recompute** في `add_loan`
+  و`update_loan` (السلوك الحرج الذي لا يجب أن يضيع).
+- docstring يوضِّح صراحةً أن الملف **يستبدل** الـdraft السابق ويبرر السبب (dead code + خطر collision).
+
+**2. `core/db_manager.py` (أسطر 823-861, 979-1019, 1128-1143 → wrappers):**
+- إضافة خاصية **lazy `_loans_service`** (cached على مثيل عبر `_loans_service_instance`) — بنفس
+  نمط `_audit_log_service`/`_penalty_service`/`_bonus_service` تمامًا، lazy import + lazy instantiate.
+- استبدال الـ6 دوال inline بـwrappers أحادية السطر تُفوِّض إلى `_loans_service`.
+- **حافظت على `Loan` في الاستيراد العلوي** (السطر 4): `Loan` ما زال مستخدمًا مباشرةً في دالة
+  `get_loans_report` (أسطر 911-943) — استخراجها خارج نطاق هذه الشريحة (دالة report read-only
+  بفلترة معقدة، لا CRUD). تأكد post-refactor أن `Loan` **لم يعد يظهر في F401** المُكتشَف في
+  flake8 (مما يعني الاستيراد العلوي صار مُبرَّرًا بالكامل بـ`get_loans_report` فقط).
+- الملف نزل من **1709 → 1650 سطرًا** (تخفيض 59 سطرًا).
+
+### التحقق الآلي الكامل (كل شيء passed)
+
+| تحقق | نتيجة |
+|------|--------|
+| `compileall` على الملفين | ✅ نجاح |
+| `flake8 F401/F811/F821/E9` على الملفين | ✅ **لا جديد** — بيان load-bearing TD-008 ثابت، `Loan` **اختفى من F401** (تأكيد نظافة الحذف) |
+| `create_app()` → `ROUTES: 257` | ✅ مطابق للأساس |
+| `import core.services.loans_service` → `IMPORT_OK` | ✅ Liskov: `core.services.loans_service.LoansService` |
+| `pytest tests/ -q` | ✅ **`37 passed`** (لا انحدار) |
+| محاكاة وظيفية مباشرة عبر `DBManager(tempfile .db)` + موظف اختباري (`_smoke_loans.py` مؤقت): | |
+| — `LAZY_OK True` (هوية lazy cache) | ✅ |
+| — `ADD_OK True` (force-type: 1 installment → temporary) | ✅ |
+| — `GET_OK True` (joinedload employee.department) | ✅ |
+| — `ALL_OK True` (get_all_loans ordered) | ✅ |
+| — `EXISTS_TRUE/EXISTS_FALSE True` (check_loan_exists يميِّز التواريخ) | ✅ |
+| — `UPD_OK True` (force-type: 2 installments → permanent) | ✅ |
+| — `DEL_OK + CONFIRM_OK True` (delete + confirm gone) | ✅ |
+| **`ALL_WRAPPERS_OK True`** | ✅ |
+
+### الأثر على مؤشرات KE
+- خمس خدمات مُستخرَجة بالكامل الآن (AuditLog + Penalty + Bonus + Loans + UserSettings) — ~635 سطرًا
+  أُخرجت من `db_manager.py`. الملف نزل من ~2332 (بداية) إلى **1650 سطرًا**.
+- **لا تأثير على التوافق**: API الـDBManager القديم 100% متطابق — لا تعديلات في `app/routes/`.
+- **لا انحدار**: `37/37 passed`.
+
+### توصية المهمة التالية الجاهزة (للعضو التالي)
+المرشح المعزول التالي بنفس النمط: دوال **الإذن (`Permission`)** في `db_manager.py` —
+`get_all_permissions`, `add_permission`, `delete_permission`, `get_permission_by_id`,
+`update_permission` — موجودة inline (أسطر ~1050-1139) بنفس نمط CRUD + time conversion في
+`update_permission`. ملاحظة: `check_permission_exists` أيضًا بنمط read-only bool.
+
+**تحذيرات حرجة متبقية** (مُوثَّقة في سجلات سابقة + هذا السجل):
+- لا تلمس الاستيرادات المركزية في `db_manager.py` الأسطر 5-9 — **load-bearing** لـ`create_all()`
+  (TD-008).
+- `CostCenter` مكرر في السطر 59 — مقصود معزول (F811).
+- `Loan` يُستخدم مباشرةً في `get_loans_report` غير المستخرجة — يجب أن يبقى في الاستيراد العلوي.
+
+### رسالة git commit مقترحة
+```
+refactor: extract LoansService from DBManager God Class (P1-C02 loans slice)
+
+Replaces the earlier partial draft of core/services/loans_service.py
+(flat-style import, shared-session __init__, dead-code method names with
+no callers, references to Loan fields that don't exist) with a complete
+implementation following the AuditLogService/PenaltyService/BonusService
+pattern: per-call session factory lifecycle, package-style import
+(avoiding the Table-already-defined collision), and 6 public methods
+(add_loan, check_loan_exists, update_loan, get_all_loans, get_loan_by_id,
+delete_loan) matching db_manager.py's original inline logic exactly --
+including the force-type recompute in add_loan and update_loan
+(1 installment -> 'temporary', >1 -> 'permanent').
+
+db_manager.py: 6 inline methods (~95 lines dropped) replaced by a lazy
+`_loans_service` property (cached instance) plus one-line delegating
+wrappers. `Loan` kept in the top-level import because it's still
+referenced by the in-scope get_loans_report() helper.
+
+Verification: compileall clean, flake8 F401/F811/F821/E9 unchanged
+(Loan no longer in F401 list), create_app() = 257 routes, pytest 37/37
+passing, plus an isolated functional smoke test on a temp SQLite DB
+exercising all six wrappers (add -> get_by_id -> get_all ->
+check_loan_exists true/false -> update force-type -> delete-confirms-gone)
+ALL_WRAPPERS_OK True.
+
+Refs: P1-C02 (God Class decomposition, loans slice).
+```
+
 <!-- العضو التالي: أضف قسمك هنا فوق هذا التعليق -->
 

@@ -820,45 +820,28 @@ class DBManager:
         finally:
             session.close()
 
+    @property
+    def _loans_service(self):
+        """Lazy-initialized `LoansService` bound to this manager's session
+        factory, following the same pattern as `_audit_log_service` /
+        `_penalty_service` / `_bonus_service` (P1-C02 slice, 2026-08-11).
+        Instantiated on first access and cached on the instance via a
+        private attribute so subsequent calls reuse it.
+        """
+        svc = getattr(self, '_loans_service_instance', None)
+        if svc is None:
+            from core.services.loans_service import LoansService
+            svc = LoansService(self.Session)
+            self._loans_service_instance = svc
+        return svc
+
     def add_loan(self, employee_id, amount, loan_type, number_of_installments, date_issued=None, excluded_months=None, status='Pending', cost_center=None):
-        # Force correct type based on installments
-        if number_of_installments == 1:
-            loan_type = 'temporary'
-        elif number_of_installments > 1:
-            loan_type = 'permanent'
-            
-        session = self.get_session()
-        try:
-            loan = Loan(
-                employee_id=employee_id, 
-                amount=amount, 
-                type=loan_type, 
-                installments_count=number_of_installments,
-                date=date_issued,
-                excluded_months=excluded_months,
-                remaining_balance=amount,
-                status=status,
-                cost_center=cost_center
-            )
-            session.add(loan)
-            session.commit()
-            return loan
-        except Exception as e:
-            session.rollback()
-            raise e
-        finally:
-            session.close()
+        """Compatibility wrapper delegating to `LoansService.add_loan`."""
+        return self._loans_service.add_loan(employee_id, amount, loan_type, number_of_installments, date_issued=date_issued, excluded_months=excluded_months, status=status, cost_center=cost_center)
 
     def check_loan_exists(self, employee_id, date_issued):
-        """Check if a loan already exists for an employee on a specific date"""
-        session = self.get_session()
-        try:
-            return session.query(Loan).filter(
-                Loan.employee_id == employee_id,
-                Loan.date == date_issued
-            ).first() is not None
-        finally:
-            session.close()
+        """Compatibility wrapper delegating to `LoansService.check_loan_exists`."""
+        return self._loans_service.check_loan_exists(employee_id, date_issued)
 
     def check_permission_exists(self, employee_id, date):
         """Check if a permission already exists for an employee on a specific date"""
@@ -994,46 +977,16 @@ class DBManager:
         return self._penalty_service.get_penalty_by_id(penalty_id)
 
     def update_loan(self, loan_id, **kwargs):
-        """Update loan"""
-        session = self.get_session()
-        try:
-            loan = session.query(Loan).filter_by(id=loan_id).first()
-            if loan:
-                for key, value in kwargs.items():
-                    if hasattr(loan, key):
-                        setattr(loan, key, value)
-                
-                # Force correct type based on installments if updated
-                if loan.installments_count == 1:
-                    loan.type = 'temporary'
-                elif loan.installments_count > 1:
-                    loan.type = 'permanent'
-                session.commit()
-                return loan
-            return None
-        except Exception as e:
-            session.rollback()
-            raise e
-        finally:
-            session.close()
+        """Compatibility wrapper delegating to `LoansService.update_loan`."""
+        return self._loans_service.update_loan(loan_id, **kwargs)
 
     def get_all_loans(self):
-        """Get all loans with employee data"""
-        session = self.get_session()
-        try:
-            return session.query(Loan).join(Employee).options(
-                joinedload(Loan.employee).joinedload(Employee.department)
-            ).order_by(Employee.code.asc(), Loan.date.asc(), Loan.id.asc()).all()
-        finally:
-            session.close()
+        """Compatibility wrapper delegating to `LoansService.get_all_loans`."""
+        return self._loans_service.get_all_loans()
 
     def get_loan_by_id(self, loan_id):
-        """Get loan by ID"""
-        session = self.get_session()
-        try:
-            return session.query(Loan).options(joinedload(Loan.employee).joinedload(Employee.department)).filter_by(id=loan_id).first()
-        finally:
-            session.close()
+        """Compatibility wrapper delegating to `LoansService.get_loan_by_id`."""
+        return self._loans_service.get_loan_by_id(loan_id)
 
     def get_all_penalties(self):
         """Compatibility wrapper delegating to `PenaltyService.get_all_penalties`."""
@@ -1143,20 +1096,8 @@ class DBManager:
         return self._penalty_service.delete_penalty(penalty_id)
     
     def delete_loan(self, loan_id):
-        """Delete a loan"""
-        session = self.get_session()
-        try:
-            loan = session.query(Loan).filter_by(id=loan_id).first()
-            if loan:
-                session.delete(loan)
-                session.commit()
-                return True
-            return False
-        except Exception as e:
-            session.rollback()
-            raise e
-        finally:
-            session.close()
+        """Compatibility wrapper delegating to `LoansService.delete_loan`."""
+        return self._loans_service.delete_loan(loan_id)
 
     def get_attendance_by_date(self, date):
         """Get attendance records for a specific date"""
